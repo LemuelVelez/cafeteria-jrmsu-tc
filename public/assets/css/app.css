@@ -104,6 +104,56 @@ textarea.form-control { min-height: 110px; }
 .form-select:focus { border-color: #7aa2f7; box-shadow: 0 0 0 .22rem rgba(29,78,216,.12); }
 .input-group-text { border-color: #cbd5e1; background: #f8fafc; color: #627d98; }
 .min-w-0 { min-width: 0; }
+.field-icon.has-password-toggle > .form-control { padding-right: 3rem; }
+.password-toggle {
+    width: 46px;
+    min-width: 46px;
+    min-height: 46px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #627d98;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.password-toggle:hover { background: #eef2f7; color: var(--jrmsu-blue); }
+.password-toggle:focus-visible { outline: 0; border-color: #7aa2f7; box-shadow: 0 0 0 .22rem rgba(29,78,216,.12); z-index: 6; }
+.password-toggle-group { border-radius: 0 .75rem .75rem 0; }
+.input-group > .password-toggle-group { margin-left: -1px; }
+.password-toggle-overlay {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    z-index: 5;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 0 .75rem .75rem 0;
+    background: transparent;
+}
+.password-toggle-overlay:hover { background: rgba(238,242,247,.85); }
+
+.auth-home-button {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1060;
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(203,213,225,.9);
+    border-radius: 50%;
+    background: rgba(255,255,255,.94);
+    color: var(--jrmsu-navy);
+    box-shadow: 0 10px 28px rgba(16,42,67,.14);
+    text-decoration: none;
+    backdrop-filter: blur(12px);
+}
+.auth-home-button:hover { color: var(--jrmsu-blue); background: #fff; transform: translateY(-1px); }
+.auth-home-button:focus-visible { outline: 0; box-shadow: 0 0 0 .22rem rgba(29,78,216,.18), 0 10px 28px rgba(16,42,67,.14); }
 
 /* Responsive interaction and layout improvements */
 .btn { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: .15rem; }
@@ -179,6 +229,7 @@ textarea.form-control { min-height: 110px; }
     select.form-select,
     textarea.form-control { font-size: 16px; }
     .auth-page { padding: 0; align-items: stretch; }
+    .auth-home-button { top: .75rem; right: .75rem; width: 42px; height: 42px; }
     .auth-card { min-height: 100vh; border-radius: 0; }
     .auth-brand-panel { min-height: 220px; }
     .auth-brand-panel .display-6 { font-size: 1.8rem; }

@@ -63,6 +63,46 @@
         });
     };
 
+    const enhancePasswordFields = () => {
+        document.querySelectorAll('input[type="password"]')
+            .forEach((field) => {
+                if (field.dataset.passwordToggleReady === 'true') return;
+
+                const container = field.closest('.input-group, .field-icon');
+                if (!container) return;
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'password-toggle';
+                button.setAttribute('aria-label', 'Show password');
+                button.setAttribute('aria-pressed', 'false');
+
+                const icon = document.createElement('i');
+                icon.className = 'bi bi-eye';
+                icon.setAttribute('aria-hidden', 'true');
+                button.appendChild(icon);
+
+                if (container.classList.contains('input-group')) {
+                    button.classList.add('password-toggle-group');
+                } else {
+                    container.classList.add('has-password-toggle');
+                    button.classList.add('password-toggle-overlay');
+                }
+
+                button.addEventListener('click', () => {
+                    const reveal = field.type === 'password';
+                    field.type = reveal ? 'text' : 'password';
+                    icon.className = `bi ${reveal ? 'bi-eye-slash' : 'bi-eye'}`;
+                    button.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+                    button.setAttribute('aria-pressed', reveal ? 'true' : 'false');
+                    field.focus({ preventScroll: true });
+                });
+
+                field.dataset.passwordToggleReady = 'true';
+                container.appendChild(button);
+            });
+    };
+
     const buttonIcon = (label) => {
         const rules = [
             [/sign out|log out/i, 'bi-box-arrow-right'],
@@ -139,6 +179,7 @@
     };
 
     enhanceFormFields();
+    enhancePasswordFields();
     enhanceButtons();
     enhanceResponsiveTables();
 

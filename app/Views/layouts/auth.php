@@ -12,6 +12,9 @@
     <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
 </head>
 <body class="auth-page">
+<a class="auth-home-button" href="<?= base_url('/') ?>" aria-label="Go to home page">
+    <i class="bi bi-house-door-fill" aria-hidden="true"></i>
+</a>
 <div class="auth-card bg-white">
     <div class="row g-0">
         <div class="col-lg-5 auth-brand-panel p-4 p-lg-5 d-flex flex-column justify-content-between">
