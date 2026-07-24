@@ -7,16 +7,23 @@ use App\Models\UserModel;
 use App\Services\MediaStorageService;
 use Throwable;
 
-class RiderController extends BaseController
+class UserController extends BaseController
 {
     public function index(): string
     {
-        return $this->render('admin/riders/index', ['users' => (new UserModel())->where('role', 'rider')->orderBy('created_at', 'DESC')->findAll()]);
+        return $this->render('admin/users/index', [
+            'users' => (new UserModel())->orderBy('created_at', 'DESC')->findAll(),
+        ]);
     }
 
     public function save()
     {
-        if (! $this->validate(['name' => 'required|min_length[2]|max_length[100]', 'email' => 'required|valid_email|max_length[160]', 'password' => 'required|min_length[8]'])) {
+        if (! $this->validate([
+            'name' => 'required|min_length[2]|max_length[100]',
+            'email' => 'required|valid_email|max_length[160]',
+            'phone' => 'permit_empty|max_length[30]',
+            'password' => 'required|min_length[8]',
+        ])) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
@@ -38,27 +45,27 @@ class RiderController extends BaseController
             try {
                 $avatarPath = $media->store($avatar, 'avatars');
             } catch (Throwable $exception) {
-                log_message('error', 'Rider avatar upload failed: {message}', ['message' => $exception->getMessage()]);
+                log_message('error', 'Administrator avatar upload failed: {message}', ['message' => $exception->getMessage()]);
                 return redirect()->back()->withInput()->with('error', 'The avatar could not be uploaded. Check the media storage configuration.');
             }
         }
 
-        $data = [
+        $created = $model->insert([
             'name' => trim((string) $this->request->getPost('name')),
             'email' => $email,
             'phone' => trim((string) $this->request->getPost('phone')),
             'avatar' => $avatarPath,
             'password_hash' => password_hash((string) $this->request->getPost('password'), PASSWORD_DEFAULT),
-            'role' => 'rider',
+            'role' => 'admin',
             'status' => 'active',
-        ];
+        ]);
 
-        if (! $model->insert($data)) {
+        if (! $created) {
             $media->delete($avatarPath);
             return redirect()->back()->withInput()->with('errors', $model->errors());
         }
 
-        return redirect()->back()->with('success', 'Rider account created.');
+        return redirect()->back()->with('success', 'Administrator account created.');
     }
 
     public function status(int $id)
@@ -68,15 +75,19 @@ class RiderController extends BaseController
             return redirect()->back()->with('error', 'Invalid account status.');
         }
 
+        $currentUserId = (int) (session()->get('user')['id'] ?? 0);
+        if ($id === $currentUserId) {
+            return redirect()->back()->with('error', 'You cannot change the status of your own account.');
+        }
+
         $model = new UserModel();
-        $rider = $model->where('role', 'rider')->find($id);
-        if (! $rider) {
-            return redirect()->back()->with('error', 'Rider account not found.');
+        if (! $model->find($id)) {
+            return redirect()->back()->with('error', 'User account not found.');
         }
         if (! $model->update($id, ['status' => $status])) {
             return redirect()->back()->with('errors', $model->errors());
         }
 
-        return redirect()->back()->with('success', 'Rider status updated.');
+        return redirect()->back()->with('success', 'User status updated.');
     }
 }

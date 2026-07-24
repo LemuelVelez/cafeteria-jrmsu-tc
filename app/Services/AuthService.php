@@ -24,6 +24,7 @@ class AuthService
             'email' => $user['email'],
             'role' => $user['role'],
             'status' => $user['status'],
+            'avatar' => $user['avatar'] ?? null,
         ]);
         $this->users->update($user['id'], ['last_login_at' => date('Y-m-d H:i:s')]);
         return true;
@@ -36,6 +37,7 @@ class AuthService
             'email' => strtolower(trim($data['email'])),
             'phone' => trim($data['phone'] ?? ''),
             'address' => trim($data['address'] ?? ''),
+            'avatar' => $data['avatar'] ?? null,
             'password_hash' => password_hash($data['password'], PASSWORD_DEFAULT),
             'role' => 'customer',
             'status' => 'active',

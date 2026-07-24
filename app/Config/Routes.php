@@ -33,6 +33,9 @@ $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static f
     $routes->get('orders/(:num)', 'Admin\\OrderController::show/$1');
     $routes->post('orders/(:num)/status', 'Admin\\OrderController::status/$1');
     $routes->post('orders/(:num)/assign-rider', 'Admin\\OrderController::assignRider/$1');
+    $routes->get('users', 'Admin\\UserController::index');
+    $routes->post('users', 'Admin\\UserController::save');
+    $routes->post('users/(:num)/status', 'Admin\\UserController::status/$1');
     $routes->get('customers', 'Admin\\CustomerController::index');
     $routes->post('customers/(:num)/status', 'Admin\\CustomerController::status/$1');
     $routes->get('riders', 'Admin\\RiderController::index');
