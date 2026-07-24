@@ -1,0 +1,5 @@
+<?= $this->extend('layouts/main') ?>
+<?= $this->section('content') ?>
+<div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4"><div><h1 class="h3 section-title fw-bold">Your cart</h1><p class="text-secondary mb-0">Review quantities and add-ons before checkout.</p></div><a class="btn btn-outline-primary" href="<?= base_url('customer/menu') ?>"><i class="bi bi-plus-lg me-1"></i>Add more items</a></div>
+<div class="row g-4"><div class="col-lg-8"><div class="surface-card px-4" data-cart-rows></div></div><div class="col-lg-4"><div class="surface-card p-4 cart-sticky"><h2 class="h5 section-title fw-bold">Order summary</h2><div class="d-flex justify-content-between py-3 border-bottom"><span>Subtotal</span><strong data-cart-subtotal>₱0.00</strong></div><p class="small text-secondary mt-3">Delivery fees and discounts are calculated during checkout.</p><a class="btn btn-primary btn-lg w-100" href="<?= base_url('customer/checkout') ?>">Proceed to checkout</a></div></div></div>
+<?= $this->endSection() ?>

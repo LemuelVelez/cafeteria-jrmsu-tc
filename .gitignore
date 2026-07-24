@@ -1,0 +1,16 @@
+/node_modules/
+/vendor/
+.env
+.phpunit.result.cache
+/writable/cache/*
+/writable/debugbar/*
+/writable/logs/*
+/writable/session/*
+/writable/uploads/*
+/public/uploads/products/*
+!/writable/cache/.gitkeep
+!/writable/debugbar/.gitkeep
+!/writable/logs/.gitkeep
+!/writable/session/.gitkeep
+!/writable/uploads/.gitkeep
+!/public/uploads/products/.gitkeep

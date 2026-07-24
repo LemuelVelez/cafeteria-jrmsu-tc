@@ -1,0 +1,186 @@
+#!/usr/bin/env sh
+set -eu
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+BACKEND_HOST=${BACKEND_HOST:-127.0.0.1}
+BACKEND_PORT=${BACKEND_PORT:-8080}
+FRONTEND_HOST=${FRONTEND_HOST:-127.0.0.1}
+FRONTEND_PORT=${FRONTEND_PORT:-5173}
+BACKEND_PID=''
+FRONTEND_PID=''
+
+cd "$ROOT_DIR"
+
+print_help() {
+    cat <<'EOF'
+JRMSU-TC Cafeteria command runner
+
+Usage:
+  cafe setup                 Install PHP dependencies and prepare .env
+  cafe run dev               Start backend first, then frontend
+  cafe run backend           Start the CodeIgniter backend only
+  cafe run frontend          Start the frontend gateway only
+  cafe db migrate            Run pending migrations
+  cafe db seed               Seed starter data
+  cafe db refresh            Rebuild and reseed the database
+  cafe test                  Run PHPUnit tests
+  cafe lint                  Run PHP and JavaScript syntax checks
+  cafe install-command       Install cafe into ~/.local/bin
+  cafe help                  Show this help
+
+Environment overrides:
+  BACKEND_HOST, BACKEND_PORT, FRONTEND_HOST, FRONTEND_PORT, BACKEND_URL
+EOF
+}
+
+require_command() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        printf 'Required command not found: %s\n' "$1" >&2
+        exit 1
+    fi
+}
+
+cleanup() {
+    trap - EXIT INT TERM HUP
+    if [ -n "$FRONTEND_PID" ] && kill -0 "$FRONTEND_PID" 2>/dev/null; then
+        kill "$FRONTEND_PID" 2>/dev/null || true
+        wait "$FRONTEND_PID" 2>/dev/null || true
+    fi
+    if [ -n "$BACKEND_PID" ] && kill -0 "$BACKEND_PID" 2>/dev/null; then
+        kill "$BACKEND_PID" 2>/dev/null || true
+        wait "$BACKEND_PID" 2>/dev/null || true
+    fi
+}
+
+wait_for_backend() {
+    attempts=0
+    while [ "$attempts" -lt 80 ]; do
+        if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+            wait "$BACKEND_PID" || true
+            printf 'Backend stopped before it became ready.\n' >&2
+            exit 1
+        fi
+
+        if php -r '$socket = @fsockopen($argv[1], (int) $argv[2], $errorCode, $errorMessage, 0.2); if (! $socket) { exit(1); } fclose($socket);' "$BACKEND_HOST" "$BACKEND_PORT"; then
+            return 0
+        fi
+
+        attempts=$((attempts + 1))
+        sleep 0.25
+    done
+
+    printf 'Backend did not become ready on %s:%s.\n' "$BACKEND_HOST" "$BACKEND_PORT" >&2
+    exit 1
+}
+
+run_backend() {
+    require_command php
+    APP_BASE_URL=${APP_BASE_URL:-"http://$BACKEND_HOST:$BACKEND_PORT/"} \
+    exec php spark serve --host "$BACKEND_HOST" --port "$BACKEND_PORT"
+}
+
+run_frontend() {
+    require_command node
+    BACKEND_URL=${BACKEND_URL:-"http://$BACKEND_HOST:$BACKEND_PORT"} \
+    FRONTEND_HOST="$FRONTEND_HOST" \
+    FRONTEND_PORT="$FRONTEND_PORT" \
+    exec node frontend/dev-server.mjs
+}
+
+run_dev() {
+    require_command php
+    require_command node
+    trap cleanup EXIT INT TERM HUP
+
+    printf '[backend] starting http://%s:%s\n' "$BACKEND_HOST" "$BACKEND_PORT"
+    APP_BASE_URL=${APP_BASE_URL:-"http://$FRONTEND_HOST:$FRONTEND_PORT/"} \
+    php spark serve --host "$BACKEND_HOST" --port "$BACKEND_PORT" &
+    BACKEND_PID=$!
+    wait_for_backend
+
+    printf '[frontend] starting after backend is ready\n'
+    BACKEND_URL=${BACKEND_URL:-"http://$BACKEND_HOST:$BACKEND_PORT"} \
+    FRONTEND_HOST="$FRONTEND_HOST" \
+    FRONTEND_PORT="$FRONTEND_PORT" \
+    node frontend/dev-server.mjs &
+    FRONTEND_PID=$!
+    wait "$FRONTEND_PID"
+}
+
+setup_project() {
+    require_command php
+    require_command composer
+    composer install
+    if [ ! -f .env ]; then
+        cp .env.example .env
+        printf 'Created .env from .env.example.\n'
+    fi
+    install_command
+}
+
+install_command() {
+    target_dir=${CAFE_BIN_DIR:-"$HOME/.local/bin"}
+    mkdir -p "$target_dir"
+    ln -sf "$ROOT_DIR/cafe" "$target_dir/cafe"
+    printf 'Installed cafe command at %s/cafe\n' "$target_dir"
+    case ":${PATH:-}:" in
+        *":$target_dir:"*) ;;
+        *) printf 'Add %s to PATH, then open a new shell.\n' "$target_dir" ;;
+    esac
+}
+
+lint_project() {
+    require_command php
+    find app tests -name '*.php' -print0 | xargs -0 -n1 php -l
+    if command -v node >/dev/null 2>&1; then
+        node --check frontend/dev-server.mjs
+        node --check public/assets/js/app.js
+        node --check public/assets/js/cart.js
+        node --check public/assets/js/pos.js
+    fi
+}
+
+command_name=${1:-help}
+subcommand=${2:-}
+
+case "$command_name:$subcommand" in
+    setup:)
+        setup_project
+        ;;
+    run:dev)
+        run_dev
+        ;;
+    run:backend)
+        run_backend
+        ;;
+    run:frontend)
+        run_frontend
+        ;;
+    db:migrate)
+        exec php spark migrate
+        ;;
+    db:seed)
+        exec php spark db:seed DatabaseSeeder
+        ;;
+    db:refresh)
+        php spark migrate:refresh
+        exec php spark db:seed DatabaseSeeder
+        ;;
+    test:)
+        exec composer test
+        ;;
+    lint:)
+        lint_project
+        ;;
+    install-command:)
+        install_command
+        ;;
+    help:|--help:|-h:)
+        print_help
+        ;;
+    *)
+        printf 'Unknown command: %s %s\n\n' "$command_name" "$subcommand" >&2
+        print_help >&2
+        exit 1
+        ;;
+esac

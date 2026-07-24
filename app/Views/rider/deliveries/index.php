@@ -1,0 +1,5 @@
+<?= $this->extend('layouts/main') ?>
+<?= $this->section('content') ?>
+<div class="mb-4"><h1 class="h3 section-title fw-bold">Assigned deliveries</h1><p class="text-secondary mb-0">Only orders assigned to your rider account are shown.</p></div>
+<div class="surface-card table-card overflow-hidden"><div class="table-responsive"><table class="table"><thead><tr><th>Order</th><th>Customer</th><th>Address</th><th>Status</th><th>Updated</th><th></th></tr></thead><tbody><?php foreach ($orders as $order): ?><tr><td class="fw-semibold"><?= esc($order['order_number']) ?></td><td><?= esc($order['customer_name'] ?: 'Customer') ?></td><td><?= esc(mb_strimwidth($order['delivery_address'] ?? '',0,52,'…')) ?></td><td><?= order_status_badge($order['status']) ?></td><td><?= time_ago($order['updated_at']) ?></td><td class="text-end"><a class="btn btn-sm btn-outline-primary" href="<?= base_url('rider/deliveries/'.$order['id']) ?>">Open</a></td></tr><?php endforeach; ?><?php if (!$orders): ?><tr><td colspan="6"><?= view('components/empty') ?></td></tr><?php endif; ?></tbody></table></div></div>
+<?= $this->endSection() ?>

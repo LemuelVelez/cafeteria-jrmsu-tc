@@ -1,0 +1,13 @@
+{
+  "name": "jrmsu-tc-cafeteria-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node frontend/dev-server.mjs",
+    "frontend": "node frontend/dev-server.mjs",
+    "check": "node --check frontend/dev-server.mjs && node --check public/assets/js/app.js && node --check public/assets/js/cart.js && node --check public/assets/js/pos.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
