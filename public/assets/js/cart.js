@@ -41,29 +41,95 @@
                 addon_total: addons.reduce((sum, addon) => sum + addon.price, 0),
             });
             button.innerHTML = '<i class="bi bi-check2"></i> Added';
-            setTimeout(() => { button.innerHTML = '<i class="bi bi-bag-plus"></i> Add'; }, 900);
+            setTimeout(() => { button.innerHTML = '<i class="bi bi-bag-plus" aria-hidden="true"></i><span>Add to cart</span>'; }, 900);
         });
     });
 
     const cartRows = document.querySelector('[data-cart-rows]');
     const render = () => {
+        const itemCount = cart.items.reduce((sum, line) => sum + Number(line.quantity), 0);
+        document.querySelectorAll('[data-cart-summary-count]').forEach((node) => {
+            node.textContent = `${itemCount} ${itemCount === 1 ? 'item' : 'items'} selected`;
+        });
+        document.querySelectorAll('[data-cart-subtotal]').forEach((node) => {
+            node.textContent = `₱${cart.subtotal().toFixed(2)}`;
+        });
+
         if (!cartRows) return;
+
         if (!cart.items.length) {
-            cartRows.innerHTML = '<div class="empty-state"><i class="bi bi-basket"></i><h5>Your cart is empty</h5><p>Add something delicious from the menu.</p><a class="btn btn-primary" href="/customer/menu">Browse menu</a></div>';
+            cartRows.innerHTML = `
+                <div class="empty-state cart-empty-state">
+                    <span class="empty-state-icon"><i class="bi bi-basket2" aria-hidden="true"></i></span>
+                    <h3 class="h5 section-title fw-bold">Your cart is empty</h3>
+                    <p>Add something delicious from the menu.</p>
+                    <a class="btn btn-primary" href="/customer/menu">
+                        <i class="bi bi-grid" aria-hidden="true"></i>
+                        <span>Browse menu</span>
+                    </a>
+                </div>`;
         } else {
-            cartRows.innerHTML = cart.items.map((line, index) => `
-                <div class="cart-line py-3 border-bottom">
-                    <div class="cart-line-main">
-                        <h6 class="mb-1">${escapeHtml(line.name)}</h6>
-                        <div class="small text-secondary">${(line.addons || []).map((a) => escapeHtml(a.name)).join(', ') || 'Standard'}</div>
-                        <div class="price mt-1">₱${((Number(line.price) + Number(line.addon_total || 0)) * Number(line.quantity)).toFixed(2)}</div>
-                    </div>
-                    <input class="form-control form-control-sm cart-line-quantity" type="number" min="1" value="${line.quantity}" data-cart-qty="${index}" aria-label="Quantity for ${escapeHtml(line.name)}">
-                    <button class="btn btn-sm btn-outline-danger cart-line-remove" type="button" data-cart-remove="${index}" aria-label="Remove ${escapeHtml(line.name)}"><i class="bi bi-trash"></i></button>
-                </div>`).join('');
+            cartRows.innerHTML = cart.items.map((line, index) => {
+                const addons = line.addons || [];
+                const unitPrice = Number(line.price) + Number(line.addon_total || 0);
+                const lineTotal = unitPrice * Number(line.quantity);
+                const addonMarkup = addons.length
+                    ? addons.map((addon) => `<span class="cart-addon-chip">${escapeHtml(addon.name)}</span>`).join('')
+                    : '<span class="cart-addon-chip is-standard">Standard</span>';
+
+                return `
+                    <article class="cart-line">
+                        <span class="cart-line-icon" aria-hidden="true"><i class="bi bi-cup-hot"></i></span>
+                        <div class="cart-line-main">
+                            <div class="cart-line-title-row">
+                                <h3 class="cart-line-title">${escapeHtml(line.name)}</h3>
+                                <span class="cart-line-unit-price">₱${unitPrice.toFixed(2)} each</span>
+                            </div>
+                            <div class="cart-addon-list">${addonMarkup}</div>
+                        </div>
+                        <div class="cart-line-controls">
+                            <div class="quantity-stepper" role="group" aria-label="Quantity for ${escapeHtml(line.name)}">
+                                <button type="button" data-cart-decrease="${index}" aria-label="Decrease quantity">
+                                    <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                                </button>
+                                <input class="cart-line-quantity" type="number" min="1" value="${line.quantity}" data-cart-qty="${index}" aria-label="Quantity for ${escapeHtml(line.name)}">
+                                <button type="button" data-cart-increase="${index}" aria-label="Increase quantity">
+                                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <strong class="cart-line-total">₱${lineTotal.toFixed(2)}</strong>
+                        </div>
+                        <button class="cart-line-remove" type="button" data-cart-remove="${index}" aria-label="Remove ${escapeHtml(line.name)}">
+                            <i class="bi bi-trash3" aria-hidden="true"></i>
+                        </button>
+                    </article>`;
+            }).join('');
         }
-        document.querySelectorAll('[data-cart-subtotal]').forEach((node) => node.textContent = `₱${cart.subtotal().toFixed(2)}`);
-        document.querySelectorAll('[data-cart-qty]').forEach((input) => input.addEventListener('change', () => { cart.quantity(Number(input.dataset.cartQty), input.value); render(); }));
+
+        document.querySelectorAll('[data-cart-qty]').forEach((input) => {
+            input.addEventListener('change', () => {
+                cart.quantity(Number(input.dataset.cartQty), input.value);
+                render();
+            });
+        });
+        document.querySelectorAll('[data-cart-decrease]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const index = Number(button.dataset.cartDecrease);
+                const line = cart.items[index];
+                if (!line) return;
+                cart.quantity(index, Math.max(1, Number(line.quantity) - 1));
+                render();
+            });
+        });
+        document.querySelectorAll('[data-cart-increase]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const index = Number(button.dataset.cartIncrease);
+                const line = cart.items[index];
+                if (!line) return;
+                cart.quantity(index, Number(line.quantity) + 1);
+                render();
+            });
+        });
         document.querySelectorAll('[data-cart-remove]').forEach((button) => button.addEventListener('click', async () => {
             const index = Number(button.dataset.cartRemove);
             const line = cart.items[index];

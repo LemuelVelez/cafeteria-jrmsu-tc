@@ -69,13 +69,33 @@ $nav = static function (array $items, string $path): string {
 </div>
 <main class="app-main">
     <div class="app-topbar desktop-topbar px-4 align-items-center justify-content-between">
-        <div><div class="small text-secondary text-uppercase fw-semibold"><?= esc($role) ?> workspace</div><div class="fw-bold"><?= esc($title ?? 'Dashboard') ?></div></div>
-        <div class="d-flex align-items-center gap-3"><?php if ($role === 'customer'): ?><a class="btn btn-outline-primary position-relative" href="<?= base_url('customer/cart') ?>"><i class="bi bi-basket"></i><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger" data-cart-count hidden>0</span></a><?php endif; ?><span class="text-secondary small"><?= date('M j, Y') ?></span></div>
+        <div class="topbar-heading">
+            <div class="small text-secondary text-uppercase fw-semibold"><?= esc($role) ?> workspace</div>
+            <div class="fw-bold"><?= esc($title ?? 'Dashboard') ?></div>
+        </div>
+        <div class="topbar-actions">
+            <?php if ($role === 'customer'): ?>
+                <a class="topbar-icon-button position-relative" href="<?= base_url('customer/cart') ?>" aria-label="Open cart">
+                    <i class="bi bi-basket2" aria-hidden="true"></i>
+                    <span class="cart-count-badge" data-cart-count hidden>0</span>
+                </a>
+            <?php endif; ?>
+            <span class="topbar-date"><i class="bi bi-calendar3" aria-hidden="true"></i><?= date('M j, Y') ?></span>
+        </div>
     </div>
     <div class="app-topbar mobile-topbar px-3 align-items-center justify-content-between">
-        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar"><i class="bi bi-list"></i></button>
+        <button class="topbar-icon-button" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" aria-label="Open navigation">
+            <i class="bi bi-list" aria-hidden="true"></i>
+        </button>
         <div class="fw-bold text-truncate mx-3"><?= esc($title ?? 'Dashboard') ?></div>
-        <?php if ($role === 'customer'): ?><a class="btn btn-outline-primary position-relative" href="<?= base_url('customer/cart') ?>"><i class="bi bi-basket"></i><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger" data-cart-count hidden>0</span></a><?php else: ?><span style="width:42px"></span><?php endif; ?>
+        <?php if ($role === 'customer'): ?>
+            <a class="topbar-icon-button position-relative" href="<?= base_url('customer/cart') ?>" aria-label="Open cart">
+                <i class="bi bi-basket2" aria-hidden="true"></i>
+                <span class="cart-count-badge" data-cart-count hidden>0</span>
+            </a>
+        <?php else: ?>
+            <span class="topbar-icon-spacer" aria-hidden="true"></span>
+        <?php endif; ?>
     </div>
     <div class="page-shell">
         <?= view('components/alerts') ?>

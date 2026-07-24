@@ -110,27 +110,11 @@ if (! function_exists('store_setting')) {
 if (! function_exists('media_url')) {
     function media_url(?string $path): string
     {
-        if (! $path) {
-            return '';
-        }
+        static $mediaStorage;
 
-        if (preg_match('#^https?://#i', $path)) {
-            return $path;
-        }
+        $mediaStorage ??= new \App\Services\MediaStorageService();
 
-        if (str_starts_with($path, 's3://')) {
-            $parts = parse_url($path);
-            $bucket = $parts['host'] ?? trim((string) env('AWS_S3_BUCKET', ''));
-            $key = ltrim($parts['path'] ?? '', '/');
-            $region = trim((string) env('AWS_REGION', 'ap-southeast-2')) ?: 'ap-southeast-2';
-            $encodedKey = implode('/', array_map('rawurlencode', explode('/', $key)));
-
-            if ($bucket !== '' && $encodedKey !== '') {
-                return sprintf('https://%s.s3.%s.amazonaws.com/%s', $bucket, $region, $encodedKey);
-            }
-        }
-
-        return base_url(ltrim($path, '/'));
+        return $mediaStorage->url($path);
     }
 }
 
