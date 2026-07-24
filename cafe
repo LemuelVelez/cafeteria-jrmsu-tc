@@ -1,7 +1,14 @@
 #!/usr/bin/env sh
 set -eu
 
-ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SCRIPT_PATH=$0
+if command -v readlink >/dev/null 2>&1; then
+    RESOLVED_PATH=$(readlink -f -- "$SCRIPT_PATH" 2>/dev/null || true)
+    if [ -n "$RESOLVED_PATH" ]; then
+        SCRIPT_PATH=$RESOLVED_PATH
+    fi
+fi
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)
 BACKEND_HOST=${BACKEND_HOST:-127.0.0.1}
 BACKEND_PORT=${BACKEND_PORT:-8080}
 FRONTEND_HOST=${FRONTEND_HOST:-127.0.0.1}
