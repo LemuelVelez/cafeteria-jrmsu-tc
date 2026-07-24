@@ -31,14 +31,14 @@ class SettingController extends BaseController
         ];
 
         if (! $this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+            return redirect()->to('/settings')->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $model = new UserModel();
         $email = strtolower(trim((string) $this->request->getPost('email')));
         $emailOwner = $model->findByEmail($email);
         if ($emailOwner && (int) $emailOwner['id'] !== (int) $user['id']) {
-            return redirect()->back()->withInput()->with('error', 'That email address is already registered.');
+            return redirect()->to('/settings')->withInput()->with('error', 'That email address is already registered.');
         }
 
         $avatarPath = $user['avatar'] ?? null;
@@ -50,7 +50,7 @@ class SettingController extends BaseController
             $maxKb = (int) env('UPLOAD_MAX_SIZE_MB', 5) * 1024;
             $avatarRule = "is_image[avatar]|mime_in[avatar,image/png,image/jpeg,image/webp]|max_size[avatar,{$maxKb}]|max_dims[avatar,2400,2400]";
             if (! $avatar->isValid() || $avatar->hasMoved() || ! $this->validate(['avatar' => $avatarRule])) {
-                return redirect()->back()->withInput()->with('errors', $this->validator?->getErrors() ?: ['avatar' => 'The avatar image is invalid.']);
+                return redirect()->to('/settings')->withInput()->with('errors', $this->validator?->getErrors() ?: ['avatar' => 'The avatar image is invalid.']);
             }
 
             try {
@@ -62,7 +62,7 @@ class SettingController extends BaseController
                     'message' => $exception->getMessage(),
                 ]);
 
-                return redirect()->back()->withInput()->with('error', 'The avatar could not be uploaded. Check the media storage configuration.');
+                return redirect()->to('/settings')->withInput()->with('error', 'The avatar could not be uploaded. Check the media storage configuration.');
             }
         }
 
@@ -78,7 +78,7 @@ class SettingController extends BaseController
             if (! $model->update((int) $user['id'], $data)) {
                 $media->delete($newAvatarPath);
 
-                return redirect()->back()->withInput()->with('errors', $model->errors());
+                return redirect()->to('/settings')->withInput()->with('errors', $model->errors());
             }
         } catch (Throwable $exception) {
             $media->delete($newAvatarPath);
@@ -87,7 +87,7 @@ class SettingController extends BaseController
                 'message' => $exception->getMessage(),
             ]);
 
-            return redirect()->back()->withInput()->with('error', 'The profile could not be updated.');
+            return redirect()->to('/settings')->withInput()->with('error', 'The profile could not be updated.');
         }
 
         if ($newAvatarPath !== null && ! empty($user['avatar'])) {
@@ -108,7 +108,7 @@ class SettingController extends BaseController
 
         $model = new UserModel();
         if (! $model->update((int) $user['id'], ['avatar' => null])) {
-            return redirect()->back()->with('errors', $model->errors());
+            return redirect()->to('/settings')->with('errors', $model->errors());
         }
 
         (new MediaStorageService())->delete((string) $user['avatar']);
@@ -128,18 +128,18 @@ class SettingController extends BaseController
         ];
 
         if (! $this->validate($rules)) {
-            return redirect()->back()->with('errors', $this->validator->getErrors());
+            return redirect()->to('/settings')->with('errors', $this->validator->getErrors());
         }
 
         if (! password_verify((string) $this->request->getPost('current_password'), (string) $user['password_hash'])) {
-            return redirect()->back()->with('error', 'The current password is incorrect.');
+            return redirect()->to('/settings')->with('error', 'The current password is incorrect.');
         }
 
         $model = new UserModel();
         if (! $model->update((int) $user['id'], [
             'password_hash' => password_hash((string) $this->request->getPost('password'), PASSWORD_DEFAULT),
         ])) {
-            return redirect()->back()->with('errors', $model->errors());
+            return redirect()->to('/settings')->with('errors', $model->errors());
         }
 
         return redirect()->to('/settings')->with('success', 'Password updated.');

@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use Aws\Exception\AwsException;
-use Aws\S3\S3Client;
+use Aws\S3\S3MultiRegionClient;
 use CodeIgniter\HTTP\Files\UploadedFile;
 use RuntimeException;
 use Throwable;
@@ -16,7 +16,7 @@ class MediaStorageService
     private string $bucket;
     private string $accessKeyId;
     private string $secretAccessKey;
-    private ?S3Client $s3Client = null;
+    private ?S3MultiRegionClient $s3Client = null;
 
     /** @var array<string, string> */
     private array $urlCache = [];
@@ -146,19 +146,19 @@ class MediaStorageService
         }
     }
 
-    private function client(): S3Client
+    private function client(): S3MultiRegionClient
     {
-        if ($this->s3Client instanceof S3Client) {
+        if ($this->s3Client instanceof S3MultiRegionClient) {
             return $this->s3Client;
         }
 
         $this->assertS3Configured();
 
-        if (! class_exists(S3Client::class)) {
+        if (! class_exists(S3MultiRegionClient::class)) {
             throw new RuntimeException('AWS S3 support requires the aws/aws-sdk-php Composer package. Run "composer install".');
         }
 
-        return $this->s3Client = new S3Client([
+        return $this->s3Client = new S3MultiRegionClient([
             'version' => 'latest',
             'region' => $this->region,
             'credentials' => [
