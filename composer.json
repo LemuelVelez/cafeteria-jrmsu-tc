@@ -4,8 +4,9 @@
   "type": "project",
   "license": "proprietary",
   "require": {
-    "php": "^8.2",
-    "codeigniter4/framework": "^4.7"
+    "aws/aws-sdk-php": "^3.0",
+    "codeigniter4/framework": "^4.7",
+    "php": "^8.2"
   },
   "require-dev": {
     "fakerphp/faker": "^1.9",

@@ -34,7 +34,7 @@
                         data-product-price="<?= esc($product['price'], 'attr') ?>"
                     >
                         <?php if (! empty($product['image'])): ?>
-                            <img class="product-image rounded mb-3" src="<?= base_url($product['image']) ?>" alt="<?= esc($product['name']) ?>">
+                            <img class="product-image rounded mb-3" src="<?= media_url($product['image']) ?>" alt="<?= esc($product['name']) ?>">
                         <?php else: ?>
                             <div class="product-placeholder rounded mb-3">
                                 <img src="<?= base_url('assets/img/jrmsu-cafeteria-logo.png') ?>" alt="">

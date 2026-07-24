@@ -5,6 +5,8 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\CategoryModel;
 use App\Models\ProductModel;
+use App\Services\MediaStorageService;
+use Throwable;
 
 class ProductController extends BaseController
 {
@@ -31,23 +33,53 @@ class ProductController extends BaseController
             'is_featured' => $this->request->getPost('is_featured') ? 1 : 0,
             'image' => $existing['image'] ?? null,
         ];
+
         $image = $this->request->getFile('image');
+        $newImagePath = null;
+        $media = new MediaStorageService();
+
         if ($image && $image->isValid() && ! $image->hasMoved()) {
             $maxKb = (int) env('UPLOAD_MAX_SIZE_MB', 5) * 1024;
             if (! $this->validate(['image' => "is_image[image]|mime_in[image,image/png,image/jpeg,image/webp]|max_size[image,{$maxKb}]|max_dims[image,2400,2400]"])) {
                 return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
             }
-            $name = $image->getRandomName();
-            $image->move(FCPATH . 'uploads/products', $name);
-            $data['image'] = 'uploads/products/' . $name;
+
+            try {
+                $newImagePath = $media->store($image, 'products');
+                $data['image'] = $newImagePath;
+            } catch (Throwable $exception) {
+                log_message('error', 'Product media upload failed: {message}', ['message' => $exception->getMessage()]);
+                return redirect()->back()->withInput()->with('error', 'The product image could not be uploaded. Check the media storage configuration.');
+            }
         }
+
         $ok = $id ? $model->update($id, $data) : $model->insert($data);
-        return $ok ? redirect()->to('/admin/products')->with('success', 'Product saved.') : redirect()->back()->withInput()->with('errors', $model->errors());
+        if (! $ok) {
+            if ($newImagePath) {
+                $media->delete($newImagePath);
+            }
+            return redirect()->back()->withInput()->with('errors', $model->errors());
+        }
+
+        if ($newImagePath && ! empty($existing['image'])) {
+            $media->delete($existing['image']);
+        }
+
+        return redirect()->to('/admin/products')->with('success', 'Product saved.');
     }
 
     public function delete(int $id)
     {
-        (new ProductModel())->delete($id);
-        return redirect()->to('/admin/products')->with('success', 'Product removed.');
+        $model = new ProductModel();
+        $product = $model->find($id);
+        $deleted = $model->delete($id);
+
+        if ($deleted && ! empty($product['image'])) {
+            (new MediaStorageService())->delete($product['image']);
+        }
+
+        return $deleted
+            ? redirect()->to('/admin/products')->with('success', 'Product removed.')
+            : redirect()->back()->with('error', 'The product could not be removed.');
     }
 }
