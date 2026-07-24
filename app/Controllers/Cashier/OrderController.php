@@ -17,9 +17,9 @@ class OrderController extends BaseController
     {
         try {
             (new OrderService())->updateStatus($id, (string) $this->request->getPost('status'), session()->get('user'));
-            return redirect()->back()->with('success', 'Order status updated.');
+            return redirect()->to('/cashier/orders')->with('success', 'Order status updated.');
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', $e->getMessage());
+            return redirect()->to('/cashier/orders')->with('error', $e->getMessage());
         }
     }
 }

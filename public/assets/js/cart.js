@@ -174,7 +174,7 @@
                     <span class="empty-state-icon"><i class="bi bi-basket2" aria-hidden="true"></i></span>
                     <h3 class="h5 section-title fw-bold">Your cart is empty</h3>
                     <p>Add something delicious from the menu.</p>
-                    <a class="btn btn-primary" href="/customer/menu">
+                    <a class="btn btn-primary" href="${window.cafeteriaUrl('customer/menu')}">
                         <i class="bi bi-grid" aria-hidden="true"></i>
                         <span>Browse menu</span>
                     </a>
@@ -273,9 +273,9 @@
         const submit = checkoutForm.querySelector('[data-checkout-submit]');
         const submitLabel = checkoutForm.querySelector('[data-checkout-submit-label]');
         const deliveryFee = Number(checkoutForm.dataset.deliveryFee || 0);
-        const orderEndpoint = checkoutForm.dataset.orderEndpoint || '/api/orders';
-        const ordersUrl = (checkoutForm.dataset.ordersUrl || '/customer/orders').replace(/\/$/, '');
-        const menuUrl = checkoutForm.dataset.menuUrl || '/customer/menu';
+        const orderEndpoint = checkoutForm.dataset.orderEndpoint || window.cafeteriaUrl('api/orders');
+        const ordersUrl = (checkoutForm.dataset.ordersUrl || window.cafeteriaUrl('customer/orders')).replace(/\/$/, '');
+        const menuUrl = checkoutForm.dataset.menuUrl || window.cafeteriaUrl('customer/menu');
 
         let paymentModes = {};
         try {
@@ -294,7 +294,7 @@
         };
         const setSubmitting = (isSubmitting) => {
             if (!submit) return;
-            submit.disabled = isSubmitting || !cart.items.length;
+            submit.disabled = isSubmitting || !cart.items.length || !orderType?.value || Boolean(orderType.disabled);
             submit.setAttribute('aria-busy', String(isSubmitting));
             if (submitLabel) submitLabel.textContent = isSubmitting ? 'Placing order…' : 'Place order';
         };

@@ -83,12 +83,12 @@ $routes->group('rider', ['filter' => ['auth', 'active', 'role:rider']], static f
 
 $routes->group('api', ['filter' => ['auth', 'active']], static function (RouteCollection $routes): void {
     $routes->get('products', 'Api\\ProductApiController::index');
-    $routes->post('orders', 'Api\\OrderApiController::create');
+    $routes->post('orders', 'Api\\OrderApiController::create', ['filter' => 'role:customer,cashier']);
     $routes->get('orders/pending-count', 'Api\\OrderApiController::pendingCount', ['filter' => 'role:admin,cashier']);
     $routes->get('orders/(:num)', 'Api\\OrderApiController::show/$1');
     $routes->patch('orders/(:num)/status', 'Api\\OrderApiController::status/$1', ['filter' => 'role:admin,cashier,rider']);
     $routes->patch('orders/(:num)/assign-rider', 'Api\\OrderApiController::assignRider/$1', ['filter' => 'role:admin']);
-    $routes->post('promos/apply', 'Api\\PromoApiController::apply');
+    $routes->post('promos/apply', 'Api\\PromoApiController::apply', ['filter' => 'role:customer,cashier']);
     $routes->post('reviews', 'Api\\ReviewApiController::create', ['filter' => 'role:customer']);
     $routes->post('products', 'Api\\ProductApiController::save', ['filter' => 'role:admin']);
     $routes->put('products/(:num)', 'Api\\ProductApiController::save/$1', ['filter' => 'role:admin']);

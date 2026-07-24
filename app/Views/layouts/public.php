@@ -6,6 +6,7 @@
     <meta name="description" content="JRMSU-TC Cafeteria online food ordering and delivery.">
     <meta name="csrf-name" content="<?= csrf_token() ?>">
     <meta name="csrf-hash" content="<?= csrf_hash() ?>">
+    <meta name="app-base-url" content="<?= esc(base_url(), 'attr') ?>">
     <title><?= esc($title ?? $cafeteriaName ?? 'JRMSU-TC Cafeteria') ?></title>
     <link rel="icon" href="<?= base_url('favicon.ico') ?>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">

@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use Aws\Exception\AwsException;
-use Aws\S3\S3MultiRegionClient;
+use Aws\S3\S3Client;
 use CodeIgniter\HTTP\Files\UploadedFile;
 use RuntimeException;
 use Throwable;
@@ -16,7 +16,10 @@ class MediaStorageService
     private string $bucket;
     private string $accessKeyId;
     private string $secretAccessKey;
-    private ?S3MultiRegionClient $s3Client = null;
+    private ?S3Client $s3Client = null;
+
+    /** @var array<string, true> */
+    private array $regionCheckedBuckets = [];
 
     /** @var array<string, string> */
     private array $urlCache = [];
@@ -31,10 +34,13 @@ class MediaStorageService
 
     public function store(UploadedFile $file, string $directory = 'media'): string
     {
-        $this->assertS3Configured();
-
         $directory = $this->normalizeDirectory($directory);
         $filename = bin2hex(random_bytes(16)) . '.' . $this->extensionFor($file);
+
+        if (! $this->canUseS3()) {
+            return $this->storeLocally($file, $directory, $filename);
+        }
+
         $key = implode('/', [$directory, date('Y/m'), $filename]);
         $tempName = $file->getTempName();
 
@@ -43,6 +49,7 @@ class MediaStorageService
         }
 
         try {
+            $this->ensureBucketRegion($this->bucket);
             $this->client()->putObject([
                 'Bucket' => $this->bucket,
                 'Key' => $key,
@@ -81,11 +88,12 @@ class MediaStorageService
         }
 
         [$bucket, $key] = $this->parseS3Path($path);
-        if ($bucket === '' || $key === '') {
+        if ($bucket === '' || $key === '' || ! $this->canUseS3()) {
             return $this->urlCache[$path] = '';
         }
 
         try {
+            $this->ensureBucketRegion($bucket);
             $command = $this->client()->getCommand('GetObject', [
                 'Bucket' => $bucket,
                 'Key' => $key,
@@ -113,12 +121,17 @@ class MediaStorageService
         }
 
         if (str_starts_with($path, 's3://')) {
+            if (! $this->canUseS3()) {
+                return;
+            }
+
             [$bucket, $key] = $this->parseS3Path($path);
             if ($bucket === '' || $key === '') {
                 return;
             }
 
             try {
+                $this->ensureBucketRegion($bucket);
                 $this->client()->deleteObject([
                     'Bucket' => $bucket,
                     'Key' => $key,
@@ -146,19 +159,37 @@ class MediaStorageService
         }
     }
 
-    private function client(): S3MultiRegionClient
+    private function storeLocally(UploadedFile $file, string $directory, string $filename): string
     {
-        if ($this->s3Client instanceof S3MultiRegionClient) {
+        $relativeDirectory = implode('/', ['uploads', $directory, date('Y/m')]);
+        $targetDirectory = rtrim(FCPATH, DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, $relativeDirectory);
+
+        if (! is_dir($targetDirectory) && ! mkdir($targetDirectory, 0775, true) && ! is_dir($targetDirectory)) {
+            throw new RuntimeException('Unable to create the local media directory.');
+        }
+
+        if (! $file->move($targetDirectory, $filename)) {
+            throw new RuntimeException('Unable to save the uploaded media file.');
+        }
+
+        return $relativeDirectory . '/' . $filename;
+    }
+
+    private function client(): S3Client
+    {
+        if ($this->s3Client instanceof S3Client) {
             return $this->s3Client;
         }
 
         $this->assertS3Configured();
 
-        if (! class_exists(S3MultiRegionClient::class)) {
+        if (! class_exists(S3Client::class)) {
             throw new RuntimeException('AWS S3 support requires the aws/aws-sdk-php Composer package. Run "composer install".');
         }
 
-        return $this->s3Client = new S3MultiRegionClient([
+        return $this->s3Client = new S3Client([
             'version' => 'latest',
             'region' => $this->region,
             'credentials' => [
@@ -168,23 +199,42 @@ class MediaStorageService
         ]);
     }
 
-    private function assertS3Configured(): void
+    private function ensureBucketRegion(string $bucket): void
     {
-        $missing = [];
+        if (isset($this->regionCheckedBuckets[$bucket])) {
+            return;
+        }
 
-        foreach ([
-            'AWS_REGION' => $this->region,
-            'AWS_S3_BUCKET' => $this->bucket,
-            'AWS_ACCESS_KEY_ID' => $this->accessKeyId,
-            'AWS_SECRET_ACCESS_KEY' => $this->secretAccessKey,
-        ] as $name => $value) {
-            if ($value === '') {
-                $missing[] = $name;
+        try {
+            $this->client()->headBucket(['Bucket' => $bucket]);
+        } catch (AwsException $exception) {
+            $detectedRegion = trim((string) $exception->getResponse()?->getHeaderLine('x-amz-bucket-region'));
+            if ($detectedRegion !== '' && $detectedRegion !== $this->region) {
+                $this->region = $detectedRegion;
+                $this->s3Client = null;
             }
         }
 
-        if ($missing !== []) {
-            throw new RuntimeException('Missing required AWS S3 environment variables: ' . implode(', ', $missing) . '.');
+        $this->regionCheckedBuckets[$bucket] = true;
+    }
+
+    private function isS3Configured(): bool
+    {
+        return $this->region !== ''
+            && $this->bucket !== ''
+            && $this->accessKeyId !== ''
+            && $this->secretAccessKey !== '';
+    }
+
+    private function canUseS3(): bool
+    {
+        return $this->isS3Configured() && class_exists(S3Client::class);
+    }
+
+    private function assertS3Configured(): void
+    {
+        if (! $this->isS3Configured()) {
+            throw new RuntimeException('AWS S3 storage is not fully configured.');
         }
     }
 

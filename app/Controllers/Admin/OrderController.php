@@ -44,9 +44,9 @@ class OrderController extends BaseController
                 (string) $this->request->getPost('note'),
             );
 
-            return redirect()->back()->with('success', 'Order status updated.');
+            return redirect()->to('/admin/orders/' . $id)->with('success', 'Order status updated.');
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', $e->getMessage());
+            return redirect()->to('/admin/orders/' . $id)->with('error', $e->getMessage());
         }
     }
 
@@ -59,9 +59,9 @@ class OrderController extends BaseController
                 session()->get('user'),
             );
 
-            return redirect()->back()->with('success', 'Rider assigned.');
+            return redirect()->to('/admin/orders/' . $id)->with('success', 'Rider assigned.');
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', $e->getMessage());
+            return redirect()->to('/admin/orders/' . $id)->with('error', $e->getMessage());
         }
     }
 }

@@ -45,9 +45,9 @@ class DeliveryController extends BaseController
                 session()->get('user'),
             );
 
-            return redirect()->back()->with('success', 'Delivery status updated.');
+            return redirect()->to('/rider/deliveries/' . $id)->with('success', 'Delivery status updated.');
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', $e->getMessage());
+            return redirect()->to('/rider/deliveries/' . $id)->with('error', $e->getMessage());
         }
     }
 }

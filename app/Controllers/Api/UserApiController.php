@@ -14,7 +14,20 @@ class UserApiController extends BaseController
         if (! in_array($status, ['active', 'inactive', 'banned'], true)) {
             return $this->jsonError('Invalid account status.');
         }
-        (new UserModel())->update($id, ['status' => $status]);
+
+        if ($id === (int) (session()->get('user')['id'] ?? 0)) {
+            return $this->jsonError('You cannot change the status of your own account.');
+        }
+
+        $model = new UserModel();
+        if (! $model->find($id)) {
+            return $this->jsonError('User account not found.', null, 404);
+        }
+
+        if (! $model->update($id, ['status' => $status])) {
+            return $this->jsonError('The account status could not be updated.', $model->errors());
+        }
+
         return $this->jsonSuccess('Account status updated.');
     }
 }

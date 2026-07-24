@@ -22,13 +22,13 @@ class UserController extends BaseController
             'phone' => 'permit_empty|max_length[30]',
             'password' => 'required|min_length[8]',
         ])) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+            return redirect()->to('/admin/users')->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $model = new UserModel();
         $email = strtolower(trim((string) $this->request->getPost('email')));
         if ($model->findByEmail($email)) {
-            return redirect()->back()->withInput()->with('error', 'That email address is already registered.');
+            return redirect()->to('/admin/users')->withInput()->with('error', 'That email address is already registered.');
         }
 
         $created = $model->insert([
@@ -41,32 +41,32 @@ class UserController extends BaseController
         ]);
 
         if (! $created) {
-            return redirect()->back()->withInput()->with('errors', $model->errors());
+            return redirect()->to('/admin/users')->withInput()->with('errors', $model->errors());
         }
 
-        return redirect()->back()->with('success', 'Administrator account created. The administrator can add a profile photo in My settings.');
+        return redirect()->to('/admin/users')->with('success', 'Administrator account created. The administrator can add a profile photo in My settings.');
     }
 
     public function status(int $id)
     {
         $status = (string) $this->request->getPost('status');
         if (! in_array($status, ['active', 'inactive', 'banned'], true)) {
-            return redirect()->back()->with('error', 'Invalid account status.');
+            return redirect()->to('/admin/users')->with('error', 'Invalid account status.');
         }
 
         $currentUserId = (int) (session()->get('user')['id'] ?? 0);
         if ($id === $currentUserId) {
-            return redirect()->back()->with('error', 'You cannot change the status of your own account.');
+            return redirect()->to('/admin/users')->with('error', 'You cannot change the status of your own account.');
         }
 
         $model = new UserModel();
         if (! $model->find($id)) {
-            return redirect()->back()->with('error', 'User account not found.');
+            return redirect()->to('/admin/users')->with('error', 'User account not found.');
         }
         if (! $model->update($id, ['status' => $status])) {
-            return redirect()->back()->with('errors', $model->errors());
+            return redirect()->to('/admin/users')->with('errors', $model->errors());
         }
 
-        return redirect()->back()->with('success', 'User status updated.');
+        return redirect()->to('/admin/users')->with('success', 'User status updated.');
     }
 }

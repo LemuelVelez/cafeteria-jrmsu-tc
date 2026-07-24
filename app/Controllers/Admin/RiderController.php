@@ -15,13 +15,13 @@ class RiderController extends BaseController
     public function save()
     {
         if (! $this->validate(['name' => 'required|min_length[2]|max_length[100]', 'email' => 'required|valid_email|max_length[160]', 'password' => 'required|min_length[8]'])) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+            return redirect()->to('/admin/riders')->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $model = new UserModel();
         $email = strtolower(trim((string) $this->request->getPost('email')));
         if ($model->findByEmail($email)) {
-            return redirect()->back()->withInput()->with('error', 'That email address is already registered.');
+            return redirect()->to('/admin/riders')->withInput()->with('error', 'That email address is already registered.');
         }
 
         $data = [
@@ -34,28 +34,28 @@ class RiderController extends BaseController
         ];
 
         if (! $model->insert($data)) {
-            return redirect()->back()->withInput()->with('errors', $model->errors());
+            return redirect()->to('/admin/riders')->withInput()->with('errors', $model->errors());
         }
 
-        return redirect()->back()->with('success', 'Rider account created. The rider can add a profile photo in My settings.');
+        return redirect()->to('/admin/riders')->with('success', 'Rider account created. The rider can add a profile photo in My settings.');
     }
 
     public function status(int $id)
     {
         $status = (string) $this->request->getPost('status');
         if (! in_array($status, ['active', 'inactive', 'banned'], true)) {
-            return redirect()->back()->with('error', 'Invalid account status.');
+            return redirect()->to('/admin/riders')->with('error', 'Invalid account status.');
         }
 
         $model = new UserModel();
         $rider = $model->where('role', 'rider')->find($id);
         if (! $rider) {
-            return redirect()->back()->with('error', 'Rider account not found.');
+            return redirect()->to('/admin/riders')->with('error', 'Rider account not found.');
         }
         if (! $model->update($id, ['status' => $status])) {
-            return redirect()->back()->with('errors', $model->errors());
+            return redirect()->to('/admin/riders')->with('errors', $model->errors());
         }
 
-        return redirect()->back()->with('success', 'Rider status updated.');
+        return redirect()->to('/admin/riders')->with('success', 'Rider status updated.');
     }
 }

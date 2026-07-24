@@ -1,7 +1,12 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
-<?php $paymentModes = payment_modes(); ?>
+<?php
+$paymentModes = payment_modes();
+$orderingEnabled = $pickupEnabled || $deliveryEnabled;
+$defaultOrderType = $pickupEnabled ? 'pickup' : 'delivery';
+$defaultPaymentMode = $paymentModes[$defaultOrderType];
+?>
 <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
     <div>
         <h1 class="h3 section-title fw-bold">Point of sale</h1>
@@ -60,7 +65,14 @@
             <h2 class="h5 section-title fw-bold">Current order</h2>
             <div data-pos-rows></div>
 
-            <form data-pos-form class="mt-3" data-payment-modes="<?= esc(json_encode($paymentModes), 'attr') ?>">
+            <form
+                data-pos-form
+                class="mt-3"
+                data-payment-modes="<?= esc(json_encode($paymentModes, JSON_THROW_ON_ERROR), 'attr') ?>"
+                data-delivery-fee="<?= esc((string) $deliveryFee, 'attr') ?>"
+                data-order-endpoint="<?= esc(base_url('api/orders'), 'attr') ?>"
+                data-orders-url="<?= esc(base_url('cashier/orders'), 'attr') ?>"
+            >
                 <div class="mb-3">
                     <label class="form-label" for="pos-customer">Customer</label>
                     <select class="form-select" id="pos-customer" name="customer_id">
@@ -74,15 +86,16 @@
                 <div class="row g-2">
                     <div class="col-6">
                         <label class="form-label" for="pos-order-type">Order type</label>
-                        <select class="form-select" id="pos-order-type" name="order_type" data-pos-order-type>
-                            <option value="pickup">Pickup</option>
-                            <option value="delivery">Delivery</option>
+                        <select class="form-select" id="pos-order-type" name="order_type" data-pos-order-type required <?= $orderingEnabled ? '' : 'disabled' ?>>
+                            <?php if ($pickupEnabled): ?><option value="pickup">Pickup</option><?php endif; ?>
+                            <?php if ($deliveryEnabled): ?><option value="delivery">Delivery</option><?php endif; ?>
+                            <?php if (! $orderingEnabled): ?><option value="">Ordering unavailable</option><?php endif; ?>
                         </select>
                     </div>
                     <div class="col-6">
                         <label class="form-label" for="pos-payment">Payment mode</label>
-                        <input class="form-control" id="pos-payment" data-pos-payment-label value="<?= esc($paymentModes['pickup']['label']) ?>" readonly>
-                        <input type="hidden" name="payment_method" data-pos-payment-method value="<?= esc($paymentModes['pickup']['value'], 'attr') ?>">
+                        <input class="form-control" id="pos-payment" data-pos-payment-label value="<?= esc($defaultPaymentMode['label']) ?>" readonly>
+                        <input type="hidden" name="payment_method" data-pos-payment-method value="<?= esc($defaultPaymentMode['value'], 'attr') ?>">
                     </div>
                 </div>
 
@@ -110,7 +123,10 @@
                 <span>Total</span>
                 <span class="price" data-pos-total>₱0.00</span>
             </div>
-            <button class="btn btn-primary btn-lg w-100" type="button" data-pos-submit>Complete order</button>
+            <?php if (! $orderingEnabled): ?>
+                <div class="alert alert-warning">Pickup and delivery ordering are currently unavailable.</div>
+            <?php endif; ?>
+            <button class="btn btn-primary btn-lg w-100" type="button" data-pos-submit <?= $orderingEnabled ? '' : 'disabled' ?>>Complete order</button>
         </div>
     </div>
 </div>

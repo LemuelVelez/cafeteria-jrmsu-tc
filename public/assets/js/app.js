@@ -3,6 +3,9 @@
 
     const csrfName = document.querySelector('meta[name="csrf-name"]')?.content;
     const csrfHash = document.querySelector('meta[name="csrf-hash"]')?.content;
+    const appBaseUrl = document.querySelector('meta[name="app-base-url"]')?.content || `${window.location.origin}/`;
+
+    window.cafeteriaUrl = (path = '') => new URL(String(path).replace(/^\/+/, ''), appBaseUrl).toString();
 
     const fieldIcon = (field) => {
         const name = `${field.name || ''} ${field.id || ''} ${field.getAttribute('placeholder') || ''}`.toLowerCase();
@@ -303,7 +306,7 @@
 
     const pendingBadge = document.querySelector('[data-pending-orders]');
     if (pendingBadge) {
-        const refresh = () => window.cafeteriaFetch('/api/orders/pending-count')
+        const refresh = () => window.cafeteriaFetch(window.cafeteriaUrl('api/orders/pending-count'))
             .then(({ data }) => {
                 pendingBadge.textContent = data.count;
                 pendingBadge.hidden = data.count < 1;

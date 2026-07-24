@@ -17,7 +17,7 @@ class RegisterController extends BaseController
     {
         $key = 'register-' . hash('sha256', $this->request->getIPAddress());
         if (! service('throttler')->check($key, 3, MINUTE)) {
-            return redirect()->back()->withInput()->with('error', 'Too many registration attempts. Please try again in one minute.');
+            return redirect()->to('/register')->withInput()->with('error', 'Too many registration attempts. Please try again in one minute.');
         }
 
         $rules = [
@@ -28,12 +28,12 @@ class RegisterController extends BaseController
             'password_confirm' => 'required|matches[password]',
         ];
         if (! $this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+            return redirect()->to('/register')->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $email = strtolower(trim((string) $this->request->getPost('email')));
         if ((new UserModel())->findByEmail($email)) {
-            return redirect()->back()->withInput()->with('error', 'That email address is already registered.');
+            return redirect()->to('/register')->withInput()->with('error', 'That email address is already registered.');
         }
 
         $id = (new AuthService())->registerCustomer([
@@ -44,7 +44,7 @@ class RegisterController extends BaseController
             'password' => $this->request->getPost('password'),
         ]);
         if (! $id) {
-            return redirect()->back()->withInput()->with('error', 'Unable to create the account.');
+            return redirect()->to('/register')->withInput()->with('error', 'Unable to create the account.');
         }
 
         return redirect()->to('/login')->with('success', 'Account created. You may now sign in and add a profile photo in My settings.');

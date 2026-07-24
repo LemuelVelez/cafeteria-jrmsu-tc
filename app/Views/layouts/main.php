@@ -34,7 +34,8 @@ $nav = static function (array $items, string $path): string {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-name" content="<?= csrf_token() ?>">
     <meta name="csrf-hash" content="<?= csrf_hash() ?>">
-    <title><?= esc($title ?? 'Dashboard') ?> · JRMSU-TC Cafeteria</title>
+    <meta name="app-base-url" content="<?= esc(base_url(), 'attr') ?>">
+    <title><?= esc($title ?? 'Dashboard') ?> · <?= esc($cafeteriaName ?? 'JRMSU-TC Cafeteria') ?></title>
     <link rel="icon" href="<?= base_url('favicon.ico') ?>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">

@@ -22,10 +22,14 @@ class OrderApiController extends BaseController
 
             $order = (new OrderService())->create($payload, $actor);
 
+            $redirectPath = $actor['role'] === 'cashier'
+                ? 'cashier/orders'
+                : 'customer/orders/' . $order['id'];
+
             return $this->jsonSuccess('Order created successfully.', [
                 'order_number' => $order['order_number'],
                 'order_id' => (int) $order['id'],
-                'redirect_url' => base_url('customer/orders/' . $order['id']),
+                'redirect_url' => base_url($redirectPath),
             ], 201);
         } catch (DomainException $exception) {
             return $this->jsonError($exception->getMessage());
@@ -81,6 +85,10 @@ class OrderApiController extends BaseController
     private function canView(array $order): bool
     {
         $user = session()->get('user');
+        if (! is_array($user) || empty($user['role']) || empty($user['id'])) {
+            return false;
+        }
+
         return in_array($user['role'], ['admin', 'cashier'], true)
             || ($user['role'] === 'customer' && (int) $order['customer_id'] === (int) $user['id'])
             || ($user['role'] === 'rider' && (int) $order['rider_id'] === (int) $user['id']);

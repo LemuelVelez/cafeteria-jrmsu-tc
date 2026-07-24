@@ -1,7 +1,29 @@
 <?= $this->extend('layouts/main') ?>
 <?= $this->section('content') ?>
-<div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4"><div><h1 class="h3 section-title fw-bold">Categories</h1><p class="text-secondary mb-0">Organize the customer menu into clear sections.</p></div><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#categoryModal"><i class="bi bi-plus-lg me-1"></i>New category</button></div>
+<div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4"><div><h1 class="h3 section-title fw-bold">Categories</h1><p class="text-secondary mb-0">Organize the customer menu into clear sections.</p></div><button class="btn btn-primary" type="button" data-create-category data-bs-toggle="modal" data-bs-target="#categoryModal"><i class="bi bi-plus-lg me-1"></i>New category</button></div>
 <div class="surface-card table-card overflow-hidden"><div class="table-responsive"><table class="table"><thead><tr><th>Name</th><th>Description</th><th>Order</th><th>Status</th><th class="text-end">Actions</th></tr></thead><tbody><?php foreach ($categories as $category): ?><tr><td class="fw-semibold"><?= esc($category['name']) ?></td><td><?= esc($category['description'] ?: '—') ?></td><td><?= esc($category['sort_order']) ?></td><td><span class="badge <?= $category['is_active'] ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $category['is_active'] ? 'Active' : 'Hidden' ?></span></td><td class="text-end action-cell"><div class="table-actions"><button class="btn btn-sm btn-outline-primary" type="button" data-edit-category='<?= esc(json_encode($category),'attr') ?>'><i class="bi bi-pencil"></i></button><form class="d-inline" data-confirm="Remove this category?" action="<?= base_url('admin/categories/'.$category['id'].'/delete') ?>" method="post"><?= csrf_field() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></td></tr><?php endforeach; ?></tbody></table></div></div>
-<div class="modal fade" id="categoryModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="categoryForm" action="<?= base_url('admin/categories') ?>" method="post" data-confirm="Save this category?" data-confirm-title="Save category" data-confirm-label="Save"><?= csrf_field() ?><div class="modal-header"><h2 class="modal-title h5">Category details</h2><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label class="form-label">Name</label><input class="form-control" name="name" required></div><div class="mb-3"><label class="form-label">Description</label><textarea class="form-control" name="description"></textarea></div><div class="row"><div class="col-6"><label class="form-label">Sort order</label><input class="form-control" name="sort_order" type="number" min="0" value="0"></div><div class="col-6 d-flex align-items-end"><div class="form-check mb-3"><input class="form-check-input" name="is_active" value="1" type="checkbox" id="categoryActive" checked><label class="form-check-label" for="categoryActive">Active</label></div></div></div></div><div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save category</button></div></form></div></div>
+<div class="modal fade" id="categoryModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="categoryForm" action="<?= base_url('admin/categories') ?>" data-base-action="<?= esc(base_url('admin/categories'), 'attr') ?>" method="post" data-confirm="Save this category?" data-confirm-title="Save category" data-confirm-label="Save"><?= csrf_field() ?><div class="modal-header"><h2 class="modal-title h5">Category details</h2><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label class="form-label">Name</label><input class="form-control" name="name" required></div><div class="mb-3"><label class="form-label">Description</label><textarea class="form-control" name="description"></textarea></div><div class="row"><div class="col-6"><label class="form-label">Sort order</label><input class="form-control" name="sort_order" type="number" min="0" value="0"></div><div class="col-6 d-flex align-items-end"><div class="form-check mb-3"><input class="form-check-input" name="is_active" value="1" type="checkbox" id="categoryActive" checked><label class="form-check-label" for="categoryActive">Active</label></div></div></div></div><div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save category</button></div></form></div></div>
 <?= $this->endSection() ?>
-<?= $this->section('scripts') ?><script>document.querySelectorAll('[data-edit-category]').forEach(b=>b.addEventListener('click',()=>{const x=JSON.parse(b.dataset.editCategory),f=document.getElementById('categoryForm');f.action='/admin/categories/'+x.id;['name','description','sort_order'].forEach(n=>f.elements[n].value=x[n]??'');f.elements.is_active.checked=Number(x.is_active)===1;bootstrap.Modal.getOrCreateInstance(document.getElementById('categoryModal')).show()}));</script><?= $this->endSection() ?>
+<?= $this->section('scripts') ?>
+<script>
+(() => {
+    const form = document.getElementById('categoryForm');
+    const modal = document.getElementById('categoryModal');
+    const resetForm = () => {
+        form.reset();
+        form.action = form.dataset.baseAction;
+        form.elements.sort_order.value = 0;
+        form.elements.is_active.checked = true;
+    };
+
+    document.querySelector('[data-create-category]')?.addEventListener('click', resetForm);
+    document.querySelectorAll('[data-edit-category]').forEach((button) => button.addEventListener('click', () => {
+        const category = JSON.parse(button.dataset.editCategory);
+        form.action = `${form.dataset.baseAction}/${category.id}`;
+        ['name', 'description', 'sort_order'].forEach((name) => { form.elements[name].value = category[name] ?? ''; });
+        form.elements.is_active.checked = Number(category.is_active) === 1;
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+    }));
+})();
+</script>
+<?= $this->endSection() ?>

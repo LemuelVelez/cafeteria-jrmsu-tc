@@ -4,22 +4,32 @@
     const cart = window.jrmsuCart;
     const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
     const rows = document.querySelector('[data-pos-rows]');
-    if (!cart || !rows) return;
+    const form = document.querySelector('[data-pos-form]');
+    if (!cart || !rows || !form) return;
 
     const orderType = document.querySelector('[data-pos-order-type]');
     const deliveryFields = document.querySelector('[data-pos-delivery-fields]');
     const deliveryAddress = deliveryFields?.querySelector('[name="delivery_address"]');
-    const form = document.querySelector('[data-pos-form]');
     const paymentMethod = document.querySelector('[data-pos-payment-method]');
     const paymentLabel = document.querySelector('[data-pos-payment-label]');
+    const submitButton = document.querySelector('[data-pos-submit]');
+    const deliveryFee = Math.max(0, Number(form.dataset.deliveryFee || 0));
+    const orderEndpoint = form.dataset.orderEndpoint || window.cafeteriaUrl('api/orders');
+    const ordersUrl = form.dataset.ordersUrl || window.cafeteriaUrl('cashier/orders');
+
+    const total = () => cart.subtotal() + (orderType?.value === 'delivery' ? deliveryFee : 0);
 
     const syncDeliveryFields = () => {
         const isDelivery = orderType?.value === 'delivery';
         if (deliveryFields) deliveryFields.hidden = !isDelivery;
-        if (deliveryAddress) deliveryAddress.required = isDelivery;
+        if (deliveryAddress) {
+            deliveryAddress.required = isDelivery;
+            if (!isDelivery) deliveryAddress.setCustomValidity('');
+        }
         const paymentMode = window.cafeteriaPaymentMode(form, orderType?.value || 'pickup');
         if (paymentMethod) paymentMethod.value = paymentMode.value;
         if (paymentLabel) paymentLabel.value = paymentMode.label;
+        render();
     };
 
     const render = () => {
@@ -35,7 +45,9 @@
                 </div>`).join('')
             : '<div class="empty-state py-5"><i class="bi bi-cart3"></i><p>Select products to begin.</p></div>';
 
-        document.querySelector('[data-pos-total]').textContent = `₱${cart.subtotal().toFixed(2)}`;
+        const totalNode = document.querySelector('[data-pos-total]');
+        if (totalNode) totalNode.textContent = `₱${total().toFixed(2)}`;
+
         document.querySelectorAll('[data-pos-qty]').forEach((input) => input.addEventListener('change', () => {
             cart.quantity(Number(input.dataset.posQty), input.value);
             render();
@@ -74,7 +86,7 @@
 
     orderType?.addEventListener('change', syncDeliveryFields);
 
-    document.querySelector('[data-pos-submit]')?.addEventListener('click', async () => {
+    submitButton?.addEventListener('click', async () => {
         if (!cart.items.length) {
             alert('Add at least one product.');
             return;
@@ -83,29 +95,32 @@
         if (!form.reportValidity()) return;
 
         const accepted = await window.cafeteriaConfirm(
-            `Complete this ${orderType?.value === 'delivery' ? 'delivery' : 'pickup'} order totaling ₱${cart.subtotal().toFixed(2)}?`,
+            `Complete this ${orderType?.value === 'delivery' ? 'delivery' : 'pickup'} order totaling ₱${total().toFixed(2)}?`,
             { title: 'Complete order', confirmLabel: 'Complete order' },
         );
         if (!accepted) return;
 
-        const button = document.querySelector('[data-pos-submit]');
-        button.disabled = true;
+        submitButton.disabled = true;
         try {
             const payload = Object.fromEntries(new FormData(form).entries());
-            payload.items = cart.items;
-            const result = await window.cafeteriaFetch('/api/orders', {
+            payload.items = cart.items.map((line) => ({
+                product_id: Number(line.product_id),
+                quantity: Math.max(1, Number(line.quantity || 1)),
+                addons: (line.addons || []).map((addon) => Number(addon.id || addon)).filter(Boolean),
+                notes: String(line.notes || ''),
+            }));
+            const result = await window.cafeteriaFetch(orderEndpoint, {
                 method: 'POST',
                 body: JSON.stringify(payload),
             });
             cart.clear();
             alert(`Order ${result.data.order_number} created.`);
-            window.location.href = '/cashier/orders';
+            window.location.assign(result.data.redirect_url || ordersUrl);
         } catch (error) {
-            alert(error.message);
-            button.disabled = false;
+            alert(error instanceof Error ? error.message : 'Unable to create the order.');
+            submitButton.disabled = false;
         }
     });
 
     syncDeliveryFields();
-    render();
 })();

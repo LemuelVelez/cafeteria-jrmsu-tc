@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Models\SettingModel;
 use CodeIgniter\Controller;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -21,7 +22,10 @@ abstract class BaseController extends Controller
     protected function render(string $view, array $data = []): string
     {
         $data += [
-            'cafeteriaName' => (string) env('CAFETERIA_NAME', 'JRMSU-TC Cafeteria'),
+            'cafeteriaName' => (string) (new SettingModel())->getValue(
+                'cafeteria_name',
+                env('CAFETERIA_NAME', 'JRMSU-TC Cafeteria'),
+            ),
             'currentUser' => $this->session->get('user'),
         ];
         return view($view, $data);

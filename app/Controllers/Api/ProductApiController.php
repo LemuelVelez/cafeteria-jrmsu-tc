@@ -4,6 +4,7 @@ namespace App\Controllers\Api;
 
 use App\Controllers\BaseController;
 use App\Models\ProductModel;
+use App\Services\MediaStorageService;
 
 class ProductApiController extends BaseController
 {
@@ -16,6 +17,11 @@ class ProductApiController extends BaseController
     {
         $payload = $this->request->getJSON(true) ?: $this->request->getRawInput();
         $model = new ProductModel();
+
+        if ($id && ! $model->find($id)) {
+            return $this->jsonError('Product not found.', null, 404);
+        }
+
         $data = [
             'category_id' => (int) ($payload['category_id'] ?? 0),
             'name' => trim((string) ($payload['name'] ?? '')),
@@ -27,12 +33,32 @@ class ProductApiController extends BaseController
             'is_featured' => (int) ($payload['is_featured'] ?? 0),
         ];
         $ok = $id ? $model->update($id, $data) : $model->insert($data);
-        return $ok ? $this->jsonSuccess('Product saved.', $id ? $model->find($id) : $model->find($model->getInsertID()), $id ? 200 : 201) : $this->jsonError('Product validation failed.', $model->errors());
+
+        return $ok
+            ? $this->jsonSuccess(
+                'Product saved.',
+                $model->find($id ?: $model->getInsertID()),
+                $id ? 200 : 201,
+            )
+            : $this->jsonError('Product validation failed.', $model->errors());
     }
 
     public function delete(int $id)
     {
-        (new ProductModel())->delete($id);
+        $model = new ProductModel();
+        $product = $model->find($id);
+        if (! $product) {
+            return $this->jsonError('Product not found.', null, 404);
+        }
+
+        if (! $model->delete($id)) {
+            return $this->jsonError('The product could not be removed.', $model->errors());
+        }
+
+        if (! empty($product['image'])) {
+            (new MediaStorageService())->delete($product['image']);
+        }
+
         return $this->jsonSuccess('Product removed.');
     }
 }

@@ -12,6 +12,7 @@ use App\Models\ProductAddonModel;
 use App\Models\ProductModel;
 use App\Models\PromoModel;
 use App\Models\PromoUsageModel;
+use App\Models\SettingModel;
 use App\Models\UserModel;
 use CodeIgniter\Database\BaseConnection;
 use Throwable;
@@ -36,12 +37,19 @@ class OrderService
         private readonly ProductModel $products = new ProductModel(),
         private readonly ProductAddonModel $addons = new ProductAddonModel(),
         private readonly PromoService $promoService = new PromoService(),
+        private readonly SettingModel $settings = new SettingModel(),
     ) {
         $this->db = db_connect();
     }
 
     public function create(array $payload, array $actor): array
     {
+        $actorRole = (string) ($actor['role'] ?? '');
+        $actorId = (int) ($actor['id'] ?? 0);
+        if (! in_array($actorRole, ['customer', 'cashier'], true) || $actorId < 1) {
+            throw new \DomainException('You are not allowed to create orders.');
+        }
+
         $cart = $payload['items'] ?? [];
         if (! is_array($cart) || $cart === []) {
             throw new \DomainException('The cart is empty.');
@@ -50,6 +58,11 @@ class OrderService
         $orderType = OrderType::tryFrom((string) ($payload['order_type'] ?? OrderType::Pickup->value));
         if (! $orderType) {
             throw new \DomainException('Invalid order type.');
+        }
+
+        $settingKey = $orderType === OrderType::Delivery ? 'delivery_enabled' : 'pickup_enabled';
+        if ((string) $this->settings->getValue($settingKey, '1') !== '1') {
+            throw new \DomainException(ucfirst($orderType->value) . ' ordering is currently unavailable.');
         }
 
         $paymentMethod = PaymentMethod::forOrderType($orderType);
@@ -62,8 +75,8 @@ class OrderService
             throw new \DomainException('A delivery address is required.');
         }
 
-        $customerId = $actor['role'] === 'customer' ? (int) $actor['id'] : (int) ($payload['customer_id'] ?? 0);
-        if ($actor['role'] === 'cashier' && $customerId > 0) {
+        $customerId = $actorRole === 'customer' ? $actorId : (int) ($payload['customer_id'] ?? 0);
+        if ($actorRole === 'cashier' && $customerId > 0) {
             $customer = (new UserModel())->where(['id' => $customerId, 'role' => 'customer', 'status' => 'active'])->first();
             if (! $customer) {
                 throw new \DomainException('Selected customer is not active.');
@@ -125,13 +138,15 @@ class OrderService
                 $discount = (float) $promoResult['discount'];
             }
 
-            $deliveryFee = $orderType === OrderType::Delivery ? (float) env('CAFETERIA_DELIVERY_FEE', 40) : 0.0;
+            $deliveryFee = $orderType === OrderType::Delivery
+                ? (float) $this->settings->getValue('delivery_fee', env('CAFETERIA_DELIVERY_FEE', 40))
+                : 0.0;
             $total = round(max(0, $subtotal - $discount + $deliveryFee), 2);
-            $initialStatus = $actor['role'] === 'cashier' ? 'confirmed' : 'pending';
+            $initialStatus = $actorRole === 'cashier' ? 'confirmed' : 'pending';
             $orderId = $this->orders->insert([
                 'order_number' => generate_order_number(),
                 'customer_id' => $customerId ?: null,
-                'cashier_id' => $actor['role'] === 'cashier' ? $actor['id'] : null,
+                'cashier_id' => $actorRole === 'cashier' ? $actorId : null,
                 'order_type' => $orderType->value,
                 'status' => $initialStatus,
                 'subtotal' => round($subtotal, 2),
@@ -163,32 +178,51 @@ class OrderService
                 ])) {
                     throw new \RuntimeException('Unable to save an order item.');
                 }
-                $this->db->table('products')->where('id', $product['id'])->decrement('stock', $line['quantity']);
+                if (! $this->db->table('products')->where('id', $product['id'])->decrement('stock', $line['quantity'])) {
+                    throw new \RuntimeException('Unable to update product stock.');
+                }
             }
 
-            (new PaymentModel())->insert([
+            if (! (new PaymentModel())->insert([
                 'order_id' => $orderId,
                 'method' => $paymentMethod->value,
                 'amount' => $total,
                 'status' => 'pending',
-            ]);
-            (new OrderStatusHistoryModel())->insert([
+            ])) {
+                throw new \RuntimeException('Unable to save the order payment.');
+            }
+            if (! (new OrderStatusHistoryModel())->insert([
                 'order_id' => $orderId,
-                'user_id' => $actor['id'],
+                'user_id' => $actorId,
                 'from_status' => null,
                 'to_status' => $initialStatus,
                 'note' => 'Order created.',
-            ]);
+            ])) {
+                throw new \RuntimeException('Unable to save the initial order status.');
+            }
             if ($promoId) {
-                (new PromoUsageModel())->insert(['promo_id' => $promoId, 'order_id' => $orderId, 'user_id' => $actor['id']]);
-                $this->db->table('promos')->where('id', $promoId)->increment('used_count');
+                if (! (new PromoUsageModel())->insert([
+                    'promo_id' => $promoId,
+                    'order_id' => $orderId,
+                    'user_id' => $customerId ?: $actorId,
+                ])) {
+                    throw new \RuntimeException('Unable to record promo usage.');
+                }
+                if (! $this->db->table('promos')->where('id', $promoId)->increment('used_count')) {
+                    throw new \RuntimeException('Unable to update promo usage.');
+                }
             }
 
             if (! $this->db->transStatus()) {
                 throw new \RuntimeException('Unable to create the order.');
             }
+            $order = $this->orders->find($orderId);
+            if (! $order) {
+                throw new \RuntimeException('The order was created but could not be loaded.');
+            }
             $this->db->transCommit();
-            return $this->orders->find($orderId);
+
+            return $order;
         } catch (Throwable $exception) {
             $this->db->transRollback();
             throw $exception;
@@ -222,29 +256,44 @@ class OrderService
             throw new \DomainException('A rider must be assigned before delivery starts.');
         }
 
-        $this->db->transStart();
-        $orderUpdates = ['status' => $nextStatus];
-        if ($nextStatus === 'delivered') {
-            $orderUpdates['payment_status'] = 'paid';
-        }
-        $this->orders->update($orderId, $orderUpdates);
-        if ($nextStatus === 'delivered') {
-            $this->db->table('payments')
+        $this->db->transBegin();
+        try {
+            $orderUpdates = ['status' => $nextStatus];
+            if ($nextStatus === 'delivered') {
+                $orderUpdates['payment_status'] = 'paid';
+            }
+            if (! $this->orders->update($orderId, $orderUpdates)) {
+                throw new \RuntimeException('Unable to update the order status.');
+            }
+            if ($nextStatus === 'delivered' && ! $this->db->table('payments')
                 ->where('order_id', $orderId)
-                ->update(['status' => 'paid', 'paid_at' => date('Y-m-d H:i:s')]);
+                ->update(['status' => 'paid', 'paid_at' => date('Y-m-d H:i:s')])) {
+                throw new \RuntimeException('Unable to update the payment status.');
+            }
+            if (! (new OrderStatusHistoryModel())->insert([
+                'order_id' => $orderId,
+                'user_id' => (int) ($actor['id'] ?? 0),
+                'from_status' => $order['status'],
+                'to_status' => $nextStatus,
+                'note' => mb_substr(trim((string) $note), 0, 1000) ?: null,
+            ])) {
+                throw new \RuntimeException('Unable to save the order status history.');
+            }
+            if (! $this->db->transStatus()) {
+                throw new \RuntimeException('Unable to update the order status.');
+            }
+
+            $updatedOrder = $this->orders->find($orderId);
+            if (! $updatedOrder) {
+                throw new \RuntimeException('The updated order could not be loaded.');
+            }
+            $this->db->transCommit();
+
+            return $updatedOrder;
+        } catch (Throwable $exception) {
+            $this->db->transRollback();
+            throw $exception;
         }
-        (new OrderStatusHistoryModel())->insert([
-            'order_id' => $orderId,
-            'user_id' => $actor['id'],
-            'from_status' => $order['status'],
-            'to_status' => $nextStatus,
-            'note' => mb_substr(trim((string) $note), 0, 1000) ?: null,
-        ]);
-        $this->db->transComplete();
-        if (! $this->db->transStatus()) {
-            throw new \RuntimeException('Unable to update the order status.');
-        }
-        return $this->orders->find($orderId);
     }
 
     public function assignRider(int $orderId, int $riderId, array $actor): array
@@ -269,6 +318,11 @@ class OrderService
             throw new \RuntimeException('Unable to assign the rider.');
         }
 
-        return $this->orders->find($orderId);
+        $updatedOrder = $this->orders->find($orderId);
+        if (! $updatedOrder) {
+            throw new \RuntimeException('The updated order could not be loaded.');
+        }
+
+        return $updatedOrder;
     }
 }

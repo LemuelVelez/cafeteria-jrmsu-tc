@@ -1,6 +1,11 @@
 <?= $this->extend('layouts/main') ?>
 <?= $this->section('content') ?>
-<?php $paymentModes = payment_modes(); ?>
+<?php
+$paymentModes = payment_modes();
+$orderingEnabled = $pickupEnabled || $deliveryEnabled;
+$defaultOrderType = $pickupEnabled ? 'pickup' : 'delivery';
+$defaultPaymentMode = $paymentModes[$defaultOrderType];
+?>
 <section class="checkout-page" aria-labelledby="checkout-title">
     <div class="mb-4">
         <span class="page-eyebrow"><i class="bi bi-bag-check" aria-hidden="true"></i>Review and place order</span>
@@ -46,15 +51,16 @@
                     <div class="row g-4">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" for="checkout-order-type">Order type</label>
-                            <select class="form-select" id="checkout-order-type" name="order_type" data-order-type required>
-                                <option value="pickup">Pickup</option>
-                                <option value="delivery">Delivery</option>
+                            <select class="form-select" id="checkout-order-type" name="order_type" data-order-type required <?= $orderingEnabled ? '' : 'disabled' ?>>
+                                <?php if ($pickupEnabled): ?><option value="pickup">Pickup</option><?php endif; ?>
+                                <?php if ($deliveryEnabled): ?><option value="delivery">Delivery</option><?php endif; ?>
+                                <?php if (! $orderingEnabled): ?><option value="">Ordering unavailable</option><?php endif; ?>
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" for="checkout-payment-label">Payment mode</label>
-                            <input class="form-control" id="checkout-payment-label" data-payment-label value="<?= esc($paymentModes['pickup']['label']) ?>" readonly>
-                            <input type="hidden" name="payment_method" data-payment-method value="<?= esc($paymentModes['pickup']['value'], 'attr') ?>">
+                            <input class="form-control" id="checkout-payment-label" data-payment-label value="<?= esc($defaultPaymentMode['label']) ?>" readonly>
+                            <input type="hidden" name="payment_method" data-payment-method value="<?= esc($defaultPaymentMode['value'], 'attr') ?>">
                         </div>
                         <div class="col-12" data-delivery-fields hidden>
                             <label class="form-label fw-semibold" for="checkout-delivery-address">Delivery address</label>
@@ -103,13 +109,16 @@
 
                 <div class="alert alert-danger checkout-error" role="alert" data-checkout-error hidden></div>
 
-                <button class="btn btn-primary btn-lg w-100 mt-3" type="submit" data-checkout-submit>
+                <?php if (! $orderingEnabled): ?>
+                    <div class="alert alert-warning mt-3 mb-0">Pickup and delivery ordering are currently unavailable.</div>
+                <?php endif; ?>
+                <button class="btn btn-primary btn-lg w-100 mt-3" type="submit" data-checkout-submit <?= $orderingEnabled ? '' : 'disabled' ?>>
                     <i class="bi bi-bag-check" aria-hidden="true"></i>
                     <span data-checkout-submit-label>Place order</span>
                 </button>
                 <div class="small text-secondary mt-3">
                     <i class="bi bi-cash-coin me-1" aria-hidden="true"></i>
-                    <span data-payment-summary><?= esc($paymentModes['pickup']['label']) ?></span>
+                    <span data-payment-summary><?= esc($defaultPaymentMode['label']) ?></span>
                 </div>
             </aside>
         </div>
