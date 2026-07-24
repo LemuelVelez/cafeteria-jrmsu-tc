@@ -75,10 +75,39 @@ $nav = static function (array $items, string $path): string {
         </div>
         <div class="topbar-actions">
             <?php if ($role === 'customer'): ?>
-                <a class="topbar-icon-button position-relative" href="<?= base_url('customer/cart') ?>" aria-label="Open cart">
-                    <i class="bi bi-basket2" aria-hidden="true"></i>
-                    <span class="cart-count-badge" data-cart-count hidden>0</span>
-                </a>
+                <div class="cart-hover-preview">
+                    <a
+                        class="topbar-icon-button position-relative"
+                        href="<?= base_url('customer/cart') ?>"
+                        aria-label="Open cart"
+                        aria-controls="desktopCartPreview"
+                        aria-expanded="false"
+                        data-cart-preview-trigger
+                    >
+                        <i class="bi bi-basket2" aria-hidden="true"></i>
+                        <span class="cart-count-badge" data-cart-count hidden>0</span>
+                    </a>
+                    <section class="cart-preview-panel" id="desktopCartPreview" aria-label="Cart preview" data-cart-preview>
+                        <div class="cart-preview-header">
+                            <div>
+                                <div class="cart-preview-eyebrow">Your order</div>
+                                <h2 class="cart-preview-title">Cart preview</h2>
+                            </div>
+                            <span class="cart-preview-count" data-cart-preview-count>0 items</span>
+                        </div>
+                        <div class="cart-preview-items" data-cart-preview-items></div>
+                        <div class="cart-preview-footer">
+                            <div class="cart-preview-subtotal">
+                                <span>Subtotal</span>
+                                <strong data-cart-preview-subtotal>₱0.00</strong>
+                            </div>
+                            <a class="btn btn-primary w-100" href="<?= base_url('customer/cart') ?>">
+                                <i class="bi bi-bag-check" aria-hidden="true"></i>
+                                <span>View cart</span>
+                            </a>
+                        </div>
+                    </section>
+                </div>
             <?php endif; ?>
             <span class="topbar-date"><i class="bi bi-calendar3" aria-hidden="true"></i><?= date('M j, Y') ?></span>
         </div>

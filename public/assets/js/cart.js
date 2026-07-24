@@ -6,7 +6,11 @@
             this.key = key;
             this.items = JSON.parse(localStorage.getItem(key) || '[]');
         }
-        save() { localStorage.setItem(this.key, JSON.stringify(this.items)); this.updateBadges(); }
+        save() {
+            localStorage.setItem(this.key, JSON.stringify(this.items));
+            this.updateBadges();
+            window.dispatchEvent(new CustomEvent('jrmsu:cart-updated'));
+        }
         add(item) {
             const signature = JSON.stringify(item.addons || []);
             const found = this.items.find((line) => line.product_id === item.product_id && JSON.stringify(line.addons || []) === signature);
@@ -27,6 +31,82 @@
     const cart = new CartStore(document.body.dataset.cartKey || 'jrmsu-cafeteria-cart');
     window.jrmsuCart = cart;
     cart.updateBadges();
+
+    const cartPreview = document.querySelector('[data-cart-preview]');
+    const cartPreviewTrigger = document.querySelector('[data-cart-preview-trigger]');
+    const cartPreviewItems = document.querySelector('[data-cart-preview-items]');
+    const cartPreviewCount = document.querySelector('[data-cart-preview-count]');
+    const cartPreviewSubtotal = document.querySelector('[data-cart-preview-subtotal]');
+
+    const renderCartPreview = () => {
+        if (!cartPreview || !cartPreviewItems) return;
+
+        const itemCount = cart.items.reduce((sum, line) => sum + Number(line.quantity), 0);
+        if (cartPreviewCount) {
+            cartPreviewCount.textContent = `${itemCount} ${itemCount === 1 ? 'item' : 'items'}`;
+        }
+        if (cartPreviewSubtotal) {
+            cartPreviewSubtotal.textContent = `₱${cart.subtotal().toFixed(2)}`;
+        }
+
+        if (!cart.items.length) {
+            cartPreviewItems.innerHTML = `
+                <div class="cart-preview-empty">
+                    <span class="cart-preview-empty-icon" aria-hidden="true"><i class="bi bi-basket2"></i></span>
+                    <strong>Your cart is empty</strong>
+                    <span>Add meals or drinks to see them here.</span>
+                </div>`;
+            return;
+        }
+
+        const visibleItems = cart.items.slice(0, 3);
+        const itemMarkup = visibleItems.map((line) => {
+            const quantity = Number(line.quantity);
+            const unitPrice = Number(line.price) + Number(line.addon_total || 0);
+            const lineTotal = unitPrice * quantity;
+            const addons = (line.addons || []).map((addon) => addon.name).filter(Boolean);
+            const meta = addons.length
+                ? `${quantity} × ${addons.join(', ')}`
+                : `${quantity} × Standard`;
+
+            return `
+                <article class="cart-preview-item">
+                    <span class="cart-preview-item-icon" aria-hidden="true"><i class="bi bi-cup-hot"></i></span>
+                    <div class="cart-preview-item-copy">
+                        <h3 class="cart-preview-item-name">${escapeHtml(line.name)}</h3>
+                        <div class="cart-preview-item-meta">${escapeHtml(meta)}</div>
+                    </div>
+                    <strong class="cart-preview-item-price">₱${lineTotal.toFixed(2)}</strong>
+                </article>`;
+        }).join('');
+        const remaining = cart.items.length - visibleItems.length;
+        cartPreviewItems.innerHTML = itemMarkup + (remaining > 0
+            ? `<div class="cart-preview-more">+${remaining} more ${remaining === 1 ? 'item' : 'items'} in your cart</div>`
+            : '');
+    };
+
+    if (cartPreview && cartPreviewTrigger) {
+        const setPreviewState = (open) => {
+            cartPreview.classList.toggle('is-open', open);
+            cartPreviewTrigger.setAttribute('aria-expanded', String(open));
+        };
+
+        const previewContainer = cartPreview.closest('.cart-hover-preview');
+        previewContainer?.addEventListener('pointerenter', () => setPreviewState(true));
+        previewContainer?.addEventListener('pointerleave', () => setPreviewState(false));
+        previewContainer?.addEventListener('focusin', () => setPreviewState(true));
+        previewContainer?.addEventListener('focusout', (event) => {
+            if (!previewContainer.contains(event.relatedTarget)) setPreviewState(false);
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape' || !cartPreview.classList.contains('is-open')) return;
+            setPreviewState(false);
+            cartPreviewTrigger.focus();
+        });
+    }
+
+    window.addEventListener('jrmsu:cart-updated', renderCartPreview);
+    renderCartPreview();
 
     document.querySelectorAll('[data-add-product]').forEach((button) => {
         button.addEventListener('click', () => {
