@@ -52,19 +52,31 @@
             cartRows.innerHTML = '<div class="empty-state"><i class="bi bi-basket"></i><h5>Your cart is empty</h5><p>Add something delicious from the menu.</p><a class="btn btn-primary" href="/customer/menu">Browse menu</a></div>';
         } else {
             cartRows.innerHTML = cart.items.map((line, index) => `
-                <div class="d-flex gap-3 py-3 border-bottom align-items-start">
-                    <div class="flex-grow-1">
+                <div class="cart-line py-3 border-bottom">
+                    <div class="cart-line-main">
                         <h6 class="mb-1">${escapeHtml(line.name)}</h6>
                         <div class="small text-secondary">${(line.addons || []).map((a) => escapeHtml(a.name)).join(', ') || 'Standard'}</div>
                         <div class="price mt-1">₱${((Number(line.price) + Number(line.addon_total || 0)) * Number(line.quantity)).toFixed(2)}</div>
                     </div>
-                    <input class="form-control form-control-sm" style="width:76px" type="number" min="1" value="${line.quantity}" data-cart-qty="${index}">
-                    <button class="btn btn-sm btn-outline-danger" type="button" data-cart-remove="${index}" aria-label="Remove"><i class="bi bi-trash"></i></button>
+                    <input class="form-control form-control-sm cart-line-quantity" type="number" min="1" value="${line.quantity}" data-cart-qty="${index}" aria-label="Quantity for ${escapeHtml(line.name)}">
+                    <button class="btn btn-sm btn-outline-danger cart-line-remove" type="button" data-cart-remove="${index}" aria-label="Remove ${escapeHtml(line.name)}"><i class="bi bi-trash"></i></button>
                 </div>`).join('');
         }
         document.querySelectorAll('[data-cart-subtotal]').forEach((node) => node.textContent = `₱${cart.subtotal().toFixed(2)}`);
         document.querySelectorAll('[data-cart-qty]').forEach((input) => input.addEventListener('change', () => { cart.quantity(Number(input.dataset.cartQty), input.value); render(); }));
-        document.querySelectorAll('[data-cart-remove]').forEach((button) => button.addEventListener('click', () => { cart.remove(Number(button.dataset.cartRemove)); render(); }));
+        document.querySelectorAll('[data-cart-remove]').forEach((button) => button.addEventListener('click', async () => {
+            const index = Number(button.dataset.cartRemove);
+            const line = cart.items[index];
+            if (!line) return;
+            const accepted = await window.cafeteriaConfirm(`Remove ${line.name} from your cart?`, {
+                title: 'Remove cart item',
+                confirmLabel: 'Remove',
+                confirmClass: 'btn-danger',
+            });
+            if (!accepted) return;
+            cart.remove(index);
+            render();
+        }));
     };
 
     const checkoutForm = document.querySelector('[data-checkout-form]');
@@ -94,6 +106,14 @@
         checkoutForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             if (!cart.items.length) return alert('Your cart is empty.');
+            const orderLabel = orderType.value === 'delivery' ? 'delivery' : 'pickup';
+            const fee = orderType.value === 'delivery' ? deliveryFee : 0;
+            const accepted = await window.cafeteriaConfirm(
+                `Place this ${orderLabel} order totaling ₱${(cart.subtotal() + fee).toFixed(2)}?`,
+                { title: 'Place order', confirmLabel: 'Place order' },
+            );
+            if (!accepted) return;
+
             const submit = checkoutForm.querySelector('[type="submit"]');
             submit.disabled = true;
             try {

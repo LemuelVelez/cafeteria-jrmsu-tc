@@ -178,15 +178,125 @@
         return data;
     };
 
+    const confirmationOptions = (source = null) => {
+        const message = source?.dataset.confirm || 'Continue with this action?';
+        const isDangerous = /delete|remove|cancel|ban|sign out|log out|deactivate/i.test(message);
+        return {
+            title: source?.dataset.confirmTitle || 'Please confirm',
+            confirmLabel: source?.dataset.confirmLabel || (isDangerous ? 'Confirm' : 'Continue'),
+            confirmClass: source?.dataset.confirmClass || (isDangerous ? 'btn-danger' : 'btn-primary'),
+        };
+    };
+
+    const getConfirmationDialog = () => {
+        let element = document.getElementById('confirmationDialog');
+        if (!element) {
+            element = document.createElement('dialog');
+            element.className = 'confirmation-dialog';
+            element.id = 'confirmationDialog';
+            element.setAttribute('aria-labelledby', 'confirmationDialogTitle');
+            element.setAttribute('aria-describedby', 'confirmationDialogMessage');
+            element.innerHTML = `
+                <div class="confirmation-dialog-panel">
+                    <div class="confirmation-dialog-header">
+                        <h2 class="h5 mb-0" id="confirmationDialogTitle">Please confirm</h2>
+                        <button class="btn-close" type="button" data-confirm-cancel aria-label="Close"></button>
+                    </div>
+                    <div class="confirmation-dialog-body">
+                        <span class="confirmation-icon" aria-hidden="true"><i class="bi bi-exclamation-lg"></i></span>
+                        <p class="mb-0" id="confirmationDialogMessage"></p>
+                    </div>
+                    <div class="confirmation-dialog-footer">
+                        <button class="btn btn-light" type="button" data-confirm-cancel>Cancel</button>
+                        <button class="btn btn-primary" type="button" data-confirm-accept>Continue</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(element);
+        }
+
+        return element;
+    };
+
+    window.cafeteriaConfirm = (message = 'Continue with this action?', options = {}) => new Promise((resolve) => {
+        const element = getConfirmationDialog();
+        if (typeof element.showModal !== 'function') {
+            resolve(window.confirm(message));
+            return;
+        }
+
+        if (element.open) {
+            resolve(false);
+            return;
+        }
+
+        const host = document.querySelector('.modal.show, .offcanvas.show') || document.body;
+        if (element.parentElement !== host) host.appendChild(element);
+
+        const title = element.querySelector('#confirmationDialogTitle');
+        const messageNode = element.querySelector('#confirmationDialogMessage');
+        const acceptButton = element.querySelector('[data-confirm-accept]');
+        const cancelButtons = element.querySelectorAll('[data-confirm-cancel]');
+        const icon = element.querySelector('.confirmation-icon');
+        let settled = false;
+
+        title.textContent = options.title || 'Please confirm';
+        messageNode.textContent = message;
+        acceptButton.textContent = options.confirmLabel || 'Continue';
+        acceptButton.className = `btn ${options.confirmClass || 'btn-primary'}`;
+        icon.classList.toggle('is-danger', (options.confirmClass || '').includes('danger'));
+
+        const finish = (accepted) => {
+            if (settled) return;
+            settled = true;
+            resolve(accepted);
+        };
+        const closeDialog = (value) => {
+            if (element.open) element.close(value);
+        };
+
+        acceptButton.onclick = () => closeDialog('confirm');
+        cancelButtons.forEach((button) => { button.onclick = () => closeDialog('cancel'); });
+        element.oncancel = (event) => {
+            event.preventDefault();
+            closeDialog('cancel');
+        };
+        element.onclose = () => {
+            finish(element.returnValue === 'confirm');
+            acceptButton.onclick = null;
+            cancelButtons.forEach((button) => { button.onclick = null; });
+            element.oncancel = null;
+            element.onclose = null;
+            if (element.parentElement !== document.body) document.body.appendChild(element);
+        };
+
+        element.showModal();
+        acceptButton.focus();
+    });
+
     enhanceFormFields();
     enhancePasswordFields();
     enhanceButtons();
     enhanceResponsiveTables();
 
-    document.querySelectorAll('[data-confirm]').forEach((form) => {
-        form.addEventListener('submit', (event) => {
-            if (!window.confirm(form.dataset.confirm || 'Continue with this action?')) event.preventDefault();
-        });
+    document.addEventListener('submit', async (event) => {
+        const form = event.target.closest('form[data-confirm]');
+        if (!form) return;
+        if (form.dataset.confirmBypass === 'true') {
+            delete form.dataset.confirmBypass;
+            return;
+        }
+
+        event.preventDefault();
+        const source = event.submitter || form;
+        const accepted = await window.cafeteriaConfirm(
+            source.dataset.confirm || form.dataset.confirm || 'Continue with this action?',
+            confirmationOptions(source.dataset.confirm ? source : form),
+        );
+        if (!accepted) return;
+
+        form.dataset.confirmBypass = 'true';
+        if (event.submitter && !event.submitter.disabled) form.requestSubmit(event.submitter);
+        else form.requestSubmit();
     });
 
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => new bootstrap.Tooltip(element));

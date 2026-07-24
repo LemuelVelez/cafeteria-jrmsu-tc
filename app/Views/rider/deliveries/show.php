@@ -80,13 +80,13 @@
         <div class="surface-card p-4 cart-sticky">
             <h2 class="h5 section-title fw-bold">Update delivery</h2>
             <p class="text-secondary small">Status changes are validated by the backend and cannot skip required steps.</p>
-            <form action="<?= base_url('rider/deliveries/' . $order['id'] . '/status') ?>" method="post">
+            <form action="<?= base_url('rider/deliveries/' . $order['id'] . '/status') ?>" method="post" data-confirm="Update this delivery status?" data-confirm-title="Update delivery" data-confirm-label="Update">
                 <?= csrf_field() ?>
                 <div class="d-grid gap-2">
-                    <button class="btn btn-dark btn-lg" name="status" value="out_for_delivery" <?= $order['status'] !== 'ready' ? 'disabled' : '' ?>>
+                    <button class="btn btn-dark btn-lg" name="status" value="out_for_delivery" data-confirm="Mark this order as out for delivery?" data-confirm-title="Start delivery" data-confirm-label="Start delivery" <?= $order['status'] !== 'ready' ? 'disabled' : '' ?>>
                         <i class="bi bi-bicycle me-1"></i>Out for delivery
                     </button>
-                    <button class="btn btn-success btn-lg" name="status" value="delivered" <?= $order['status'] !== 'out_for_delivery' ? 'disabled' : '' ?>>
+                    <button class="btn btn-success btn-lg" name="status" value="delivered" data-confirm="Mark this order as delivered?" data-confirm-title="Complete delivery" data-confirm-label="Mark delivered" <?= $order['status'] !== 'out_for_delivery' ? 'disabled' : '' ?>>
                         <i class="bi bi-check2-circle me-1"></i>Delivered
                     </button>
                 </div>

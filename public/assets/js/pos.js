@@ -25,13 +25,13 @@
     const render = () => {
         rows.innerHTML = cart.items.length
             ? cart.items.map((line, index) => `
-                <div class="d-flex align-items-center gap-2 py-2 border-bottom">
-                    <div class="flex-grow-1">
+                <div class="pos-line py-2 border-bottom">
+                    <div class="pos-line-main">
                         <div class="fw-semibold">${escapeHtml(line.name)}</div>
                         <small class="text-secondary">₱${Number(line.price).toFixed(2)}</small>
                     </div>
-                    <input class="form-control form-control-sm" style="width:65px" type="number" min="1" value="${line.quantity}" data-pos-qty="${index}" aria-label="Quantity for ${escapeHtml(line.name)}">
-                    <button class="btn btn-sm btn-outline-danger" type="button" data-pos-remove="${index}" aria-label="Remove ${escapeHtml(line.name)}"><i class="bi bi-x"></i></button>
+                    <input class="form-control form-control-sm pos-line-quantity" type="number" min="1" value="${line.quantity}" data-pos-qty="${index}" aria-label="Quantity for ${escapeHtml(line.name)}">
+                    <button class="btn btn-sm btn-outline-danger pos-line-remove" type="button" data-pos-remove="${index}" aria-label="Remove ${escapeHtml(line.name)}"><i class="bi bi-x"></i></button>
                 </div>`).join('')
             : '<div class="empty-state py-5"><i class="bi bi-cart3"></i><p>Select products to begin.</p></div>';
 
@@ -40,8 +40,17 @@
             cart.quantity(Number(input.dataset.posQty), input.value);
             render();
         }));
-        document.querySelectorAll('[data-pos-remove]').forEach((button) => button.addEventListener('click', () => {
-            cart.remove(Number(button.dataset.posRemove));
+        document.querySelectorAll('[data-pos-remove]').forEach((button) => button.addEventListener('click', async () => {
+            const index = Number(button.dataset.posRemove);
+            const line = cart.items[index];
+            if (!line) return;
+            const accepted = await window.cafeteriaConfirm(`Remove ${line.name} from the current order?`, {
+                title: 'Remove order item',
+                confirmLabel: 'Remove',
+                confirmClass: 'btn-danger',
+            });
+            if (!accepted) return;
+            cart.remove(index);
             render();
         }));
     };
@@ -72,6 +81,12 @@
         }
 
         if (!form.reportValidity()) return;
+
+        const accepted = await window.cafeteriaConfirm(
+            `Complete this ${orderType?.value === 'delivery' ? 'delivery' : 'pickup'} order totaling ₱${cart.subtotal().toFixed(2)}?`,
+            { title: 'Complete order', confirmLabel: 'Complete order' },
+        );
+        if (!accepted) return;
 
         const button = document.querySelector('[data-pos-submit]');
         button.disabled = true;

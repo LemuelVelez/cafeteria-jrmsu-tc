@@ -53,12 +53,12 @@ $nav = static function (array $items, string $path): string {
             <div class="rounded-circle bg-light text-dark d-grid place-items-center fw-bold" style="width:42px;height:42px;display:grid;place-items:center;"><?= esc(strtoupper(substr($user['name'] ?? 'U', 0, 1))) ?></div>
             <div class="min-w-0"><div class="fw-semibold text-truncate"><?= esc($user['name'] ?? 'User') ?></div><small class="text-white-50 text-capitalize"><?= esc($role) ?></small></div>
         </div>
-        <form action="<?= base_url('logout') ?>" method="post"><?= csrf_field() ?><button class="btn btn-outline-light w-100" type="submit"><i class="bi bi-box-arrow-right me-2"></i>Sign out</button></form>
+        <form action="<?= base_url('logout') ?>" method="post" data-confirm="Sign out of your account?" data-confirm-title="Sign out" data-confirm-label="Sign out" data-confirm-class="btn-danger"><?= csrf_field() ?><button class="btn btn-outline-light w-100" type="submit"><i class="bi bi-box-arrow-right me-2"></i>Sign out</button></form>
     </div>
 </aside>
 <div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
     <div class="offcanvas-header border-bottom border-secondary"><div class="d-flex align-items-center gap-2"><img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.png') ?>" alt="Logo"><h5 class="offcanvas-title" id="mobileSidebarLabel">JRMSU-TC Cafeteria</h5></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
-    <div class="offcanvas-body d-flex flex-column"><nav class="app-sidebar position-static d-flex flex-column p-0 w-100" style="min-height:auto;background:transparent;"><?= $nav($items, $path) ?></nav><form class="mt-auto" action="<?= base_url('logout') ?>" method="post"><?= csrf_field() ?><button class="btn btn-outline-light w-100" type="submit">Sign out</button></form></div>
+    <div class="offcanvas-body d-flex flex-column"><nav class="app-sidebar position-static d-flex flex-column p-0 w-100" style="min-height:auto;background:transparent;"><?= $nav($items, $path) ?></nav><form class="mt-auto" action="<?= base_url('logout') ?>" method="post" data-confirm="Sign out of your account?" data-confirm-title="Sign out" data-confirm-label="Sign out" data-confirm-class="btn-danger"><?= csrf_field() ?><button class="btn btn-outline-light w-100" type="submit">Sign out</button></form></div>
 </div>
 <main class="app-main">
     <div class="app-topbar desktop-topbar px-4 align-items-center justify-content-between">
