@@ -5,13 +5,9 @@
     <h1 class="section-title fw-bold">Create your account</h1>
     <p class="text-secondary">Order, track deliveries, and review completed meals.</p>
 </div>
-<form action="<?= base_url('register') ?>" method="post" enctype="multipart/form-data" novalidate>
+<form action="<?= base_url('register') ?>" method="post" novalidate>
     <?= csrf_field() ?>
     <div class="row g-3">
-        <div class="col-12">
-            <label class="form-label fw-semibold" for="avatar">Profile photo</label>
-            <input class="form-control" id="avatar" name="avatar" type="file" accept="image/png,image/jpeg,image/webp">
-        </div>
         <div class="col-12">
             <label class="form-label fw-semibold" for="name">Full name</label>
             <input class="form-control" id="name" name="name" value="<?= old('name') ?>" autocomplete="name" required>

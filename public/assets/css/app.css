@@ -422,3 +422,34 @@ body { min-width: 0; overflow-x: clip; }
         text-align: left;
     }
 }
+
+/* Account settings */
+.settings-avatar {
+    width: clamp(96px, 10vw, 132px);
+    height: clamp(96px, 10vw, 132px);
+    flex: 0 0 auto;
+    object-fit: cover;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--border);
+    box-shadow: 0 12px 30px rgba(16,42,67,.14);
+}
+.settings-icon {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    display: grid;
+    place-items: center;
+    border-radius: .85rem;
+    background: #e8f0ff;
+    color: var(--jrmsu-blue);
+    font-size: 1.15rem;
+}
+
+@media (max-width: 575.98px) {
+    .settings-avatar {
+        width: 104px;
+        height: 104px;
+        align-self: center;
+    }
+}

@@ -4,16 +4,16 @@ $role = $user['role'] ?? 'customer';
 $path = service('uri')->getPath();
 $menus = [
     'admin' => [
-        ['/admin/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/admin/products', 'bi-cup-hot', 'Products'], ['/admin/categories', 'bi-tags', 'Categories'], ['/admin/orders', 'bi-receipt', 'Orders'], ['/admin/users', 'bi-person-gear', 'Users'], ['/admin/customers', 'bi-people', 'Customers'], ['/admin/riders', 'bi-bicycle', 'Riders'], ['/admin/promos', 'bi-ticket-perforated', 'Promotions'], ['/admin/reports', 'bi-bar-chart', 'Reports'], ['/admin/settings', 'bi-gear', 'Settings'],
+        ['/admin/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/admin/products', 'bi-cup-hot', 'Products'], ['/admin/categories', 'bi-tags', 'Categories'], ['/admin/orders', 'bi-receipt', 'Orders'], ['/admin/users', 'bi-person-gear', 'Users'], ['/admin/customers', 'bi-people', 'Customers'], ['/admin/riders', 'bi-bicycle', 'Riders'], ['/admin/promos', 'bi-ticket-perforated', 'Promotions'], ['/admin/reports', 'bi-bar-chart', 'Reports'], ['/admin/settings', 'bi-sliders', 'Cafeteria settings'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'cashier' => [
-        ['/cashier/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/cashier/pos', 'bi-calculator', 'Point of Sale'], ['/cashier/orders', 'bi-receipt', 'Orders'],
+        ['/cashier/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/cashier/pos', 'bi-calculator', 'Point of Sale'], ['/cashier/orders', 'bi-receipt', 'Orders'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'customer' => [
-        ['/customer/dashboard', 'bi-house', 'Dashboard'], ['/customer/menu', 'bi-cup-straw', 'Menu'], ['/customer/cart', 'bi-basket', 'Cart'], ['/customer/orders', 'bi-bag-check', 'My Orders'], ['/customer/reviews', 'bi-star', 'Reviews'],
+        ['/customer/dashboard', 'bi-house', 'Dashboard'], ['/customer/menu', 'bi-cup-straw', 'Menu'], ['/customer/cart', 'bi-basket', 'Cart'], ['/customer/orders', 'bi-bag-check', 'My Orders'], ['/customer/reviews', 'bi-star', 'Reviews'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'rider' => [
-        ['/rider/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/rider/deliveries', 'bi-geo-alt', 'Deliveries'],
+        ['/rider/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/rider/deliveries', 'bi-geo-alt', 'Deliveries'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
 ];
 $items = $menus[$role] ?? [];

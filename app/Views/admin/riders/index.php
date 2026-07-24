@@ -53,17 +53,13 @@
 </div>
 <div class="modal fade" id="riderModal" tabindex="-1" aria-labelledby="riderModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <form class="modal-content" action="<?= base_url('admin/riders') ?>" method="post" enctype="multipart/form-data" data-confirm="Create this rider account?" data-confirm-title="Create rider" data-confirm-label="Create">
+        <form class="modal-content" action="<?= base_url('admin/riders') ?>" method="post" data-confirm="Create this rider account?" data-confirm-title="Create rider" data-confirm-label="Create">
             <?= csrf_field() ?>
             <div class="modal-header">
                 <h2 class="modal-title h5" id="riderModalLabel">New rider account</h2>
                 <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label" for="riderAvatar">Profile photo</label>
-                    <input class="form-control" id="riderAvatar" name="avatar" type="file" accept="image/png,image/jpeg,image/webp">
-                </div>
                 <div class="mb-3">
                     <label class="form-label" for="riderName">Full name</label>
                     <input class="form-control" id="riderName" name="name" value="<?= old('name') ?>" required>

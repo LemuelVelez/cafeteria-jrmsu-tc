@@ -4,8 +4,6 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
-use App\Services\MediaStorageService;
-use Throwable;
 
 class RiderController extends BaseController
 {
@@ -26,39 +24,20 @@ class RiderController extends BaseController
             return redirect()->back()->withInput()->with('error', 'That email address is already registered.');
         }
 
-        $avatarPath = null;
-        $avatar = $this->request->getFile('avatar');
-        $media = new MediaStorageService();
-        if ($avatar && $avatar->getError() !== UPLOAD_ERR_NO_FILE) {
-            $maxKb = (int) env('UPLOAD_MAX_SIZE_MB', 5) * 1024;
-            if (! $avatar->isValid() || $avatar->hasMoved() || ! $this->validate(['avatar' => "is_image[avatar]|mime_in[avatar,image/png,image/jpeg,image/webp]|max_size[avatar,{$maxKb}]|max_dims[avatar,2400,2400]"])) {
-                return redirect()->back()->withInput()->with('errors', $this->validator?->getErrors() ?: ['avatar' => 'The avatar image is invalid.']);
-            }
-
-            try {
-                $avatarPath = $media->store($avatar, 'avatars');
-            } catch (Throwable $exception) {
-                log_message('error', 'Rider avatar upload failed: {message}', ['message' => $exception->getMessage()]);
-                return redirect()->back()->withInput()->with('error', 'The avatar could not be uploaded. Check the media storage configuration.');
-            }
-        }
-
         $data = [
             'name' => trim((string) $this->request->getPost('name')),
             'email' => $email,
             'phone' => trim((string) $this->request->getPost('phone')),
-            'avatar' => $avatarPath,
             'password_hash' => password_hash((string) $this->request->getPost('password'), PASSWORD_DEFAULT),
             'role' => 'rider',
             'status' => 'active',
         ];
 
         if (! $model->insert($data)) {
-            $media->delete($avatarPath);
             return redirect()->back()->withInput()->with('errors', $model->errors());
         }
 
-        return redirect()->back()->with('success', 'Rider account created.');
+        return redirect()->back()->with('success', 'Rider account created. The rider can add a profile photo in My settings.');
     }
 
     public function status(int $id)

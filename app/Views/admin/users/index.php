@@ -64,17 +64,13 @@
 </div>
 <div class="modal fade" id="adminModal" tabindex="-1" aria-labelledby="adminModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <form class="modal-content" action="<?= base_url('admin/users') ?>" method="post" enctype="multipart/form-data" data-confirm="Create this administrator account?" data-confirm-title="Create administrator" data-confirm-label="Create">
+        <form class="modal-content" action="<?= base_url('admin/users') ?>" method="post" data-confirm="Create this administrator account?" data-confirm-title="Create administrator" data-confirm-label="Create">
             <?= csrf_field() ?>
             <div class="modal-header">
                 <h2 class="modal-title h5" id="adminModalLabel">New administrator account</h2>
                 <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label" for="adminAvatar">Profile photo</label>
-                    <input class="form-control" id="adminAvatar" name="avatar" type="file" accept="image/png,image/jpeg,image/webp">
-                </div>
                 <div class="mb-3">
                     <label class="form-label" for="adminName">Full name</label>
                     <input class="form-control" id="adminName" name="name" value="<?= old('name') ?>" required>

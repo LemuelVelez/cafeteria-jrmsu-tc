@@ -19,6 +19,13 @@ $routes->group('', ['filter' => 'guest'], static function (RouteCollection $rout
 });
 $routes->post('logout', 'Auth\\LogoutController::__invoke', ['filter' => 'auth']);
 
+$routes->group('settings', ['filter' => ['auth', 'active']], static function (RouteCollection $routes): void {
+    $routes->get('', 'Account\\SettingController::index');
+    $routes->post('profile', 'Account\\SettingController::saveProfile');
+    $routes->post('password', 'Account\\SettingController::savePassword');
+    $routes->post('avatar/remove', 'Account\\SettingController::removeAvatar');
+});
+
 $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static function (RouteCollection $routes): void {
     $routes->get('dashboard', 'Admin\\DashboardController::index');
     $routes->get('products', 'Admin\\ProductController::index');
