@@ -12,7 +12,7 @@ use Psr\Log\LoggerInterface;
 abstract class BaseController extends Controller
 {
     protected RequestInterface|IncomingRequest|CLIRequest $request;
-    protected array $helpers = ['cafeteria', 'form', 'url'];
+    protected $helpers = ['cafeteria', 'form', 'url'];
     protected $session;
 
     public function initController(RequestInterface $request, ResponseInterface $response, LoggerInterface $logger): void
