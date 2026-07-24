@@ -52,6 +52,7 @@
                     data-product-id="<?= $product['id'] ?>"
                     data-product-name="<?= esc($product['name'], 'attr') ?>"
                     data-product-price="<?= $product['price'] ?>"
+                    data-product-image="<?= esc($product['image'] ? media_url($product['image']) : base_url('assets/img/jrmsu-cafeteria-logo.png'), 'attr') ?>"
                 >
                     <div class="product-media">
                         <?php if ($product['image']): ?>

@@ -29,6 +29,29 @@
     }
 
     const cart = new CartStore(document.body.dataset.cartKey || 'jrmsu-cafeteria-cart');
+    const productImagesData = document.querySelector('[data-cart-product-images]');
+
+    if (productImagesData) {
+        try {
+            const productImages = JSON.parse(productImagesData.textContent || '{}');
+            let updated = false;
+
+            cart.items.forEach((line) => {
+                const image = productImages[String(line.product_id)];
+                if (image && line.image !== image) {
+                    line.image = image;
+                    updated = true;
+                }
+            });
+
+            if (updated) {
+                localStorage.setItem(cart.key, JSON.stringify(cart.items));
+            }
+        } catch (error) {
+            console.warn('Unable to load cart product images.', error);
+        }
+    }
+
     window.jrmsuCart = cart;
     cart.updateBadges();
 
@@ -71,7 +94,7 @@
 
             return `
                 <article class="cart-preview-item">
-                    <span class="cart-preview-item-icon" aria-hidden="true"><i class="bi bi-cup-hot"></i></span>
+                    ${renderProductMedia(line, 'cart-preview-item-image', 'cart-preview-item-icon')}
                     <div class="cart-preview-item-copy">
                         <h3 class="cart-preview-item-name">${escapeHtml(line.name)}</h3>
                         <div class="cart-preview-item-meta">${escapeHtml(meta)}</div>
@@ -116,6 +139,7 @@
                 product_id: Number(card.dataset.productId),
                 name: card.dataset.productName,
                 price: Number(card.dataset.productPrice),
+                image: card.dataset.productImage || '',
                 quantity: Number(card.querySelector('[data-quantity]')?.value || 1),
                 addons,
                 addon_total: addons.reduce((sum, addon) => sum + addon.price, 0),
@@ -159,7 +183,7 @@
 
                 return `
                     <article class="cart-line">
-                        <span class="cart-line-icon" aria-hidden="true"><i class="bi bi-cup-hot"></i></span>
+                        ${renderProductMedia(line, 'cart-line-image', 'cart-line-icon')}
                         <div class="cart-line-main">
                             <div class="cart-line-title-row">
                                 <h3 class="cart-line-title">${escapeHtml(line.name)}</h3>
@@ -276,6 +300,15 @@
     }
 
     render();
+
+    function renderProductMedia(line, imageClass, placeholderClass) {
+        const image = String(line.image || '').trim();
+        if (image) {
+            return `<img class="${imageClass}" src="${escapeHtml(image)}" alt="">`;
+        }
+
+        return `<span class="${placeholderClass}" aria-hidden="true"><i class="bi bi-image"></i></span>`;
+    }
 
     function escapeHtml(value) {
         return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
