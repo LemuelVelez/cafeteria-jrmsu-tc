@@ -4,7 +4,14 @@
     class CartStore {
         constructor(key = 'jrmsu-cafeteria-cart') {
             this.key = key;
-            this.items = JSON.parse(localStorage.getItem(key) || '[]');
+            try {
+                const storedItems = JSON.parse(localStorage.getItem(key) || '[]');
+                this.items = Array.isArray(storedItems) ? storedItems : [];
+            } catch (error) {
+                console.warn('Unable to read the saved cart. The invalid cart data was cleared.', error);
+                this.items = [];
+                localStorage.removeItem(key);
+            }
         }
         save() {
             localStorage.setItem(this.key, JSON.stringify(this.items));
@@ -252,49 +259,162 @@
     const checkoutForm = document.querySelector('[data-checkout-form]');
     if (checkoutForm) {
         const orderType = checkoutForm.querySelector('[name="order_type"]');
-        const deliveryFields = document.querySelector('[data-delivery-fields]');
+        const deliveryFields = checkoutForm.querySelector('[data-delivery-fields]');
         const deliveryAddress = deliveryFields?.querySelector('[name="delivery_address"]');
         const paymentMethod = checkoutForm.querySelector('[data-payment-method]');
         const paymentLabel = checkoutForm.querySelector('[data-payment-label]');
         const paymentSummary = checkoutForm.querySelector('[data-payment-summary]');
+        const itemCount = checkoutForm.querySelector('[data-checkout-item-count]');
+        const checkoutItems = checkoutForm.querySelector('[data-checkout-items]');
+        const subtotalNode = checkoutForm.querySelector('[data-cart-subtotal]');
+        const deliveryFeeNode = checkoutForm.querySelector('[data-delivery-fee]');
+        const totalNode = checkoutForm.querySelector('[data-checkout-total]');
+        const errorNode = checkoutForm.querySelector('[data-checkout-error]');
+        const submit = checkoutForm.querySelector('[data-checkout-submit]');
+        const submitLabel = checkoutForm.querySelector('[data-checkout-submit-label]');
         const deliveryFee = Number(checkoutForm.dataset.deliveryFee || 0);
-        const updateTotal = () => {
-            const isDelivery = orderType.value === 'delivery';
+        const orderEndpoint = checkoutForm.dataset.orderEndpoint || '/api/orders';
+        const ordersUrl = (checkoutForm.dataset.ordersUrl || '/customer/orders').replace(/\/$/, '');
+        const menuUrl = checkoutForm.dataset.menuUrl || '/customer/menu';
+
+        let paymentModes = {};
+        try {
+            paymentModes = JSON.parse(checkoutForm.dataset.paymentModes || '{}');
+        } catch (error) {
+            console.warn('Unable to read checkout payment modes.', error);
+        }
+
+        const paymentModeFor = (type) => paymentModes[type] || paymentModes.pickup || { value: '', label: '' };
+        const formatMoney = (amount) => `₱${Number(amount || 0).toFixed(2)}`;
+        const showError = (message = '') => {
+            if (!errorNode) return;
+            errorNode.textContent = message;
+            errorNode.hidden = !message;
+            if (message) errorNode.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        };
+        const setSubmitting = (isSubmitting) => {
+            if (!submit) return;
+            submit.disabled = isSubmitting || !cart.items.length;
+            submit.setAttribute('aria-busy', String(isSubmitting));
+            if (submitLabel) submitLabel.textContent = isSubmitting ? 'Placing order…' : 'Place order';
+        };
+        const requestJson = async (url, options) => {
+            if (typeof window.cafeteriaFetch === 'function') {
+                return window.cafeteriaFetch(url, options);
+            }
+
+            const headers = new Headers(options?.headers || {});
+            headers.set('Accept', 'application/json');
+            headers.set('Content-Type', 'application/json');
+            const csrfHash = document.querySelector('meta[name="csrf-hash"]')?.content;
+            if (csrfHash) headers.set('X-CSRF-TOKEN', csrfHash);
+
+            const response = await fetch(url, { ...options, headers });
+            const data = await response.json().catch(() => ({ success: false, message: 'Invalid server response.' }));
+            if (!response.ok || data.success === false) throw new Error(data.message || 'Unable to place the order.');
+            return data;
+        };
+        const confirmOrder = (message) => {
+            if (typeof window.cafeteriaConfirm === 'function') {
+                return window.cafeteriaConfirm(message, { title: 'Place order', confirmLabel: 'Place order' });
+            }
+            return Promise.resolve(window.confirm(message));
+        };
+
+        const updateCheckout = () => {
+            const quantity = cart.items.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
+            const subtotal = cart.subtotal();
+            const isDelivery = orderType?.value === 'delivery';
             const fee = isDelivery ? deliveryFee : 0;
-            const paymentMode = window.cafeteriaPaymentMode(checkoutForm, orderType.value);
-            document.querySelector('[data-delivery-fee]').textContent = `₱${fee.toFixed(2)}`;
-            document.querySelector('[data-checkout-total]').textContent = `₱${(cart.subtotal() + fee).toFixed(2)}`;
-            deliveryFields.hidden = !isDelivery;
+            const paymentMode = paymentModeFor(orderType?.value || 'pickup');
+
+            if (itemCount) itemCount.textContent = `${quantity} ${quantity === 1 ? 'item' : 'items'} selected`;
+            if (subtotalNode) subtotalNode.textContent = formatMoney(subtotal);
+            if (deliveryFeeNode) deliveryFeeNode.textContent = formatMoney(fee);
+            if (totalNode) totalNode.textContent = formatMoney(subtotal + fee);
+            if (deliveryFields) deliveryFields.hidden = !isDelivery;
             if (deliveryAddress) deliveryAddress.required = isDelivery;
             if (paymentMethod) paymentMethod.value = paymentMode.value;
             if (paymentLabel) paymentLabel.value = paymentMode.label;
             if (paymentSummary) paymentSummary.textContent = paymentMode.label;
+
+            if (checkoutItems) {
+                if (!cart.items.length) {
+                    checkoutItems.innerHTML = `
+                        <div class="checkout-empty">
+                            <span class="checkout-empty-icon" aria-hidden="true"><i class="bi bi-basket2"></i></span>
+                            <div>
+                                <strong>Your cart is empty</strong>
+                                <p class="mb-0">Add products before placing an order.</p>
+                            </div>
+                            <a class="btn btn-primary" href="${escapeHtml(menuUrl)}">Browse menu</a>
+                        </div>`;
+                } else {
+                    checkoutItems.innerHTML = cart.items.map((line) => {
+                        const lineQuantity = Math.max(1, Number(line.quantity || 1));
+                        const unitPrice = Number(line.price || 0) + Number(line.addon_total || 0);
+                        const addons = (line.addons || []).map((addon) => addon.name).filter(Boolean);
+                        const description = addons.length ? addons.join(', ') : 'Standard';
+
+                        return `
+                            <article class="checkout-item">
+                                ${renderProductMedia(line, 'checkout-item-image', 'checkout-item-placeholder')}
+                                <div class="checkout-item-copy">
+                                    <h3>${escapeHtml(line.name || 'Product')}</h3>
+                                    <p>${escapeHtml(description)}</p>
+                                    <span>${lineQuantity} × ${formatMoney(unitPrice)}</span>
+                                </div>
+                                <strong>${formatMoney(unitPrice * lineQuantity)}</strong>
+                            </article>`;
+                    }).join('');
+                }
+            }
+
+            setSubmitting(false);
         };
-        orderType.addEventListener('change', updateTotal);
-        updateTotal();
-        render();
+
+        orderType?.addEventListener('change', () => {
+            showError();
+            updateCheckout();
+        });
+        window.addEventListener('jrmsu:cart-updated', updateCheckout);
+        updateCheckout();
+
         checkoutForm.addEventListener('submit', async (event) => {
             event.preventDefault();
-            if (!cart.items.length) return alert('Your cart is empty.');
-            const orderLabel = orderType.value === 'delivery' ? 'delivery' : 'pickup';
-            const fee = orderType.value === 'delivery' ? deliveryFee : 0;
-            const accepted = await window.cafeteriaConfirm(
-                `Place this ${orderLabel} order totaling ₱${(cart.subtotal() + fee).toFixed(2)}?`,
-                { title: 'Place order', confirmLabel: 'Place order' },
-            );
+            showError();
+
+            if (!cart.items.length) {
+                showError('Your cart is empty. Add at least one product before checking out.');
+                return;
+            }
+            if (!checkoutForm.reportValidity()) return;
+
+            const orderLabel = orderType?.value === 'delivery' ? 'delivery' : 'pickup';
+            const fee = orderType?.value === 'delivery' ? deliveryFee : 0;
+            const accepted = await confirmOrder(`Place this ${orderLabel} order totaling ${formatMoney(cart.subtotal() + fee)}?`);
             if (!accepted) return;
 
-            const submit = checkoutForm.querySelector('[type="submit"]');
-            submit.disabled = true;
+            setSubmitting(true);
             try {
                 const payload = Object.fromEntries(new FormData(checkoutForm).entries());
-                payload.items = cart.items;
-                const result = await window.cafeteriaFetch('/api/orders', { method: 'POST', body: JSON.stringify(payload) });
+                payload.items = cart.items.map((line) => ({
+                    product_id: Number(line.product_id),
+                    quantity: Math.max(1, Number(line.quantity || 1)),
+                    addons: (line.addons || []).map((addon) => Number(addon.id || addon)).filter(Boolean),
+                    notes: String(line.notes || ''),
+                }));
+
+                const result = await requestJson(orderEndpoint, { method: 'POST', body: JSON.stringify(payload) });
+                const orderId = Number(result?.data?.order_id || 0);
+                if (!orderId) throw new Error('The order was saved, but the confirmation page could not be opened.');
+
+                const redirectUrl = result.data.redirect_url || `${ordersUrl}/${orderId}`;
                 cart.clear();
-                window.location.href = `/customer/orders/${result.data.order_id}`;
+                window.location.assign(redirectUrl);
             } catch (error) {
-                alert(error.message);
-                submit.disabled = false;
+                showError(error instanceof Error ? error.message : 'Unable to place the order. Please try again.');
+                setSubmitting(false);
             }
         });
     }

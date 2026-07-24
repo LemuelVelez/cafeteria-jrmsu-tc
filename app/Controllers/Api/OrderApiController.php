@@ -6,6 +6,8 @@ use App\Controllers\BaseController;
 use App\Models\OrderItemModel;
 use App\Models\OrderModel;
 use App\Services\OrderService;
+use DomainException;
+use Throwable;
 
 class OrderApiController extends BaseController
 {
@@ -13,10 +15,24 @@ class OrderApiController extends BaseController
     {
         try {
             $payload = $this->request->getJSON(true) ?: $this->request->getPost();
-            $order = (new OrderService())->create($payload, session()->get('user'));
-            return $this->jsonSuccess('Order created successfully.', ['order_number' => $order['order_number'], 'order_id' => $order['id']], 201);
-        } catch (\Throwable $e) {
-            return $this->jsonError($e->getMessage());
+            $actor = session()->get('user');
+            if (! is_array($actor) || empty($actor['id']) || empty($actor['role'])) {
+                return $this->jsonError('Your session has expired. Sign in again before placing the order.', null, 401);
+            }
+
+            $order = (new OrderService())->create($payload, $actor);
+
+            return $this->jsonSuccess('Order created successfully.', [
+                'order_number' => $order['order_number'],
+                'order_id' => (int) $order['id'],
+                'redirect_url' => base_url('customer/orders/' . $order['id']),
+            ], 201);
+        } catch (DomainException $exception) {
+            return $this->jsonError($exception->getMessage());
+        } catch (Throwable $exception) {
+            log_message('error', 'Order checkout failed: {message}', ['message' => $exception->getMessage()]);
+
+            return $this->jsonError('The order could not be placed right now. Please try again.', null, 500);
         }
     }
 
@@ -41,8 +57,8 @@ class OrderApiController extends BaseController
             $payload = $this->request->getJSON(true) ?: $this->request->getRawInput();
             $order = (new OrderService())->updateStatus($id, (string) ($payload['status'] ?? ''), session()->get('user'), $payload['note'] ?? null);
             return $this->jsonSuccess('Order status updated.', $order);
-        } catch (\Throwable $e) {
-            return $this->jsonError($e->getMessage());
+        } catch (Throwable $exception) {
+            return $this->jsonError($exception->getMessage());
         }
     }
 
@@ -57,8 +73,8 @@ class OrderApiController extends BaseController
             );
 
             return $this->jsonSuccess('Rider assigned.', $order);
-        } catch (\Throwable $e) {
-            return $this->jsonError($e->getMessage());
+        } catch (Throwable $exception) {
+            return $this->jsonError($exception->getMessage());
         }
     }
 
