@@ -131,3 +131,7 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
     </div>
 </div>
 <?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script src="<?= base_url('assets/js/pos.js') ?>"></script>
+<?= $this->endSection() ?>
