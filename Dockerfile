@@ -30,6 +30,9 @@ RUN apt-get update \
         /etc/apache2/sites-available/*.conf \
         /etc/apache2/apache2.conf \
         /etc/apache2/conf-available/*.conf \
+    && sed -ri -e 's!Listen 80!Listen 8080!g' /etc/apache2/ports.conf \
+    && sed -ri -e 's!<VirtualHost \*:80>!<VirtualHost *:8080>!g' \
+        /etc/apache2/sites-available/*.conf \
     && printf 'ServerName localhost\n' > /etc/apache2/conf-available/servername.conf \
     && a2enconf servername \
     && rm -rf /var/lib/apt/lists/*
@@ -58,6 +61,9 @@ RUN mkdir -p \
     && chown -R www-data:www-data writable \
     && chmod -R 775 writable
 
-EXPOSE 80
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD php -r 'exit(@fsockopen("127.0.0.1", 8080) ? 0 : 1);'
 
 CMD ["apache2-foreground"]
