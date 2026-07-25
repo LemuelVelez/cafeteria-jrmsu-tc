@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use Aws\Exception\AwsException;
-use Aws\S3\S3Client;
+use Aws\S3\S3MultiRegionClient;
 use CodeIgniter\HTTP\Files\UploadedFile;
 use RuntimeException;
 use Throwable;
@@ -16,10 +16,7 @@ class MediaStorageService
     private string $bucket;
     private string $accessKeyId;
     private string $secretAccessKey;
-    private ?S3Client $s3Client = null;
-
-    /** @var array<string, true> */
-    private array $regionCheckedBuckets = [];
+    private ?S3MultiRegionClient $s3Client = null;
 
     /** @var array<string, string> */
     private array $urlCache = [];
@@ -36,11 +33,6 @@ class MediaStorageService
     {
         $directory = $this->normalizeDirectory($directory);
         $filename = bin2hex(random_bytes(16)) . '.' . $this->extensionFor($file);
-
-        if (! $this->canUseS3()) {
-            return $this->storeLocally($file, $directory, $filename);
-        }
-
         $key = implode('/', [$directory, date('Y/m'), $filename]);
         $tempName = $file->getTempName();
 
@@ -49,7 +41,6 @@ class MediaStorageService
         }
 
         try {
-            $this->ensureBucketRegion($this->bucket);
             $this->client()->putObject([
                 'Bucket' => $this->bucket,
                 'Key' => $key,
@@ -88,14 +79,13 @@ class MediaStorageService
         }
 
         [$bucket, $key] = $this->parseS3Path($path);
-        if ($bucket === '' || $key === '' || ! $this->canUseS3()) {
+        if ($bucket === '' || $key === '' || $bucket !== $this->bucket || ! $this->canUseS3()) {
             return $this->urlCache[$path] = '';
         }
 
         try {
-            $this->ensureBucketRegion($bucket);
             $command = $this->client()->getCommand('GetObject', [
-                'Bucket' => $bucket,
+                'Bucket' => $this->bucket,
                 'Key' => $key,
             ]);
             $request = $this->client()->createPresignedRequest(
@@ -116,80 +106,41 @@ class MediaStorageService
 
     public function delete(?string $path): void
     {
-        if (! $path) {
+        if (! $path || ! str_starts_with($path, 's3://') || ! $this->canUseS3()) {
             return;
         }
 
-        if (str_starts_with($path, 's3://')) {
-            if (! $this->canUseS3()) {
-                return;
-            }
-
-            [$bucket, $key] = $this->parseS3Path($path);
-            if ($bucket === '' || $key === '') {
-                return;
-            }
-
-            try {
-                $this->ensureBucketRegion($bucket);
-                $this->client()->deleteObject([
-                    'Bucket' => $bucket,
-                    'Key' => $key,
-                ]);
-            } catch (Throwable $exception) {
-                log_message('warning', 'Unable to delete S3 media {path}: {message}', [
-                    'path' => $path,
-                    'message' => $exception->getMessage(),
-                ]);
-            }
-
+        [$bucket, $key] = $this->parseS3Path($path);
+        if ($bucket === '' || $key === '' || $bucket !== $this->bucket) {
             return;
         }
 
-        if (preg_match('#^https?://#i', $path)) {
-            return;
-        }
-
-        $absolutePath = rtrim(FCPATH, DIRECTORY_SEPARATOR)
-            . DIRECTORY_SEPARATOR
-            . ltrim(str_replace('/', DIRECTORY_SEPARATOR, $path), DIRECTORY_SEPARATOR);
-
-        if (is_file($absolutePath)) {
-            @unlink($absolutePath);
+        try {
+            $this->client()->deleteObject([
+                'Bucket' => $this->bucket,
+                'Key' => $key,
+            ]);
+        } catch (Throwable $exception) {
+            log_message('warning', 'Unable to delete S3 media {path}: {message}', [
+                'path' => $path,
+                'message' => $exception->getMessage(),
+            ]);
         }
     }
 
-    private function storeLocally(UploadedFile $file, string $directory, string $filename): string
+    private function client(): S3MultiRegionClient
     {
-        $relativeDirectory = implode('/', ['uploads', $directory, date('Y/m')]);
-        $targetDirectory = rtrim(FCPATH, DIRECTORY_SEPARATOR)
-            . DIRECTORY_SEPARATOR
-            . str_replace('/', DIRECTORY_SEPARATOR, $relativeDirectory);
-
-        if (! is_dir($targetDirectory) && ! mkdir($targetDirectory, 0775, true) && ! is_dir($targetDirectory)) {
-            throw new RuntimeException('Unable to create the local media directory.');
-        }
-
-        if (! $file->move($targetDirectory, $filename)) {
-            throw new RuntimeException('Unable to save the uploaded media file.');
-        }
-
-        return $relativeDirectory . '/' . $filename;
-    }
-
-    private function client(): S3Client
-    {
-        if ($this->s3Client instanceof S3Client) {
+        if ($this->s3Client instanceof S3MultiRegionClient) {
             return $this->s3Client;
         }
 
         $this->assertS3Configured();
 
-        if (! class_exists(S3Client::class)) {
+        if (! class_exists(S3MultiRegionClient::class)) {
             throw new RuntimeException('AWS S3 support requires the aws/aws-sdk-php Composer package. Run "composer install".');
         }
 
-        return $this->s3Client = new S3Client([
+        return $this->s3Client = new S3MultiRegionClient([
             'version' => 'latest',
             'region' => $this->region,
             'credentials' => [
@@ -197,25 +148,6 @@ class MediaStorageService
                 'secret' => $this->secretAccessKey,
             ],
         ]);
-    }
-
-    private function ensureBucketRegion(string $bucket): void
-    {
-        if (isset($this->regionCheckedBuckets[$bucket])) {
-            return;
-        }
-
-        try {
-            $this->client()->headBucket(['Bucket' => $bucket]);
-        } catch (AwsException $exception) {
-            $detectedRegion = trim((string) $exception->getResponse()?->getHeaderLine('x-amz-bucket-region'));
-            if ($detectedRegion !== '' && $detectedRegion !== $this->region) {
-                $this->region = $detectedRegion;
-                $this->s3Client = null;
-            }
-        }
-
-        $this->regionCheckedBuckets[$bucket] = true;
     }
 
     private function isS3Configured(): bool
@@ -228,13 +160,15 @@ class MediaStorageService
 
     private function canUseS3(): bool
     {
-        return $this->isS3Configured() && class_exists(S3Client::class);
+        return $this->isS3Configured() && class_exists(S3MultiRegionClient::class);
     }
 
     private function assertS3Configured(): void
     {
         if (! $this->isS3Configured()) {
-            throw new RuntimeException('AWS S3 storage is not fully configured.');
+            throw new RuntimeException(
+                'AWS S3 storage requires AWS_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY.',
+            );
         }
     }
 
