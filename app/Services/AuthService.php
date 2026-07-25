@@ -31,7 +31,11 @@ class AuthService
             return false;
         }
 
-        if ((bool) ($user['requires_email_verification'] ?? false) && empty($user['email_verified_at'])) {
+        if (
+            $user['role'] === 'customer'
+            && (bool) ($user['requires_email_verification'] ?? false)
+            && empty($user['email_verified_at'])
+        ) {
             $this->failureReason = 'email_verification_required';
             return false;
         }

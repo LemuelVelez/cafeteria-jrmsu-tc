@@ -41,7 +41,13 @@ class EmailVerificationController extends BaseController
         }
 
         $user = (new UserModel())->findByEmail($email);
-        if ($user && $user['status'] === 'active' && (bool) ($user['requires_email_verification'] ?? false) && empty($user['email_verified_at'])) {
+        if (
+            $user
+            && $user['role'] === 'customer'
+            && $user['status'] === 'active'
+            && (bool) ($user['requires_email_verification'] ?? false)
+            && empty($user['email_verified_at'])
+        ) {
             try {
                 $token = (new AuthService())->issueVerificationToken($user);
                 (new AccountEmailService())->sendVerification($user, $token);
