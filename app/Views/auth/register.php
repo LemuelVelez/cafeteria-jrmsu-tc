@@ -3,7 +3,7 @@
 <div class="mb-4">
     <div class="hero-kicker mb-2">Customer registration</div>
     <h1 class="section-title fw-bold">Create your account</h1>
-    <p class="text-secondary">Order, track deliveries, and review completed meals.</p>
+    <p class="text-secondary">Order, track deliveries, and review completed meals after verifying your email.</p>
 </div>
 <form action="<?= base_url('register') ?>" method="post" novalidate>
     <?= csrf_field() ?>

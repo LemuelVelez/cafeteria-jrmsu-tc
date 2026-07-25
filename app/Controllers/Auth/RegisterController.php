@@ -4,7 +4,9 @@ namespace App\Controllers\Auth;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
+use App\Services\AccountEmailService;
 use App\Services\AuthService;
+use Throwable;
 
 class RegisterController extends BaseController
 {
@@ -36,17 +38,33 @@ class RegisterController extends BaseController
             return redirect()->to('/register')->withInput()->with('error', 'That email address is already registered.');
         }
 
-        $id = (new AuthService())->registerCustomer([
+        $registration = (new AuthService())->registerCustomer([
             'name' => $this->request->getPost('name'),
             'email' => $email,
             'phone' => $this->request->getPost('phone'),
             'address' => $this->request->getPost('address'),
             'password' => $this->request->getPost('password'),
         ]);
-        if (! $id) {
+        if (! $registration) {
             return redirect()->to('/register')->withInput()->with('error', 'Unable to create the account.');
         }
 
-        return redirect()->to('/login')->with('success', 'Account created. You may now sign in and add a profile photo in My settings.');
+        session()->setFlashdata('verification_email', $email);
+
+        try {
+            $sent = (new AccountEmailService())->sendVerification($registration['user'], $registration['token']);
+        } catch (Throwable $exception) {
+            $sent = false;
+            log_message('error', 'Initial verification email failed for user {userId}: {message}', [
+                'userId' => $registration['user']['id'],
+                'message' => $exception->getMessage(),
+            ]);
+        }
+
+        if (! $sent) {
+            return redirect()->to('/email-verification')->with('error', 'Your account was created, but the verification email could not be sent. Check the Gmail configuration, then request a new link.');
+        }
+
+        return redirect()->to('/email-verification')->with('success', 'Account created. Check your email and open the verification link before signing in.');
     }
 }

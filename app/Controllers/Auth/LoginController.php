@@ -23,9 +23,17 @@ class LoginController extends BaseController
         if (! $this->validate($rules)) {
             return redirect()->to('/login')->withInput()->with('errors', $this->validator->getErrors());
         }
-        if (! (new AuthService())->attempt((string) $this->request->getPost('email'), (string) $this->request->getPost('password'))) {
+
+        $auth = new AuthService();
+        if (! $auth->attempt((string) $this->request->getPost('email'), (string) $this->request->getPost('password'))) {
+            if ($auth->failureReason() === 'email_verification_required') {
+                session()->setFlashdata('verification_email', strtolower(trim((string) $this->request->getPost('email'))));
+                return redirect()->to('/email-verification')->with('error', 'Verify your email address before signing in.');
+            }
+
             return redirect()->to('/login')->withInput()->with('error', 'Invalid email, password, or account status.');
         }
+
         $user = session()->get('user');
         return redirect()->to(role_home($user['role']))->with('success', 'Welcome back, ' . $user['name'] . '!');
     }

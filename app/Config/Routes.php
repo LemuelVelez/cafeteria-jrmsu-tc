@@ -16,6 +16,13 @@ $routes->group('', ['filter' => 'guest'], static function (RouteCollection $rout
     $routes->post('login', 'Auth\\LoginController::store');
     $routes->get('register', 'Auth\\RegisterController::index');
     $routes->post('register', 'Auth\\RegisterController::store');
+    $routes->get('email-verification', 'Auth\\EmailVerificationController::index');
+    $routes->post('email-verification/resend', 'Auth\\EmailVerificationController::resend');
+    $routes->get('verify-email', 'Auth\\EmailVerificationController::verify');
+    $routes->get('forgot-password', 'Auth\\ForgotPasswordController::index');
+    $routes->post('forgot-password', 'Auth\\ForgotPasswordController::store');
+    $routes->get('reset-password', 'Auth\\ResetPasswordController::index');
+    $routes->post('reset-password', 'Auth\\ResetPasswordController::store');
 });
 $routes->post('logout', 'Auth\\LogoutController::__invoke', ['filter' => 'auth']);
 

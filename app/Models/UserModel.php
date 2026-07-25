@@ -6,7 +6,7 @@ class UserModel extends BaseModel
 {
     protected $table = 'users';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['name', 'email', 'phone', 'password_hash', 'role', 'status', 'address', 'avatar', 'last_login_at'];
+    protected $allowedFields = ['name', 'email', 'phone', 'password_hash', 'role', 'status', 'address', 'avatar', 'last_login_at', 'requires_email_verification', 'email_verified_at'];
     protected $validationRules = [
         'name' => 'required|min_length[2]|max_length[100]',
         'email' => 'required|valid_email|max_length[160]',

@@ -4,6 +4,8 @@ namespace App\Controllers\Account;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
+use App\Services\AccountEmailService;
+use App\Services\AuthService;
 use App\Services\MediaStorageService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use Throwable;
@@ -41,6 +43,8 @@ class SettingController extends BaseController
             return redirect()->to('/settings')->withInput()->with('error', 'That email address is already registered.');
         }
 
+        $emailChanged = ! hash_equals(strtolower((string) $user['email']), $email);
+
         $avatarPath = $user['avatar'] ?? null;
         $newAvatarPath = null;
         $avatar = $this->request->getFile('avatar');
@@ -74,6 +78,11 @@ class SettingController extends BaseController
             'avatar' => $avatarPath,
         ];
 
+        if ($emailChanged) {
+            $data['requires_email_verification'] = 1;
+            $data['email_verified_at'] = null;
+        }
+
         try {
             if (! $model->update((int) $user['id'], $data)) {
                 $media->delete($newAvatarPath);
@@ -92,6 +101,29 @@ class SettingController extends BaseController
 
         if ($newAvatarPath !== null && ! empty($user['avatar'])) {
             $media->delete((string) $user['avatar']);
+        }
+
+        if ($emailChanged) {
+            $updatedUser = array_merge($user, $data);
+            try {
+                $token = (new AuthService())->issueVerificationToken($updatedUser);
+                $sent = (new AccountEmailService())->sendVerification($updatedUser, $token);
+            } catch (Throwable $exception) {
+                $sent = false;
+                log_message('error', 'Verification email after profile update failed for user {userId}: {message}', [
+                    'userId' => $user['id'],
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+
+            $this->session->remove('user');
+            $this->session->setFlashdata('verification_email', $email);
+
+            if (! $sent) {
+                return redirect()->to('/email-verification')->with('error', 'Your email address was updated, but the verification email could not be sent. Request a new link.');
+            }
+
+            return redirect()->to('/email-verification')->with('success', 'Your email address was updated. Verify it before signing in again.');
         }
 
         $this->refreshSessionUser(array_merge($user, $data));
