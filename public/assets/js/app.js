@@ -51,7 +51,7 @@
         document.querySelectorAll(selector).forEach((field) => {
             if (
                 field.closest('.input-group, .field-icon')
-                || field.matches('[type="hidden"], [type="checkbox"], [type="radio"], [type="range"], .form-control-sm, .form-select-sm, [data-no-icon], [data-quantity], [data-cart-qty], [data-pos-qty]')
+                || field.matches('[type="hidden"], [type="checkbox"], [type="radio"], [type="range"], [type="file"], .form-control-sm, .form-select-sm, [data-no-icon], [data-quantity], [data-cart-qty], [data-pos-qty]')
             ) return;
 
             const wrapper = document.createElement('div');
@@ -63,6 +63,226 @@
             icon.className = `bi ${fieldIcon(field)} field-icon-symbol`;
             icon.setAttribute('aria-hidden', 'true');
             wrapper.prepend(icon);
+        });
+    };
+
+    const enhanceFileInputs = () => {
+        const formatFileSize = (bytes) => {
+            if (!Number.isFinite(bytes) || bytes < 1) return '';
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 ** 2) return `${Math.round(bytes / 1024)} KB`;
+            return `${(bytes / (1024 ** 2)).toFixed(bytes < 10 * 1024 ** 2 ? 1 : 0)} MB`;
+        };
+
+        const acceptedFileLabel = (field) => {
+            const labels = {
+                'image/png': 'PNG',
+                'image/jpeg': 'JPG',
+                'image/webp': 'WebP',
+                'image/gif': 'GIF',
+                'application/pdf': 'PDF',
+            };
+            const accepted = (field.accept || '')
+                .split(',')
+                .map((value) => value.trim().toLowerCase())
+                .filter(Boolean)
+                .map((value) => labels[value] || value.replace(/^\./, '').toUpperCase());
+
+            return [...new Set(accepted)].join(', ');
+        };
+
+        const acceptsFile = (field, file) => {
+            const accepted = (field.accept || '')
+                .split(',')
+                .map((value) => value.trim().toLowerCase())
+                .filter(Boolean);
+            if (!accepted.length) return true;
+
+            const filename = file.name.toLowerCase();
+            const mime = (file.type || '').toLowerCase();
+            const mimeExtensions = {
+                'image/png': ['.png'],
+                'image/jpeg': ['.jpg', '.jpeg'],
+                'image/webp': ['.webp'],
+                'image/gif': ['.gif'],
+                'application/pdf': ['.pdf'],
+            };
+
+            return accepted.some((rule) => (
+                rule.startsWith('.')
+                    ? filename.endsWith(rule)
+                    : rule.endsWith('/*')
+                        ? mime.startsWith(rule.slice(0, -1))
+                        : mime === rule || (mimeExtensions[rule] || []).some((extension) => filename.endsWith(extension))
+            ));
+        };
+
+        document.querySelectorAll('input[type="file"]').forEach((field, index) => {
+            if (field.dataset.filePickerReady === 'true') return;
+
+            if (!field.id) field.id = `filePicker${index + 1}`;
+            const imagePicker = (field.accept || '').includes('image/');
+            const emptyLabel = field.dataset.fileEmpty || (imagePicker ? 'No image selected' : 'No file selected');
+            const chooseLabel = field.dataset.fileButton || (imagePicker ? 'Choose image' : 'Choose file');
+            const changeLabel = field.dataset.fileChangeButton || (imagePicker ? 'Change image' : 'Change file');
+            const acceptedLabel = acceptedFileLabel(field);
+            const externalPreview = field.closest('form')?.querySelector('.settings-avatar') || null;
+
+            const picker = document.createElement('div');
+            picker.className = 'file-picker';
+            picker.dataset.filePicker = '';
+
+            field.parentNode.insertBefore(picker, field);
+            picker.appendChild(field);
+            field.classList.add('file-picker-input');
+            field.dataset.filePickerReady = 'true';
+
+            const label = document.createElement('label');
+            label.className = 'file-picker-shell';
+            label.htmlFor = field.id;
+
+            const thumbnail = document.createElement('span');
+            thumbnail.className = 'file-picker-thumbnail';
+            thumbnail.setAttribute('aria-hidden', 'true');
+            thumbnail.innerHTML = '<i class="bi bi-image"></i><img alt="" hidden>';
+
+            const details = document.createElement('span');
+            details.className = 'file-picker-details';
+
+            const name = document.createElement('span');
+            name.className = 'file-picker-name';
+            name.textContent = emptyLabel;
+
+            const meta = document.createElement('span');
+            meta.className = 'file-picker-meta';
+            meta.textContent = acceptedLabel;
+
+            const action = document.createElement('span');
+            action.className = 'file-picker-action';
+            action.innerHTML = `<i class="bi bi-upload" aria-hidden="true"></i><span>${chooseLabel}</span>`;
+
+            const clear = document.createElement('button');
+            clear.className = 'file-picker-clear';
+            clear.type = 'button';
+            clear.hidden = true;
+            clear.setAttribute('aria-label', 'Remove selected file');
+            clear.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+
+            const status = document.createElement('span');
+            status.className = 'visually-hidden';
+            status.setAttribute('aria-live', 'polite');
+
+            details.append(name, meta);
+            label.append(thumbnail, details, action);
+            picker.append(label, clear, status);
+
+            const previewImage = thumbnail.querySelector('img');
+            const previewIcon = thumbnail.querySelector('i');
+            const actionText = action.querySelector('span');
+            let objectUrl = '';
+
+            if (externalPreview && !externalPreview.dataset.originalSrc) {
+                externalPreview.dataset.originalSrc = externalPreview.currentSrc || externalPreview.src;
+            }
+
+            const resetPreview = () => {
+                if (objectUrl) URL.revokeObjectURL(objectUrl);
+                objectUrl = '';
+                previewImage.hidden = true;
+                previewImage.removeAttribute('src');
+                previewIcon.hidden = false;
+                if (externalPreview?.dataset.originalSrc) externalPreview.src = externalPreview.dataset.originalSrc;
+            };
+
+            const update = () => {
+                const files = [...(field.files || [])];
+                const file = files[0];
+                picker.classList.remove('is-invalid', 'has-file');
+                field.setCustomValidity('');
+                resetPreview();
+
+                if (!file) {
+                    name.textContent = emptyLabel;
+                    meta.textContent = acceptedLabel;
+                    actionText.textContent = chooseLabel;
+                    clear.hidden = true;
+                    status.textContent = emptyLabel;
+                    return;
+                }
+
+                if (!acceptsFile(field, file)) {
+                    field.value = '';
+                    field.setCustomValidity('Choose a supported file type.');
+                    picker.classList.add('is-invalid');
+                    name.textContent = 'Unsupported file type';
+                    meta.textContent = acceptedLabel;
+                    actionText.textContent = chooseLabel;
+                    clear.hidden = true;
+                    status.textContent = 'Unsupported file type';
+                    return;
+                }
+
+                picker.classList.add('has-file');
+                name.textContent = files.length > 1 ? `${files.length} files selected` : file.name;
+                meta.textContent = files.length > 1
+                    ? files.map((item) => formatFileSize(item.size)).filter(Boolean).join(' · ')
+                    : formatFileSize(file.size);
+                actionText.textContent = changeLabel;
+                clear.hidden = false;
+                status.textContent = `${file.name} selected`;
+
+                if (file.type.startsWith('image/')) {
+                    objectUrl = URL.createObjectURL(file);
+                    previewImage.src = objectUrl;
+                    previewImage.hidden = false;
+                    previewIcon.hidden = true;
+                    if (externalPreview) externalPreview.src = objectUrl;
+                }
+            };
+
+            field.addEventListener('change', update);
+            field.form?.addEventListener('reset', () => window.requestAnimationFrame(update));
+
+            clear.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                field.value = '';
+                update();
+                field.focus({ preventScroll: true });
+            });
+
+            ['dragenter', 'dragover'].forEach((eventName) => {
+                picker.addEventListener(eventName, (event) => {
+                    event.preventDefault();
+                    if (!field.disabled) picker.classList.add('is-dragging');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach((eventName) => {
+                picker.addEventListener(eventName, (event) => {
+                    event.preventDefault();
+                    picker.classList.remove('is-dragging');
+                });
+            });
+
+            picker.addEventListener('drop', (event) => {
+                if (field.disabled || !event.dataTransfer?.files.length) return;
+
+                const transfer = new DataTransfer();
+                [...event.dataTransfer.files]
+                    .slice(0, field.multiple ? undefined : 1)
+                    .forEach((file) => transfer.items.add(file));
+                field.files = transfer.files;
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+
+            update();
+        });
+
+        document.addEventListener('shown.bs.modal', (event) => {
+            event.target.querySelectorAll('input[type="file"]').forEach((field) => {
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            });
         });
     };
 
@@ -277,6 +497,7 @@
     });
 
     enhanceFormFields();
+    enhanceFileInputs();
     enhancePasswordFields();
     enhanceButtons();
     enhanceResponsiveTables();
