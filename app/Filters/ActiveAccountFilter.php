@@ -18,6 +18,14 @@ class ActiveAccountFilter implements FilterInterface
         $user = (new UserModel())->find($userId);
         if (! $user || $user['status'] !== 'active') {
             session()->destroy();
+            $path = ltrim($request->getUri()->getPath(), '/');
+            if ($request->isAJAX() || str_starts_with($path, 'api/')) {
+                return service('response')->setStatusCode(403)->setJSON([
+                    'success' => false,
+                    'message' => 'Your account is not active.',
+                ]);
+            }
+
             return redirect()->to('/login')->with('error', 'Your account is not active.');
         }
     }

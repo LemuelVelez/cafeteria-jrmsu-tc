@@ -10,7 +10,14 @@ class OrderController extends BaseController
 {
     public function index(): string
     {
-        return $this->render('cashier/orders/index', ['orders' => (new OrderModel())->detailed()]);
+        $actor = (array) session()->get('user');
+        $orders = (new OrderModel())->detailed();
+        foreach ($orders as &$order) {
+            $order['status_options'] = OrderService::allowedTransitions($order, $actor);
+        }
+        unset($order);
+
+        return $this->render('cashier/orders/index', ['orders' => $orders]);
     }
 
     public function status(int $id)

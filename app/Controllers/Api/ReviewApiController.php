@@ -3,6 +3,7 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\BaseController;
+use App\Models\OrderItemModel;
 use App\Models\OrderModel;
 use App\Models\ReviewModel;
 
@@ -27,9 +28,14 @@ class ReviewApiController extends BaseController
             return $this->jsonError('This order has already been reviewed.');
         }
 
+        $productId = (int) ($payload['product_id'] ?? 0);
+        if ($productId > 0 && ! (new OrderItemModel())->where(['order_id' => $orderId, 'product_id' => $productId])->first()) {
+            return $this->jsonError('The selected product is not part of this order.');
+        }
+
         $id = $model->insert([
             'order_id' => $orderId,
-            'product_id' => $payload['product_id'] ?? null,
+            'product_id' => $productId ?: null,
             'customer_id' => $userId,
             'rating' => (int) ($payload['rating'] ?? 0),
             'comment' => trim((string) ($payload['comment'] ?? '')),

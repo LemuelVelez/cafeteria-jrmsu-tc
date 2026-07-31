@@ -19,14 +19,39 @@
             window.dispatchEvent(new CustomEvent('jrmsu:cart-updated'));
         }
         add(item) {
+            const productId = Number(item.product_id || 0);
+            const stock = Math.max(0, Number(item.stock || 0));
+            const requested = Math.min(99, Math.max(1, Number(item.quantity) || 1));
+            const inCart = this.items
+                .filter((line) => Number(line.product_id) === productId)
+                .reduce((sum, line) => sum + Number(line.quantity || 0), 0);
             const signature = JSON.stringify(item.addons || []);
-            const found = this.items.find((line) => line.product_id === item.product_id && JSON.stringify(line.addons || []) === signature);
-            if (found) found.quantity += item.quantity;
-            else this.items.push(item);
+            const found = this.items.find((line) => Number(line.product_id) === productId && JSON.stringify(line.addons || []) === signature);
+            const lineCapacity = found ? Math.max(0, 99 - Number(found.quantity || 0)) : 99;
+            const available = Math.max(0, stock - inCart);
+            const quantity = Math.min(requested, available, lineCapacity);
+            if (productId < 1 || quantity < 1) return false;
+
+            if (found) found.quantity = Number(found.quantity || 0) + quantity;
+            else this.items.push({ ...item, product_id: productId, stock, quantity });
             this.save();
+            return quantity === requested;
         }
         remove(index) { this.items.splice(index, 1); this.save(); }
-        quantity(index, value) { this.items[index].quantity = Math.max(1, Number(value) || 1); this.save(); }
+        quantity(index, value) {
+            const line = this.items[index];
+            if (!line) return 0;
+
+            const productId = Number(line.product_id || 0);
+            const otherQuantity = this.items
+                .filter((item, itemIndex) => itemIndex !== index && Number(item.product_id) === productId)
+                .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+            const stock = Math.max(1, Number(line.stock || 99));
+            const maximum = Math.max(1, Math.min(99, stock - otherQuantity));
+            line.quantity = Math.min(maximum, Math.max(1, Number(value) || 1));
+            this.save();
+            return line.quantity;
+        }
         clear() { this.items = []; this.save(); }
         subtotal() { return this.items.reduce((sum, line) => sum + ((Number(line.price) + Number(line.addon_total || 0)) * Number(line.quantity)), 0); }
         updateBadges() {
@@ -142,16 +167,19 @@
         button.addEventListener('click', () => {
             const card = button.closest('[data-product-card]');
             const addons = [...card.querySelectorAll('[data-addon]:checked')].map((input) => ({ id: Number(input.value), name: input.dataset.name, price: Number(input.dataset.price) }));
-            cart.add({
+            const addedInFull = cart.add({
                 product_id: Number(card.dataset.productId),
                 name: card.dataset.productName,
                 price: Number(card.dataset.productPrice),
+                stock: Number(card.dataset.productStock || 0),
                 image: card.dataset.productImage || '',
                 quantity: Number(card.querySelector('[data-quantity]')?.value || 1),
                 addons,
                 addon_total: addons.reduce((sum, addon) => sum + addon.price, 0),
             });
-            button.innerHTML = '<i class="bi bi-check2"></i> Added';
+            button.innerHTML = addedInFull
+                ? '<i class="bi bi-check2"></i> Added'
+                : '<i class="bi bi-exclamation-circle"></i> Stock limit';
             setTimeout(() => { button.innerHTML = '<i class="bi bi-bag-plus" aria-hidden="true"></i><span>Add to cart</span>'; }, 900);
         });
     });
@@ -203,7 +231,7 @@
                                 <button type="button" data-cart-decrease="${index}" aria-label="Decrease quantity">
                                     <i class="bi bi-dash-lg" aria-hidden="true"></i>
                                 </button>
-                                <input class="cart-line-quantity" type="number" min="1" value="${line.quantity}" data-cart-qty="${index}" aria-label="Quantity for ${escapeHtml(line.name)}">
+                                <input class="cart-line-quantity" type="number" min="1" max="${Math.max(1, Math.min(99, Number(line.stock || 99)))}" value="${line.quantity}" data-cart-qty="${index}" aria-label="Quantity for ${escapeHtml(line.name)}">
                                 <button type="button" data-cart-increase="${index}" aria-label="Increase quantity">
                                     <i class="bi bi-plus-lg" aria-hidden="true"></i>
                                 </button>

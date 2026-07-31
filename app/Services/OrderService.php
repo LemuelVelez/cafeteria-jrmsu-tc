@@ -87,12 +87,30 @@ class OrderService
         try {
             $subtotal = 0.0;
             $normalized = [];
+            $lockedProducts = [];
+            $requestedQuantities = [];
 
             foreach ($cart as $line) {
+                if (! is_array($line)) {
+                    throw new \DomainException('One or more cart items are invalid.');
+                }
+
                 $productId = (int) ($line['product_id'] ?? 0);
-                $quantity = max(1, min(99, (int) ($line['quantity'] ?? 1)));
-                $product = $this->db->query('SELECT * FROM products WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [$productId])->getRowArray();
-                if (! $product || ! (bool) $product['is_available'] || (int) $product['stock'] < $quantity) {
+                $quantity = filter_var($line['quantity'] ?? 1, FILTER_VALIDATE_INT, [
+                    'options' => ['min_range' => 1, 'max_range' => 99],
+                ]);
+                if ($productId < 1 || $quantity === false) {
+                    throw new \DomainException('Each cart item must have a valid product and a quantity from 1 to 99.');
+                }
+
+                if (! isset($lockedProducts[$productId])) {
+                    $lockedProducts[$productId] = $this->db
+                        ->query('SELECT * FROM products WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [$productId])
+                        ->getRowArray();
+                }
+                $product = $lockedProducts[$productId];
+                $requestedQuantities[$productId] = ($requestedQuantities[$productId] ?? 0) + $quantity;
+                if (! $product || ! (bool) $product['is_available'] || (int) $product['stock'] < $requestedQuantities[$productId]) {
                     throw new \DomainException('One or more products are unavailable or out of stock.');
                 }
 
@@ -133,7 +151,7 @@ class OrderService
             $promoId = null;
             $discount = 0.0;
             if (! empty($payload['promo_code'])) {
-                $promoResult = $this->promoService->calculate((string) $payload['promo_code'], $subtotal);
+                $promoResult = $this->promoService->calculate((string) $payload['promo_code'], $subtotal, true);
                 $promoId = (int) $promoResult['promo']['id'];
                 $discount = (float) $promoResult['discount'];
             }
@@ -178,7 +196,10 @@ class OrderService
                 ])) {
                     throw new \RuntimeException('Unable to save an order item.');
                 }
-                if (! $this->db->table('products')->where('id', $product['id'])->decrement('stock', $line['quantity'])) {
+            }
+
+            foreach ($requestedQuantities as $productId => $quantity) {
+                if (! $this->db->table('products')->where('id', $productId)->decrement('stock', $quantity)) {
                     throw new \RuntimeException('Unable to update product stock.');
                 }
             }
@@ -229,47 +250,121 @@ class OrderService
         }
     }
 
-    public function updateStatus(int $orderId, string $nextStatus, array $actor, ?string $note = null): array
+    public static function allowedTransitions(array $order, array $actor): array
     {
-        $order = $this->orders->find($orderId);
-        if (! $order) {
-            throw new \DomainException('Order not found.');
-        }
-        if (! in_array($nextStatus, self::TRANSITIONS[$order['status']] ?? [], true)) {
-            throw new \DomainException('Invalid order status transition.');
-        }
+        $currentStatus = (string) ($order['status'] ?? '');
+        $candidates = self::TRANSITIONS[$currentStatus] ?? [];
         $role = (string) ($actor['role'] ?? '');
-        if ($role === 'rider' && ((int) $order['rider_id'] !== (int) ($actor['id'] ?? 0) || ! in_array($nextStatus, ['out_for_delivery', 'delivered'], true))) {
-            throw new \DomainException('Riders may update only their assigned deliveries.');
+        $actorId = (int) ($actor['id'] ?? 0);
+
+        if ($role === 'admin') {
+            return array_values(array_filter($candidates, static function (string $status) use ($order): bool {
+                return $status !== 'out_for_delivery'
+                    || ((string) ($order['order_type'] ?? '') === 'delivery' && ! empty($order['rider_id']));
+            }));
         }
+
         if ($role === 'cashier') {
-            $cashierStatuses = ['confirmed', 'preparing', 'ready', 'cancelled'];
-            $mayCompleteCounterOrder = $nextStatus === 'delivered' && $order['status'] === 'ready' && $order['order_type'] !== 'delivery';
-            if (! in_array($nextStatus, $cashierStatuses, true) && ! $mayCompleteCounterOrder) {
-                throw new \DomainException('Cashiers may update preparation and counter-order statuses only.');
+            return array_values(array_filter($candidates, static function (string $status) use ($order): bool {
+                if (in_array($status, ['confirmed', 'preparing', 'ready', 'cancelled'], true)) {
+                    return true;
+                }
+
+                return $status === 'delivered'
+                    && (string) ($order['status'] ?? '') === 'ready'
+                    && (string) ($order['order_type'] ?? '') !== 'delivery';
+            }));
+        }
+
+        if ($role === 'rider' && $actorId > 0 && (int) ($order['rider_id'] ?? 0) === $actorId) {
+            if ($currentStatus === 'ready' && in_array('out_for_delivery', $candidates, true)) {
+                return ['out_for_delivery'];
+            }
+            if ($currentStatus === 'out_for_delivery' && in_array('delivered', $candidates, true)) {
+                return ['delivered'];
             }
         }
+
+        return [];
+    }
+
+    public function updateStatus(int $orderId, string $nextStatus, array $actor, ?string $note = null): array
+    {
+        $role = (string) ($actor['role'] ?? '');
         if (! in_array($role, ['admin', 'cashier', 'rider'], true)) {
             throw new \DomainException('You are not allowed to update order statuses.');
-        }
-        if ($nextStatus === 'out_for_delivery' && ($order['order_type'] !== 'delivery' || ! $order['rider_id'])) {
-            throw new \DomainException('A rider must be assigned before delivery starts.');
         }
 
         $this->db->transBegin();
         try {
+            $order = $this->db->query('SELECT * FROM orders WHERE id = ? FOR UPDATE', [$orderId])->getRowArray();
+            if (! $order) {
+                throw new \DomainException('Order not found.');
+            }
+            if ($role === 'rider' && (int) ($order['rider_id'] ?? 0) !== (int) ($actor['id'] ?? 0)) {
+                throw new \DomainException('Riders may update only their assigned deliveries.');
+            }
+            if ($nextStatus === 'out_for_delivery' && ((string) $order['order_type'] !== 'delivery' || empty($order['rider_id']))) {
+                throw new \DomainException('A rider must be assigned before delivery starts.');
+            }
+            if (! in_array($nextStatus, self::allowedTransitions($order, $actor), true)) {
+                throw new \DomainException('Invalid order status transition.');
+            }
+
             $orderUpdates = ['status' => $nextStatus];
             if ($nextStatus === 'delivered') {
                 $orderUpdates['payment_status'] = 'paid';
+            } elseif ($nextStatus === 'cancelled') {
+                $orderUpdates['payment_status'] = 'failed';
             }
             if (! $this->orders->update($orderId, $orderUpdates)) {
                 throw new \RuntimeException('Unable to update the order status.');
             }
-            if ($nextStatus === 'delivered' && ! $this->db->table('payments')
-                ->where('order_id', $orderId)
-                ->update(['status' => 'paid', 'paid_at' => date('Y-m-d H:i:s')])) {
-                throw new \RuntimeException('Unable to update the payment status.');
+
+            if ($nextStatus === 'delivered') {
+                if (! $this->db->table('payments')
+                    ->where('order_id', $orderId)
+                    ->update(['status' => 'paid', 'paid_at' => date('Y-m-d H:i:s')])) {
+                    throw new \RuntimeException('Unable to update the payment status.');
+                }
+            } elseif ($nextStatus === 'cancelled') {
+                $stockRows = $this->db->query(
+                    'SELECT product_id, SUM(quantity) AS quantity FROM order_items WHERE order_id = ? GROUP BY product_id',
+                    [$orderId],
+                )->getResultArray();
+                foreach ($stockRows as $stockRow) {
+                    if (! $this->db->table('products')
+                        ->where('id', (int) $stockRow['product_id'])
+                        ->increment('stock', (int) $stockRow['quantity'])) {
+                        throw new \RuntimeException('Unable to restore product stock.');
+                    }
+                }
+
+                if (! $this->db->table('payments')
+                    ->where('order_id', $orderId)
+                    ->update(['status' => 'failed', 'paid_at' => null])) {
+                    throw new \RuntimeException('Unable to cancel the payment.');
+                }
+
+                if (! empty($order['promo_id'])) {
+                    $usage = $this->db->table('promo_usages')
+                        ->where(['promo_id' => (int) $order['promo_id'], 'order_id' => $orderId])
+                        ->get()
+                        ->getRowArray();
+                    if ($usage) {
+                        if (! $this->db->table('promo_usages')->where('id', (int) $usage['id'])->delete()) {
+                            throw new \RuntimeException('Unable to restore promo usage.');
+                        }
+                        if (! $this->db->table('promos')
+                            ->where('id', (int) $order['promo_id'])
+                            ->where('used_count >', 0)
+                            ->decrement('used_count')) {
+                            throw new \RuntimeException('Unable to restore the promo usage count.');
+                        }
+                    }
+                }
             }
+
             if (! (new OrderStatusHistoryModel())->insert([
                 'order_id' => $orderId,
                 'user_id' => (int) ($actor['id'] ?? 0),

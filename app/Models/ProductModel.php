@@ -15,6 +15,8 @@ class ProductModel extends BaseModel
         'slug' => 'required|alpha_dash|max_length[140]',
         'price' => 'required|decimal|greater_than_equal_to[0]',
         'stock' => 'required|integer|greater_than_equal_to[0]',
+        'is_available' => 'permit_empty|in_list[0,1]',
+        'is_featured' => 'permit_empty|in_list[0,1]',
     ];
 
     public function menu(?int $categoryId = null, ?string $search = null): array
@@ -23,7 +25,8 @@ class ProductModel extends BaseModel
             ->join('categories', 'categories.id = products.category_id')
             ->where('products.is_available', 1)
             ->where('products.stock >', 0)
-            ->where('categories.is_active', 1);
+            ->where('categories.is_active', 1)
+            ->where('categories.deleted_at', null);
         if ($categoryId) {
             $builder->where('products.category_id', $categoryId);
         }

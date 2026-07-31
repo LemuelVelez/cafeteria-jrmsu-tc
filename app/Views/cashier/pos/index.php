@@ -37,6 +37,7 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                         data-product-id="<?= esc($product['id'], 'attr') ?>"
                         data-product-name="<?= esc($product['name'], 'attr') ?>"
                         data-product-price="<?= esc($product['price'], 'attr') ?>"
+                        data-product-stock="<?= esc($product['stock'], 'attr') ?>"
                     >
                         <?php if (! empty($product['image'])): ?>
                             <img class="product-image rounded mb-3" src="<?= media_url($product['image']) ?>" alt="<?= esc($product['name']) ?>">

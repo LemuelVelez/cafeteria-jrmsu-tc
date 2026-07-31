@@ -42,7 +42,8 @@ $nav = static function (array $items, string $path): string {
     <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
     <?= $this->renderSection('styles') ?>
 </head>
-<body data-cart-key="<?= $role === 'cashier' ? 'jrmsu-pos-cart' : 'jrmsu-cafeteria-cart' ?>">
+<?php $cartOwnerId = (int) ($currentUser['id'] ?? 0); ?>
+<body data-cart-key="<?= esc(($role === 'cashier' ? 'jrmsu-pos-cart-' : 'jrmsu-cafeteria-cart-') . $cartOwnerId, 'attr') ?>">
 <aside class="app-sidebar p-3 d-none d-lg-flex flex-column">
     <a class="d-flex align-items-center gap-3 text-white text-decoration-none p-2 mb-4" href="<?= base_url(role_home($role)) ?>">
         <img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.png') ?>" alt="Logo">

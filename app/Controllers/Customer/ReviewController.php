@@ -3,6 +3,7 @@
 namespace App\Controllers\Customer;
 
 use App\Controllers\BaseController;
+use App\Models\OrderItemModel;
 use App\Models\OrderModel;
 use App\Models\ReviewModel;
 
@@ -47,9 +48,14 @@ class ReviewController extends BaseController
             return redirect()->to('/customer/reviews')->with('error', 'This order has already been reviewed.');
         }
 
+        $productId = (int) $this->request->getPost('product_id');
+        if ($productId > 0 && ! (new OrderItemModel())->where(['order_id' => $orderId, 'product_id' => $productId])->first()) {
+            return redirect()->to('/customer/reviews')->withInput()->with('error', 'The selected product is not part of this order.');
+        }
+
         $ok = $model->insert([
             'order_id' => $orderId,
-            'product_id' => $this->request->getPost('product_id') ?: null,
+            'product_id' => $productId ?: null,
             'customer_id' => $userId,
             'rating' => (int) $this->request->getPost('rating'),
             'comment' => trim((string) $this->request->getPost('comment')),
