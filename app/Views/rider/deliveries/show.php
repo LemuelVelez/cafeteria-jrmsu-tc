@@ -37,17 +37,19 @@
                 </div>
                 <div class="col-12">
                     <small class="text-secondary">Address</small>
-                    <div class="fw-semibold"><?= nl2br(esc($order['delivery_address'])) ?></div>
+                    <div class="fw-semibold" id="deliveryAddress"><?= nl2br(esc($order['delivery_address'])) ?></div>
                 </div>
                 <div class="col-12 d-flex flex-wrap gap-2">
-                    <a
+                    <button
                         class="btn btn-outline-primary"
-                        target="_blank"
-                        rel="noopener"
-                        href="https://www.google.com/maps/search/?api=1&amp;query=<?= urlencode($order['delivery_address']) ?>"
+                        type="button"
+                        data-copy-target="#deliveryAddress"
+                        data-copy-default-label="Copy address"
+                        data-copy-success-label="Address copied"
+                        data-copy-error-label="Copy failed"
                     >
-                        <i class="bi bi-map me-1"></i>Open in Maps
-                    </a>
+                        <i class="bi bi-copy me-1" aria-hidden="true"></i><span data-copy-label aria-live="polite">Copy address</span>
+                    </button>
                     <?php if (! empty($order['customer_phone'])): ?>
                         <a class="btn btn-outline-secondary" href="tel:<?= esc($order['customer_phone'], 'attr') ?>">
                             <i class="bi bi-telephone me-1"></i>Call customer

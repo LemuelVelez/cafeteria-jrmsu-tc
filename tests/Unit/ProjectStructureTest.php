@@ -27,6 +27,21 @@ final class ProjectStructureTest extends TestCase
         }
     }
 
+    public function testRiderDeliveryUsesCopyAddressInsteadOfExternalMap(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $view = file_get_contents($root . '/app/Views/rider/deliveries/show.php');
+        $script = file_get_contents($root . '/public/assets/js/app.js');
+
+        self::assertIsString($view);
+        self::assertIsString($script);
+        self::assertStringNotContainsString('google.com/maps', $view);
+        self::assertStringNotContainsString('Open in Maps', $view);
+        self::assertStringContainsString('data-copy-target="#deliveryAddress"', $view);
+        self::assertStringContainsString('enhanceCopyButtons', $script);
+        self::assertStringContainsString('navigator.clipboard', $script);
+    }
+
     public function testEnvironmentTemplateDoesNotContainGeneratedApplicationKey(): void
     {
         $env = file_get_contents(dirname(__DIR__, 2) . '/.env.example');

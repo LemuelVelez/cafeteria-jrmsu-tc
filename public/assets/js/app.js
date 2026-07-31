@@ -385,6 +385,67 @@
         });
     };
 
+    const copyText = async (value) => {
+        const text = String(value || '').trim();
+        if (!text) throw new Error('Nothing to copy.');
+
+        if (navigator.clipboard?.writeText && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+
+        const field = document.createElement('textarea');
+        field.value = text;
+        field.setAttribute('readonly', '');
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        field.style.pointerEvents = 'none';
+        document.body.appendChild(field);
+        field.select();
+        field.setSelectionRange(0, field.value.length);
+
+        const copied = document.execCommand('copy');
+        field.remove();
+        if (!copied) throw new Error('Copy command was rejected.');
+    };
+
+    const enhanceCopyButtons = () => {
+        document.querySelectorAll('[data-copy-target]').forEach((button) => {
+            if (button.dataset.copyReady === 'true') return;
+
+            const label = button.querySelector('[data-copy-label]');
+            const icon = button.querySelector('.bi');
+            const defaultLabel = button.dataset.copyDefaultLabel || label?.textContent.trim() || 'Copy';
+            const successLabel = button.dataset.copySuccessLabel || 'Copied';
+            const errorLabel = button.dataset.copyErrorLabel || 'Copy failed';
+            let resetTimer;
+
+            button.addEventListener('click', async () => {
+                const target = document.querySelector(button.dataset.copyTarget || '');
+                const value = target?.innerText || target?.textContent || '';
+                button.disabled = true;
+
+                try {
+                    await copyText(value);
+                    if (label) label.textContent = successLabel;
+                    if (icon) icon.className = 'bi bi-check2 me-1';
+                } catch (error) {
+                    if (label) label.textContent = errorLabel;
+                    if (icon) icon.className = 'bi bi-exclamation-circle me-1';
+                }
+
+                window.clearTimeout(resetTimer);
+                resetTimer = window.setTimeout(() => {
+                    if (label) label.textContent = defaultLabel;
+                    if (icon) icon.className = 'bi bi-copy me-1';
+                    button.disabled = false;
+                }, 1600);
+            });
+
+            button.dataset.copyReady = 'true';
+        });
+    };
+
     window.cafeteriaPaymentMode = (container, orderType) => {
         const modes = JSON.parse(container?.dataset.paymentModes || '{}');
         return modes[orderType] || modes.pickup || { value: '', label: '' };
@@ -501,6 +562,7 @@
     enhancePasswordFields();
     enhanceButtons();
     enhanceResponsiveTables();
+    enhanceCopyButtons();
 
     document.addEventListener('submit', async (event) => {
         const form = event.target.closest('form[data-confirm]');
