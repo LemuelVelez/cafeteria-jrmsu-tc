@@ -50,18 +50,22 @@ if (! function_exists('generate_order_number')) {
 if (! function_exists('order_status_badge')) {
     function order_status_badge(string $status): string
     {
-        $classes = [
-            'pending' => 'warning text-dark',
-            'confirmed' => 'info text-dark',
-            'preparing' => 'primary',
-            'ready' => 'success',
-            'out_for_delivery' => 'dark',
-            'delivered' => 'success',
-            'cancelled' => 'danger',
+        $variants = [
+            'pending' => ['pending', 'bi-clock'],
+            'confirmed' => ['confirmed', 'bi-check-circle'],
+            'preparing' => ['preparing', 'bi-cup-hot'],
+            'ready' => ['ready', 'bi-bag-check'],
+            'out_for_delivery' => ['out-for-delivery', 'bi-bicycle'],
+            'delivered' => ['delivered', 'bi-check2-circle'],
+            'cancelled' => ['cancelled', 'bi-x-circle'],
         ];
-        $class = $classes[$status] ?? 'secondary';
+        [$variant, $icon] = $variants[$status] ?? ['neutral', 'bi-info-circle'];
         $label = ucwords(str_replace('_', ' ', $status));
-        return '<span class="badge rounded-pill bg-' . esc($class, 'attr') . '">' . esc($label) . '</span>';
+
+        return '<span class="order-status-badge order-status-badge--' . esc($variant, 'attr') . '">'
+            . '<i class="bi ' . esc($icon, 'attr') . '" aria-hidden="true"></i>'
+            . '<span>' . esc($label) . '</span>'
+            . '</span>';
     }
 }
 
