@@ -105,7 +105,19 @@ class OrderService
 
                 if (! isset($lockedProducts[$productId])) {
                     $lockedProducts[$productId] = $this->db
-                        ->query('SELECT * FROM products WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [$productId])
+                        ->query(
+                            <<<'SQL'
+                            SELECT products.*
+                            FROM products
+                            INNER JOIN categories ON categories.id = products.category_id
+                            WHERE products.id = ?
+                              AND products.deleted_at IS NULL
+                              AND categories.deleted_at IS NULL
+                              AND categories.is_active = 1
+                            FOR UPDATE
+                            SQL,
+                            [$productId],
+                        )
                         ->getRowArray();
                 }
                 $product = $lockedProducts[$productId];
@@ -157,7 +169,7 @@ class OrderService
             }
 
             $deliveryFee = $orderType === OrderType::Delivery
-                ? (float) $this->settings->getValue('delivery_fee', env('CAFETERIA_DELIVERY_FEE', 40))
+                ? max(0.0, (float) $this->settings->getValue('delivery_fee', env('CAFETERIA_DELIVERY_FEE', 40)))
                 : 0.0;
             $total = round(max(0, $subtotal - $discount + $deliveryFee), 2);
             $initialStatus = $actorRole === 'cashier' ? 'confirmed' : 'pending';
@@ -259,8 +271,15 @@ class OrderService
 
         if ($role === 'admin') {
             return array_values(array_filter($candidates, static function (string $status) use ($order): bool {
-                return $status !== 'out_for_delivery'
-                    || ((string) ($order['order_type'] ?? '') === 'delivery' && ! empty($order['rider_id']));
+                $isDelivery = (string) ($order['order_type'] ?? '') === 'delivery';
+                if ($status === 'out_for_delivery') {
+                    return $isDelivery && ! empty($order['rider_id']);
+                }
+                if ($status === 'delivered' && $isDelivery && (string) ($order['status'] ?? '') === 'ready') {
+                    return false;
+                }
+
+                return true;
             }));
         }
 

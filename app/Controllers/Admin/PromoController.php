@@ -34,8 +34,23 @@ class PromoController extends BaseController
             return redirect()->to('/admin/promos')->with('error', 'Promotion not found.');
         }
 
-        $startsAt = $this->normalizeDateTime((string) $this->request->getPost('starts_at'));
-        $endsAt = $this->normalizeDateTime((string) $this->request->getPost('ends_at'));
+        $discountType = (string) $this->request->getPost('discount_type');
+        $discountValue = (float) $this->request->getPost('discount_value');
+        if ($discountType === 'percentage' && $discountValue > 100) {
+            return redirect()->to('/admin/promos')
+                ->withInput()
+                ->with('error', 'Percentage discounts cannot be greater than 100%.');
+        }
+
+        $startsAtInput = trim((string) $this->request->getPost('starts_at'));
+        $endsAtInput = trim((string) $this->request->getPost('ends_at'));
+        $startsAt = $this->normalizeDateTime($startsAtInput);
+        $endsAt = $this->normalizeDateTime($endsAtInput);
+        if (($startsAtInput !== '' && $startsAt === null) || ($endsAtInput !== '' && $endsAt === null)) {
+            return redirect()->to('/admin/promos')
+                ->withInput()
+                ->with('error', 'Enter valid promotion start and end dates.');
+        }
         if ($startsAt !== null && $endsAt !== null && strtotime($endsAt) < strtotime($startsAt)) {
             return redirect()->to('/admin/promos')
                 ->withInput()
@@ -45,8 +60,8 @@ class PromoController extends BaseController
         $data = [
             'code' => strtoupper(trim((string) $this->request->getPost('code'))),
             'description' => trim((string) $this->request->getPost('description')),
-            'discount_type' => (string) $this->request->getPost('discount_type'),
-            'discount_value' => (float) $this->request->getPost('discount_value'),
+            'discount_type' => $discountType,
+            'discount_value' => $discountValue,
             'minimum_order' => (float) $this->request->getPost('minimum_order'),
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
@@ -76,8 +91,12 @@ class PromoController extends BaseController
             return null;
         }
 
-        $timestamp = strtotime($value);
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value);
+        $errors = \DateTimeImmutable::getLastErrors();
+        if (! $date || (is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+            return null;
+        }
 
-        return $timestamp === false ? null : date('Y-m-d H:i:s', $timestamp);
+        return $date->format('Y-m-d H:i:s');
     }
 }

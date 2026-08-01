@@ -11,6 +11,10 @@ class PromoModel extends BaseModel
         'code' => 'required|alpha_numeric_punct|max_length[40]',
         'discount_type' => 'required|in_list[fixed,percentage]',
         'discount_value' => 'required|decimal|greater_than[0]',
+        'minimum_order' => 'required|decimal|greater_than_equal_to[0]',
+        'usage_limit' => 'required|integer|greater_than_equal_to[0]',
+        'used_count' => 'permit_empty|integer|greater_than_equal_to[0]',
+        'is_active' => 'permit_empty|in_list[0,1]',
     ];
 
     public function validCode(string $code): ?array

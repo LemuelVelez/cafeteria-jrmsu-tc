@@ -3,8 +3,10 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\BaseController;
+use App\Models\CategoryModel;
 use App\Models\ProductModel;
 use App\Services\MediaStorageService;
+use Throwable;
 
 class ProductApiController extends BaseController
 {
@@ -22,8 +24,13 @@ class ProductApiController extends BaseController
             return $this->jsonError('Product not found.', null, 404);
         }
 
+        $categoryId = (int) ($payload['category_id'] ?? 0);
+        if (! (new CategoryModel())->where(['id' => $categoryId, 'is_active' => 1])->first()) {
+            return $this->jsonError('Select an active product category.');
+        }
+
         $data = [
-            'category_id' => (int) ($payload['category_id'] ?? 0),
+            'category_id' => $categoryId,
             'name' => trim((string) ($payload['name'] ?? '')),
             'slug' => url_title((string) ($payload['name'] ?? ''), '-', true),
             'description' => trim((string) ($payload['description'] ?? '')),
@@ -32,7 +39,14 @@ class ProductApiController extends BaseController
             'is_available' => (int) ($payload['is_available'] ?? 1),
             'is_featured' => (int) ($payload['is_featured'] ?? 0),
         ];
-        $ok = $id ? $model->update($id, $data) : $model->insert($data);
+
+        try {
+            $ok = $id ? $model->update($id, $data) : $model->insert($data);
+        } catch (Throwable $exception) {
+            log_message('error', 'API product save failed: {message}', ['message' => $exception->getMessage()]);
+
+            return $this->jsonError('The product could not be saved. Check that its name is unique.');
+        }
 
         return $ok
             ? $this->jsonSuccess(
@@ -51,7 +65,13 @@ class ProductApiController extends BaseController
             return $this->jsonError('Product not found.', null, 404);
         }
 
-        if (! $model->delete($id)) {
+        try {
+            $deleted = $model->delete($id);
+        } catch (Throwable $exception) {
+            log_message('error', 'API product delete failed: {message}', ['message' => $exception->getMessage()]);
+            $deleted = false;
+        }
+        if (! $deleted) {
             return $this->jsonError('The product could not be removed.', $model->errors());
         }
 

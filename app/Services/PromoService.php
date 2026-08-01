@@ -26,8 +26,14 @@ class PromoService
         if ((int) $promo['usage_limit'] > 0 && (int) $promo['used_count'] >= (int) $promo['usage_limit']) {
             throw new \DomainException('Promo code usage limit has been reached.');
         }
+        if ($subtotal < 0) {
+            throw new \DomainException('Order subtotal cannot be negative.');
+        }
         if ($subtotal < (float) $promo['minimum_order']) {
             throw new \DomainException('Minimum order amount has not been reached.');
+        }
+        if ($promo['discount_type'] === 'percentage' && (float) $promo['discount_value'] > 100) {
+            throw new \DomainException('Promo percentage is invalid.');
         }
 
         $discount = $promo['discount_type'] === 'percentage'

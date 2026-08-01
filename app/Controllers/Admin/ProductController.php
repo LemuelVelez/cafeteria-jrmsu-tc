@@ -26,8 +26,15 @@ class ProductController extends BaseController
             return redirect()->to('/admin/products')->with('error', 'Product not found.');
         }
 
+        $categoryId = (int) $this->request->getPost('category_id');
+        if (! (new CategoryModel())->where(['id' => $categoryId, 'is_active' => 1])->first()) {
+            return redirect()->to('/admin/products')
+                ->withInput()
+                ->with('error', 'Select an active product category.');
+        }
+
         $data = [
-            'category_id' => (int) $this->request->getPost('category_id'),
+            'category_id' => $categoryId,
             'name' => trim((string) $this->request->getPost('name')),
             'slug' => url_title((string) $this->request->getPost('name'), '-', true),
             'description' => trim((string) $this->request->getPost('description')),

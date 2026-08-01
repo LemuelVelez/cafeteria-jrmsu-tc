@@ -22,7 +22,7 @@ class PosController extends BaseController
             'products' => (new ProductModel())->menu(),
             'categories' => (new CategoryModel())->where('is_active', 1)->orderBy('sort_order')->findAll(),
             'customers' => (new UserModel())->where(['role' => 'customer', 'status' => 'active'])->orderBy('name')->findAll(),
-            'deliveryFee' => (float) ($settings['delivery_fee'] ?? env('CAFETERIA_DELIVERY_FEE', 40)),
+            'deliveryFee' => max(0.0, (float) ($settings['delivery_fee'] ?? env('CAFETERIA_DELIVERY_FEE', 40))),
             'pickupEnabled' => (string) ($settings['pickup_enabled'] ?? '1') === '1',
             'deliveryEnabled' => (string) ($settings['delivery_enabled'] ?? '1') === '1',
         ]);

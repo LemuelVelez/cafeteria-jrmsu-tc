@@ -4,6 +4,8 @@ namespace App\Controllers\Account;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
+use App\Services\AccountEmailService;
+use App\Services\AuthService;
 use App\Services\MediaStorageService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use Throwable;
@@ -66,6 +68,8 @@ class SettingController extends BaseController
             }
         }
 
+        $emailChanged = strtolower((string) $user['email']) !== $email;
+        $requiresEmailVerification = $emailChanged && (string) $user['role'] === 'customer';
         $data = [
             'name' => trim((string) $this->request->getPost('name')),
             'email' => $email,
@@ -73,6 +77,10 @@ class SettingController extends BaseController
             'address' => trim((string) $this->request->getPost('address')),
             'avatar' => $avatarPath,
         ];
+        if ($requiresEmailVerification) {
+            $data['requires_email_verification'] = 1;
+            $data['email_verified_at'] = null;
+        }
 
         try {
             if (! $model->update((int) $user['id'], $data)) {
@@ -94,7 +102,32 @@ class SettingController extends BaseController
             $media->delete((string) $user['avatar']);
         }
 
-        $this->refreshSessionUser(array_merge($user, $data));
+        $updatedUser = array_merge($user, $data);
+        if ($requiresEmailVerification) {
+            $sent = false;
+            try {
+                $token = (new AuthService())->issueVerificationToken($updatedUser);
+                $sent = (new AccountEmailService())->sendVerification($updatedUser, $token);
+            } catch (Throwable $exception) {
+                log_message('error', 'Verification email after profile change failed for user {userId}: {message}', [
+                    'userId' => $user['id'],
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+
+            $this->session->remove('user');
+            $this->session->regenerate(true);
+            $this->session->setFlashdata('verification_email', $email);
+
+            return redirect()->to('/email-verification')->with(
+                $sent ? 'success' : 'error',
+                $sent
+                    ? 'Profile updated. Verify your new email address before signing in again.'
+                    : 'Profile updated, but the verification email could not be sent. Request a new link below.',
+            );
+        }
+
+        $this->refreshSessionUser($updatedUser);
 
         return redirect()->to('/settings')->with('success', 'Profile settings updated.');
     }
