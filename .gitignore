@@ -14,3 +14,5 @@
 !/writable/session/.gitkeep
 !/writable/uploads/.gitkeep
 !/public/uploads/products/.gitkeep
+
+/public/uploads/avatars/*

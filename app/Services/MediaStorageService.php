@@ -11,6 +11,7 @@ use Throwable;
 class MediaStorageService
 {
     private const SIGNED_URL_TTL_SECONDS = 3600;
+    private const LOCAL_UPLOAD_PREFIX = 'uploads';
 
     private string $region;
     private string $bucket;
@@ -33,17 +34,23 @@ class MediaStorageService
     {
         $directory = $this->normalizeDirectory($directory);
         $filename = bin2hex(random_bytes(16)) . '.' . $this->extensionFor($file);
-        $key = implode('/', [$directory, date('Y/m'), $filename]);
+        $relativePath = implode('/', [$directory, date('Y/m'), $filename]);
         $tempName = $file->getTempName();
 
         if ($tempName === '' || ! is_file($tempName) || ! is_readable($tempName)) {
             throw new RuntimeException('Unable to read the uploaded media file.');
         }
 
+        if (! $this->hasS3ConfigurationIntent()) {
+            return $this->storeLocal($tempName, $relativePath);
+        }
+
+        $this->assertS3Configured();
+
         try {
             $this->client()->putObject([
                 'Bucket' => $this->bucket,
-                'Key' => $key,
+                'Key' => $relativePath,
                 'SourceFile' => $tempName,
                 'ContentType' => $file->getMimeType(),
                 'ContentDisposition' => 'inline',
@@ -57,7 +64,7 @@ class MediaStorageService
             throw new RuntimeException('AWS S3 upload failed: ' . $exception->getMessage(), 0, $exception);
         }
 
-        return sprintf('s3://%s/%s', $this->bucket, $key);
+        return sprintf('s3://%s/%s', $this->bucket, $relativePath);
     }
 
     public function url(?string $path): string
@@ -106,7 +113,16 @@ class MediaStorageService
 
     public function delete(?string $path): void
     {
-        if (! $path || ! str_starts_with($path, 's3://') || ! $this->canUseS3()) {
+        if (! $path) {
+            return;
+        }
+
+        if (! str_starts_with($path, 's3://')) {
+            $this->deleteLocal($path);
+            return;
+        }
+
+        if (! $this->canUseS3()) {
             return;
         }
 
@@ -126,6 +142,64 @@ class MediaStorageService
                 'message' => $exception->getMessage(),
             ]);
         }
+    }
+
+    private function storeLocal(string $tempName, string $relativePath): string
+    {
+        $publicRoot = $this->publicRoot();
+        $storedPath = self::LOCAL_UPLOAD_PREFIX . '/' . ltrim($relativePath, '/');
+        $destination = $publicRoot . str_replace('/', DIRECTORY_SEPARATOR, $storedPath);
+        $destinationDirectory = dirname($destination);
+
+        if (! is_dir($destinationDirectory) && ! @mkdir($destinationDirectory, 0755, true) && ! is_dir($destinationDirectory)) {
+            throw new RuntimeException('Unable to create the local media storage directory.');
+        }
+        if (! is_writable($destinationDirectory)) {
+            throw new RuntimeException('The local media storage directory is not writable.');
+        }
+        if (! @copy($tempName, $destination)) {
+            throw new RuntimeException('Unable to save the uploaded media file locally.');
+        }
+
+        @chmod($destination, 0644);
+
+        return $storedPath;
+    }
+
+    private function deleteLocal(string $path): void
+    {
+        $relativePath = str_replace('\\', '/', ltrim($path, '/'));
+        if (! str_starts_with($relativePath, self::LOCAL_UPLOAD_PREFIX . '/')) {
+            return;
+        }
+
+        $segments = explode('/', $relativePath);
+        if (in_array('..', $segments, true) || in_array('.', $segments, true)) {
+            return;
+        }
+
+        $publicRoot = $this->publicRoot();
+        $uploadRoot = realpath($publicRoot . self::LOCAL_UPLOAD_PREFIX);
+        $filePath = realpath($publicRoot . str_replace('/', DIRECTORY_SEPARATOR, $relativePath));
+        if ($uploadRoot === false || $filePath === false || ! is_file($filePath)) {
+            return;
+        }
+
+        $uploadRootPrefix = rtrim($uploadRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if (! str_starts_with($filePath, $uploadRootPrefix)) {
+            return;
+        }
+
+        if (! @unlink($filePath)) {
+            log_message('warning', 'Unable to delete local media {path}.', ['path' => $relativePath]);
+        }
+    }
+
+    private function publicRoot(): string
+    {
+        $root = defined('FCPATH') ? FCPATH : dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR;
+
+        return rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     }
 
     private function client(): S3MultiRegionClient
@@ -148,6 +222,13 @@ class MediaStorageService
                 'secret' => $this->secretAccessKey,
             ],
         ]);
+    }
+
+    private function hasS3ConfigurationIntent(): bool
+    {
+        return $this->bucket !== ''
+            || $this->accessKeyId !== ''
+            || $this->secretAccessKey !== '';
     }
 
     private function isS3Configured(): bool
