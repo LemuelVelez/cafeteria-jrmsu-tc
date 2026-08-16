@@ -14,7 +14,7 @@ class RoleFilter implements FilterInterface
         $allowed = $arguments ?? [];
         if (! in_array($role, $allowed, true)) {
             if ($request->isAJAX() || str_starts_with($request->getUri()->getPath(), 'api/')) {
-                return service('response')->setStatusCode(403)->setJSON(['success' => false, 'message' => 'You are not allowed to perform this action.']);
+                return service('response')->setStatusCode(403)->setJSON(['success' => false, 'message' => 'You are not allowed to perform this action.', 'data' => null, 'errors' => null]);
             }
             session()->setFlashdata('error', 'You do not have permission to open that page.');
             return redirect()->to($role ? role_home($role) : '/login');

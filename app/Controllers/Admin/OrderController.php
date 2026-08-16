@@ -8,6 +8,8 @@ use App\Models\OrderModel;
 use App\Models\UserModel;
 use App\Services\OrderService;
 use CodeIgniter\Exceptions\PageNotFoundException;
+use DomainException;
+use Throwable;
 
 class OrderController extends BaseController
 {
@@ -48,8 +50,11 @@ class OrderController extends BaseController
             );
 
             return redirect()->to('/admin/orders/' . $id)->with('success', 'Order status updated.');
-        } catch (\Throwable $e) {
-            return redirect()->to('/admin/orders/' . $id)->with('error', $e->getMessage());
+        } catch (DomainException $exception) {
+            return redirect()->to('/admin/orders/' . $id)->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            log_message('error', 'Admin order status update failed: {message}', ['message' => $exception->getMessage()]);
+            return redirect()->to('/admin/orders/' . $id)->with('error', 'The order status could not be updated right now.');
         }
     }
 
@@ -63,8 +68,11 @@ class OrderController extends BaseController
             );
 
             return redirect()->to('/admin/orders/' . $id)->with('success', 'Rider assigned.');
-        } catch (\Throwable $e) {
-            return redirect()->to('/admin/orders/' . $id)->with('error', $e->getMessage());
+        } catch (DomainException $exception) {
+            return redirect()->to('/admin/orders/' . $id)->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            log_message('error', 'Admin rider assignment failed: {message}', ['message' => $exception->getMessage()]);
+            return redirect()->to('/admin/orders/' . $id)->with('error', 'The rider could not be assigned right now.');
         }
     }
 }

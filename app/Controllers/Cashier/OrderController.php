@@ -5,6 +5,8 @@ namespace App\Controllers\Cashier;
 use App\Controllers\BaseController;
 use App\Models\OrderModel;
 use App\Services\OrderService;
+use DomainException;
+use Throwable;
 
 class OrderController extends BaseController
 {
@@ -25,8 +27,11 @@ class OrderController extends BaseController
         try {
             (new OrderService())->updateStatus($id, (string) $this->request->getPost('status'), session()->get('user'));
             return redirect()->to('/cashier/orders')->with('success', 'Order status updated.');
-        } catch (\Throwable $e) {
-            return redirect()->to('/cashier/orders')->with('error', $e->getMessage());
+        } catch (DomainException $exception) {
+            return redirect()->to('/cashier/orders')->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            log_message('error', 'Cashier order status update failed: {message}', ['message' => $exception->getMessage()]);
+            return redirect()->to('/cashier/orders')->with('error', 'The order status could not be updated right now.');
         }
     }
 }

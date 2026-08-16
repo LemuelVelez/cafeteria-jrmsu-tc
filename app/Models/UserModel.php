@@ -10,6 +10,8 @@ class UserModel extends BaseModel
     protected $validationRules = [
         'name' => 'required|min_length[2]|max_length[100]',
         'email' => 'required|valid_email|max_length[160]',
+        'phone' => 'permit_empty|max_length[30]',
+        'address' => 'permit_empty|max_length[1000]',
         'role' => 'required|in_list[admin,cashier,rider,customer]',
         'status' => 'permit_empty|in_list[active,inactive,banned]',
         'avatar' => 'permit_empty|max_length[500]',

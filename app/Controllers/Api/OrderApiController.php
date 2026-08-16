@@ -61,8 +61,11 @@ class OrderApiController extends BaseController
             $payload = $this->request->getJSON(true) ?: $this->request->getRawInput();
             $order = (new OrderService())->updateStatus($id, (string) ($payload['status'] ?? ''), session()->get('user'), $payload['note'] ?? null);
             return $this->jsonSuccess('Order status updated.', $order);
-        } catch (Throwable $exception) {
+        } catch (DomainException $exception) {
             return $this->jsonError($exception->getMessage());
+        } catch (Throwable $exception) {
+            log_message('error', 'Order status update failed: {message}', ['message' => $exception->getMessage()]);
+            return $this->jsonError('The order status could not be updated right now.', null, 500);
         }
     }
 
@@ -77,8 +80,11 @@ class OrderApiController extends BaseController
             );
 
             return $this->jsonSuccess('Rider assigned.', $order);
-        } catch (Throwable $exception) {
+        } catch (DomainException $exception) {
             return $this->jsonError($exception->getMessage());
+        } catch (Throwable $exception) {
+            log_message('error', 'Rider assignment failed: {message}', ['message' => $exception->getMessage()]);
+            return $this->jsonError('The rider could not be assigned right now.', null, 500);
         }
     }
 

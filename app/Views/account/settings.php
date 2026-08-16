@@ -28,7 +28,7 @@
                 </div>
                 <div class="col-12 col-md-6">
                     <label class="form-label fw-semibold" for="profilePhone">Phone number</label>
-                    <input class="form-control" id="profilePhone" name="phone" value="<?= old('phone', $profile['phone'] ?? '') ?>" autocomplete="tel">
+                    <input class="form-control" id="profilePhone" name="phone" value="<?= old('phone', $profile['phone'] ?? '') ?>" autocomplete="tel" maxlength="30">
                 </div>
                 <div class="col-12 col-md-6">
                     <label class="form-label fw-semibold">Account role</label>
@@ -36,7 +36,7 @@
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold" for="profileAddress">Default address</label>
-                    <textarea class="form-control" id="profileAddress" name="address" rows="3" autocomplete="street-address"><?= old('address', $profile['address'] ?? '') ?></textarea>
+                    <textarea class="form-control" id="profileAddress" name="address" rows="3" autocomplete="street-address" maxlength="1000"><?= old('address', $profile['address'] ?? '') ?></textarea>
                 </div>
             </div>
 

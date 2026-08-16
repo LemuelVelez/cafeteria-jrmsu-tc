@@ -106,15 +106,16 @@ class AuthService
 
     public function verifyEmail(string $plainToken): bool
     {
-        $token = $this->tokens->findValid($plainToken, AuthTokenModel::EMAIL_VERIFICATION);
-        if (! $token) {
-            return false;
-        }
-
         $database = db_connect();
         $database->transBegin();
 
         try {
+            $token = $this->tokens->findValidForUpdate($plainToken, AuthTokenModel::EMAIL_VERIFICATION);
+            if (! $token) {
+                $database->transRollback();
+                return false;
+            }
+
             $updated = $this->users->update((int) $token['user_id'], [
                 'requires_email_verification' => 0,
                 'email_verified_at' => date('Y-m-d H:i:s'),
@@ -148,15 +149,16 @@ class AuthService
 
     public function resetPassword(string $plainToken, string $password): bool
     {
-        $token = $this->tokens->findValid($plainToken, AuthTokenModel::PASSWORD_RESET);
-        if (! $token) {
-            return false;
-        }
-
         $database = db_connect();
         $database->transBegin();
 
         try {
+            $token = $this->tokens->findValidForUpdate($plainToken, AuthTokenModel::PASSWORD_RESET);
+            if (! $token) {
+                $database->transRollback();
+                return false;
+            }
+
             $updated = $this->users->update((int) $token['user_id'], [
                 'password_hash' => password_hash($password, PASSWORD_DEFAULT),
             ]);

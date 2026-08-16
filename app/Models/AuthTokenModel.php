@@ -59,13 +59,36 @@ class AuthTokenModel extends Model
             ->first();
     }
 
+    public function findValidForUpdate(string $plainToken, string $purpose): ?array
+    {
+        if (! preg_match('/^[a-f0-9]{64}$/', $plainToken)) {
+            return null;
+        }
+
+        $row = $this->db->query(
+            <<<'SQL'
+            SELECT *
+            FROM user_auth_tokens
+            WHERE token_hash = ?
+              AND purpose = ?
+              AND used_at IS NULL
+              AND expires_at >= ?
+            LIMIT 1
+            FOR UPDATE
+            SQL,
+            [hash('sha256', $plainToken), $purpose, date('Y-m-d H:i:s')],
+        )->getRowArray();
+
+        return $row ?: null;
+    }
+
     public function markUsed(int $tokenId): bool
     {
-        $updated = $this->where('id', $tokenId)
+        $this->db->table($this->table)
+            ->where('id', $tokenId)
             ->where('used_at', null)
-            ->set(['used_at' => date('Y-m-d H:i:s')])
-            ->update();
+            ->update(['used_at' => date('Y-m-d H:i:s')]);
 
-        return (bool) $updated;
+        return $this->db->affectedRows() === 1;
     }
 }

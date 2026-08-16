@@ -36,6 +36,20 @@ class ProductModel extends BaseModel
         return $builder->orderBy('products.is_featured', 'DESC')->orderBy('products.name')->findAll();
     }
 
+
+    public function featured(int $limit = 4): array
+    {
+        return $this->select('products.*, categories.name AS category_name')
+            ->join('categories', 'categories.id = products.category_id')
+            ->where('products.is_available', 1)
+            ->where('products.is_featured', 1)
+            ->where('products.stock >', 0)
+            ->where('categories.is_active', 1)
+            ->where('categories.deleted_at', null)
+            ->orderBy('products.name')
+            ->findAll(max(1, $limit));
+    }
+
     public function withCategory(): array
     {
         return $this->select('products.*, categories.name AS category_name')

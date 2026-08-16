@@ -12,11 +12,12 @@ class OrderModel extends BaseModel
     protected $allowedFields = [
         'order_number', 'customer_id', 'cashier_id', 'rider_id', 'order_type', 'status',
         'subtotal', 'discount', 'delivery_fee', 'total', 'payment_method', 'payment_status',
-        'delivery_address', 'notes', 'promo_id',
+        'delivery_address', 'notes', 'promo_id', 'request_token',
     ];
     protected $validationRules = [
         'order_number' => 'required|max_length[40]',
         'status' => 'required|in_list[pending,confirmed,preparing,ready,out_for_delivery,delivered,cancelled]',
+        'request_token' => 'permit_empty|max_length[64]|regex_match[/^[A-Za-z0-9_-]+$/]',
     ];
 
     protected function initialize(): void

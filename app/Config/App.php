@@ -31,12 +31,16 @@ class App extends BaseConfig
             return;
         }
 
+        $configuredHost = strtolower((string) parse_url($this->baseURL, PHP_URL_HOST));
+        if (defined('ENVIRONMENT') && ENVIRONMENT === 'production' && $this->isLocalHost($configuredHost)) {
+            return;
+        }
+
         $requestBaseUrl = $this->detectRequestBaseUrl();
         if ($requestBaseUrl === null) {
             return;
         }
 
-        $configuredHost = strtolower((string) parse_url($this->baseURL, PHP_URL_HOST));
         $requestHost = strtolower((string) parse_url($requestBaseUrl, PHP_URL_HOST));
 
         if (

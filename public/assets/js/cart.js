@@ -4,19 +4,140 @@
     class CartStore {
         constructor(key = 'jrmsu-cafeteria-cart') {
             this.key = key;
+            this.requestTokenKey = `${key}:request-token`;
             try {
                 const storedItems = JSON.parse(localStorage.getItem(key) || '[]');
-                this.items = Array.isArray(storedItems) ? storedItems : [];
+                const source = Array.isArray(storedItems) ? storedItems : [];
+                this.items = source.map((item) => this.normalizeItem(item)).filter(Boolean);
+                if (JSON.stringify(this.items) !== JSON.stringify(source)) {
+                    localStorage.setItem(this.key, JSON.stringify(this.items));
+                    localStorage.removeItem(this.requestTokenKey);
+                }
             } catch (error) {
                 console.warn('Unable to read the saved cart. The invalid cart data was cleared.', error);
                 this.items = [];
                 localStorage.removeItem(key);
+                localStorage.removeItem(this.requestTokenKey);
             }
+        }
+        normalizeItem(item) {
+            if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+
+            const productId = Number(item.product_id);
+            const price = Number(item.price);
+            const stock = Number(item.stock);
+            if (!Number.isInteger(productId) || productId < 1 || !Number.isFinite(price) || price < 0) return null;
+
+            const normalizedStock = Number.isFinite(stock) && stock >= 0 ? Math.floor(stock) : 0;
+            const quantity = Math.min(99, Math.max(1, Math.floor(Number(item.quantity) || 1)));
+            const addons = Array.isArray(item.addons) ? item.addons.map((addon) => {
+                if (!addon || typeof addon !== 'object') return null;
+                const id = Number(addon.id);
+                const addonPrice = Number(addon.price);
+                if (!Number.isInteger(id) || id < 1 || !Number.isFinite(addonPrice) || addonPrice < 0) return null;
+                return { id, name: String(addon.name || '').slice(0, 100), price: addonPrice };
+            }).filter(Boolean) : [];
+
+            return {
+                ...item,
+                product_id: productId,
+                name: String(item.name || 'Product').slice(0, 120),
+                price,
+                stock: normalizedStock,
+                quantity,
+                image: String(item.image || '').slice(0, 2000),
+                addons,
+                addon_total: addons.reduce((sum, addon) => sum + addon.price, 0),
+                notes: String(item.notes || '').slice(0, 500),
+                available: item.available !== false,
+                addon_invalid: Boolean(item.addon_invalid),
+            };
         }
         save() {
             localStorage.setItem(this.key, JSON.stringify(this.items));
+            localStorage.removeItem(this.requestTokenKey);
             this.updateBadges();
             window.dispatchEvent(new CustomEvent('jrmsu:cart-updated'));
+        }
+        requestToken() {
+            let token = localStorage.getItem(this.requestTokenKey) || '';
+            if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) {
+                token = typeof crypto?.randomUUID === 'function'
+                    ? crypto.randomUUID().replace(/-/g, '')
+                    : Array.from(crypto.getRandomValues(new Uint8Array(16)), (value) => value.toString(16).padStart(2, '0')).join('');
+                localStorage.setItem(this.requestTokenKey, token);
+            }
+            return token;
+        }
+        validationError() {
+            const requestedByProduct = new Map();
+            for (const line of this.items) {
+                if (line.available === false) return `${line.name || 'A product'} is no longer available. Remove it from the cart before continuing.`;
+                if (line.addon_invalid) return `An add-on selected for ${line.name || 'a product'} is no longer available. Remove and re-add that item before continuing.`;
+
+                const productId = Number(line.product_id);
+                const requested = (requestedByProduct.get(productId) || 0) + Number(line.quantity || 0);
+                requestedByProduct.set(productId, requested);
+                if (requested > Number(line.stock || 0)) {
+                    return `Only ${Math.max(0, Number(line.stock || 0))} unit(s) of ${line.name || 'this product'} are currently available.`;
+                }
+            }
+            return '';
+        }
+        async refreshProducts() {
+            if (typeof window.cafeteriaFetch !== 'function' || !this.items.length) return this.validationError();
+
+            const response = await window.cafeteriaFetch(window.cafeteriaUrl('api/products'));
+            const products = Array.isArray(response?.data) ? response.data : [];
+            const productMap = new Map(products.map((product) => [Number(product.id), product]));
+            let changed = false;
+
+            this.items.forEach((line) => {
+                const product = productMap.get(Number(line.product_id));
+                if (!product) {
+                    if (line.available !== false) changed = true;
+                    line.available = false;
+                    return;
+                }
+
+                const serverPrice = Number(product.price);
+                const serverStock = Math.max(0, Math.floor(Number(product.stock) || 0));
+                const serverName = String(product.name || line.name || 'Product').slice(0, 120);
+                const serverImage = String(product.image_url || line.image || '').slice(0, 2000);
+                if (line.available === false || line.price !== serverPrice || line.stock !== serverStock || line.name !== serverName || line.image !== serverImage) changed = true;
+                line.available = true;
+                line.price = serverPrice;
+                line.stock = serverStock;
+                line.name = serverName;
+                line.image = serverImage;
+
+                const addonMap = new Map((Array.isArray(product.addons) ? product.addons : []).map((addon) => [Number(addon.id), addon]));
+                let addonInvalid = false;
+                line.addons = (Array.isArray(line.addons) ? line.addons : []).map((selected) => {
+                    const current = addonMap.get(Number(selected.id));
+                    if (!current) {
+                        addonInvalid = true;
+                        return selected;
+                    }
+                    const normalized = { id: Number(current.id), name: String(current.name || '').slice(0, 100), price: Number(current.price || 0) };
+                    if (selected.name !== normalized.name || Number(selected.price) !== normalized.price) changed = true;
+                    return normalized;
+                });
+                if (line.addon_invalid !== addonInvalid) changed = true;
+                line.addon_invalid = addonInvalid;
+                const addonTotal = line.addons.reduce((sum, addon) => sum + Number(addon.price || 0), 0);
+                if (Number(line.addon_total || 0) !== addonTotal) changed = true;
+                line.addon_total = addonTotal;
+            });
+
+            if (changed) {
+                localStorage.setItem(this.key, JSON.stringify(this.items));
+                localStorage.removeItem(this.requestTokenKey);
+                this.updateBadges();
+                window.dispatchEvent(new CustomEvent('jrmsu:cart-updated'));
+            }
+
+            return this.validationError();
         }
         add(item) {
             const productId = Number(item.product_id || 0);
@@ -38,6 +159,12 @@
             return quantity === requested;
         }
         remove(index) { this.items.splice(index, 1); this.save(); }
+        note(index, value) {
+            const line = this.items[index];
+            if (!line) return;
+            line.notes = String(value || '').slice(0, 500);
+            this.save();
+        }
         quantity(index, value) {
             const line = this.items[index];
             if (!line) return 0;
@@ -225,6 +352,10 @@
                                 <span class="cart-line-unit-price">₱${unitPrice.toFixed(2)} each</span>
                             </div>
                             <div class="cart-addon-list">${addonMarkup}</div>
+                            <label class="small text-muted mt-2 d-block" for="cart-note-${index}">Item note (optional)</label>
+                            <textarea class="form-control form-control-sm mt-1" id="cart-note-${index}" rows="2" maxlength="500" data-cart-note="${index}" placeholder="Special request for this item">${escapeHtml(line.notes || '')}</textarea>
+                            ${line.available === false ? '<div class="small text-danger mt-2">This product is no longer available.</div>' : ''}
+                            ${line.addon_invalid ? '<div class="small text-danger mt-2">A selected add-on is no longer available.</div>' : ''}
                         </div>
                         <div class="cart-line-controls">
                             <div class="quantity-stepper" role="group" aria-label="Quantity for ${escapeHtml(line.name)}">
@@ -248,6 +379,12 @@
         document.querySelectorAll('[data-cart-qty]').forEach((input) => {
             input.addEventListener('change', () => {
                 cart.quantity(Number(input.dataset.cartQty), input.value);
+                render();
+            });
+        });
+        document.querySelectorAll('[data-cart-note]').forEach((input) => {
+            input.addEventListener('change', () => {
+                cart.note(Number(input.dataset.cartNote), input.value);
                 render();
             });
         });
@@ -283,6 +420,8 @@
             render();
         }));
     };
+
+    window.addEventListener('jrmsu:cart-updated', render);
 
     const checkoutForm = document.querySelector('[data-checkout-form]');
     if (checkoutForm) {
@@ -410,6 +549,7 @@
 
         checkoutForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            if (submit?.getAttribute('aria-busy') === 'true') return;
             showError();
 
             if (!cart.items.length) {
@@ -418,14 +558,26 @@
             }
             if (!checkoutForm.reportValidity()) return;
 
-            const orderLabel = orderType?.value === 'delivery' ? 'delivery' : 'pickup';
-            const fee = orderType?.value === 'delivery' ? deliveryFee : 0;
-            const accepted = await confirmOrder(`Place this ${orderLabel} order totaling ${formatMoney(cart.subtotal() + fee)}?`);
-            if (!accepted) return;
-
             setSubmitting(true);
             try {
+                const cartError = await cart.refreshProducts();
+                updateCheckout();
+                if (cartError) {
+                    showError(cartError);
+                    setSubmitting(false);
+                    return;
+                }
+
+                const orderLabel = orderType?.value === 'delivery' ? 'delivery' : 'pickup';
+                const fee = orderType?.value === 'delivery' ? deliveryFee : 0;
+                const accepted = await confirmOrder(`Place this ${orderLabel} order totaling ${formatMoney(cart.subtotal() + fee)}?`);
+                if (!accepted) {
+                    setSubmitting(false);
+                    return;
+                }
+
                 const payload = Object.fromEntries(new FormData(checkoutForm).entries());
+                payload.request_token = cart.requestToken();
                 payload.items = cart.items.map((line) => ({
                     product_id: Number(line.product_id),
                     quantity: Math.max(1, Number(line.quantity || 1)),
@@ -448,6 +600,7 @@
     }
 
     render();
+    cart.refreshProducts().catch((error) => console.warn('Unable to refresh cart product data.', error));
 
     function renderProductMedia(line, imageClass, placeholderClass) {
         const image = String(line.image || '').trim();

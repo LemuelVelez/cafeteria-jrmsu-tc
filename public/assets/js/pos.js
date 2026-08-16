@@ -8,6 +8,7 @@
     if (!cart || !rows || !form) return;
 
     const orderType = document.querySelector('[data-pos-order-type]');
+    const search = document.querySelector('[data-pos-search]');
     const deliveryFields = document.querySelector('[data-pos-delivery-fields]');
     const deliveryAddress = deliveryFields?.querySelector('[name="delivery_address"]');
     const paymentMethod = document.querySelector('[data-pos-payment-method]');
@@ -34,15 +35,25 @@
 
     const render = () => {
         rows.innerHTML = cart.items.length
-            ? cart.items.map((line, index) => `
+            ? cart.items.map((line, index) => {
+                const addons = (Array.isArray(line.addons) ? line.addons : []).map((addon) => addon.name).filter(Boolean);
+                const unitPrice = Number(line.price || 0) + Number(line.addon_total || 0);
+                const availability = line.available === false
+                    ? '<small class="text-danger d-block">Product unavailable</small>'
+                    : line.addon_invalid
+                        ? '<small class="text-danger d-block">Selected add-on unavailable</small>'
+                        : '';
+                return `
                 <div class="pos-line py-2 border-bottom">
                     <div class="pos-line-main">
                         <div class="fw-semibold">${escapeHtml(line.name)}</div>
-                        <small class="text-secondary">₱${Number(line.price).toFixed(2)}</small>
+                        <small class="text-secondary">₱${unitPrice.toFixed(2)}${addons.length ? ` · ${escapeHtml(addons.join(', '))}` : ''}</small>
+                        ${availability}
                     </div>
                     <input class="form-control form-control-sm pos-line-quantity" type="number" min="1" value="${line.quantity}" data-pos-qty="${index}" aria-label="Quantity for ${escapeHtml(line.name)}">
                     <button class="btn btn-sm btn-outline-danger pos-line-remove" type="button" data-pos-remove="${index}" aria-label="Remove ${escapeHtml(line.name)}"><i class="bi bi-x"></i></button>
-                </div>`).join('')
+                </div>`;
+            }).join('')
             : '<div class="empty-state py-5"><i class="bi bi-cart3"></i><p>Select products to begin.</p></div>';
 
         const totalNode = document.querySelector('[data-pos-total]');
@@ -71,22 +82,34 @@
         button.addEventListener('click', () => setTimeout(render, 0));
     });
 
+    let activeCategory = 'all';
+    const applyFilters = () => {
+        const query = String(search?.value || '').trim().toLowerCase();
+        document.querySelectorAll('[data-product-column]').forEach((column) => {
+            const card = column.querySelector('[data-product-card]');
+            const categoryMatches = activeCategory === 'all' || column.dataset.categoryId === activeCategory;
+            const searchMatches = !query || String(card?.dataset.productName || '').toLowerCase().includes(query);
+            column.hidden = !categoryMatches || !searchMatches;
+        });
+    };
+
     document.querySelectorAll('[data-category]').forEach((button) => {
         button.addEventListener('click', () => {
-            const category = button.dataset.category;
+            activeCategory = button.dataset.category || 'all';
             document.querySelectorAll('[data-category]').forEach((item) => {
                 item.classList.toggle('btn-primary', item === button);
                 item.classList.toggle('btn-outline-secondary', item !== button);
             });
-            document.querySelectorAll('[data-product-column]').forEach((column) => {
-                column.hidden = category !== 'all' && column.dataset.categoryId !== category;
-            });
+            applyFilters();
         });
     });
+    search?.addEventListener('input', applyFilters);
 
     orderType?.addEventListener('change', syncDeliveryFields);
+    window.addEventListener('jrmsu:cart-updated', render);
 
     submitButton?.addEventListener('click', async () => {
+        if (submitButton.disabled) return;
         if (!cart.items.length) {
             alert('Add at least one product.');
             return;
@@ -94,15 +117,27 @@
 
         if (!form.reportValidity()) return;
 
-        const accepted = await window.cafeteriaConfirm(
-            `Complete this ${orderType?.value === 'delivery' ? 'delivery' : 'pickup'} order totaling ₱${total().toFixed(2)}?`,
-            { title: 'Complete order', confirmLabel: 'Complete order' },
-        );
-        if (!accepted) return;
-
         submitButton.disabled = true;
         try {
+            const cartError = await cart.refreshProducts();
+            render();
+            if (cartError) {
+                alert(cartError);
+                submitButton.disabled = false;
+                return;
+            }
+
+            const accepted = await window.cafeteriaConfirm(
+                `Complete this ${orderType?.value === 'delivery' ? 'delivery' : 'pickup'} order totaling ₱${total().toFixed(2)}?`,
+                { title: 'Complete order', confirmLabel: 'Complete order' },
+            );
+            if (!accepted) {
+                submitButton.disabled = false;
+                return;
+            }
+
             const payload = Object.fromEntries(new FormData(form).entries());
+            payload.request_token = cart.requestToken();
             payload.items = cart.items.map((line) => ({
                 product_id: Number(line.product_id),
                 quantity: Math.max(1, Number(line.quantity || 1)),

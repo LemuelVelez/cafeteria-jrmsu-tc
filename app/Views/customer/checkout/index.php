@@ -69,13 +69,14 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                                 id="checkout-delivery-address"
                                 name="delivery_address"
                                 rows="3"
+                                maxlength="1000"
                                 minlength="5"
                                 placeholder="Building, office, dormitory, or campus landmark"
                             ></textarea>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" for="checkout-promo">Promo code</label>
-                            <input class="form-control text-uppercase" id="checkout-promo" name="promo_code" maxlength="50" placeholder="WELCOME10">
+                            <input class="form-control text-uppercase" id="checkout-promo" name="promo_code" maxlength="40" placeholder="WELCOME10">
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-semibold" for="checkout-notes">Order notes</label>

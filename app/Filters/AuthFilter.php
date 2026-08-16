@@ -12,7 +12,7 @@ class AuthFilter implements FilterInterface
     {
         if (! (session()->get('user')['id'] ?? null)) {
             if ($request->isAJAX() || str_starts_with($request->getUri()->getPath(), 'api/')) {
-                return service('response')->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Authentication required.']);
+                return service('response')->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Authentication required.', 'data' => null, 'errors' => null]);
             }
             session()->setFlashdata('error', 'Please sign in to continue.');
             return redirect()->to('/login');

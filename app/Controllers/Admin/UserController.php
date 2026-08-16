@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
+use Throwable;
 
 class UserController extends BaseController
 {
@@ -31,14 +32,19 @@ class UserController extends BaseController
             return redirect()->to('/admin/users')->withInput()->with('error', 'That email address is already registered.');
         }
 
-        $created = $model->insert([
-            'name' => trim((string) $this->request->getPost('name')),
-            'email' => $email,
-            'phone' => trim((string) $this->request->getPost('phone')),
-            'password_hash' => password_hash((string) $this->request->getPost('password'), PASSWORD_DEFAULT),
-            'role' => 'admin',
-            'status' => 'active',
-        ]);
+        try {
+            $created = $model->insert([
+                'name' => trim((string) $this->request->getPost('name')),
+                'email' => $email,
+                'phone' => trim((string) $this->request->getPost('phone')),
+                'password_hash' => password_hash((string) $this->request->getPost('password'), PASSWORD_DEFAULT),
+                'role' => 'admin',
+                'status' => 'active',
+            ]);
+        } catch (Throwable $exception) {
+            log_message('error', 'Administrator creation failed: {message}', ['message' => $exception->getMessage()]);
+            return redirect()->to('/admin/users')->withInput()->with('error', 'The administrator account could not be created.');
+        }
 
         if (! $created) {
             return redirect()->to('/admin/users')->withInput()->with('errors', $model->errors());

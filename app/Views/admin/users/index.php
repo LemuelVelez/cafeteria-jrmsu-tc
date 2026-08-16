@@ -81,7 +81,7 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="adminPhone">Phone</label>
-                    <input class="form-control" id="adminPhone" name="phone" value="<?= old('phone') ?>">
+                    <input class="form-control" id="adminPhone" name="phone" value="<?= old('phone') ?>" maxlength="30">
                 </div>
                 <div>
                     <label class="form-label" for="adminPassword">Temporary password</label>

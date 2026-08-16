@@ -16,6 +16,14 @@ class PromoService
 
     public function calculate(string $code, float $subtotal, bool $lockForUpdate = false): array
     {
+        $code = strtoupper(trim($code));
+        if ($code === '' || mb_strlen($code) > 40) {
+            throw new \DomainException('Promo code is invalid or expired.');
+        }
+        if (! is_finite($subtotal) || $subtotal < 0) {
+            throw new \DomainException('Order subtotal cannot be negative.');
+        }
+
         $promo = $lockForUpdate
             ? $this->findValidCodeForUpdate($code)
             : $this->promos->validCode($code);
@@ -25,9 +33,6 @@ class PromoService
         }
         if ((int) $promo['usage_limit'] > 0 && (int) $promo['used_count'] >= (int) $promo['usage_limit']) {
             throw new \DomainException('Promo code usage limit has been reached.');
-        }
-        if ($subtotal < 0) {
-            throw new \DomainException('Order subtotal cannot be negative.');
         }
         if ($subtotal < (float) $promo['minimum_order']) {
             throw new \DomainException('Minimum order amount has not been reached.');

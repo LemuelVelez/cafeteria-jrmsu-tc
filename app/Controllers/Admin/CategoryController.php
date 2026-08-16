@@ -26,7 +26,7 @@ class CategoryController extends BaseController
             'name' => trim((string) $this->request->getPost('name')),
             'slug' => url_title((string) $this->request->getPost('name'), '-', true),
             'description' => trim((string) $this->request->getPost('description')),
-            'sort_order' => (int) $this->request->getPost('sort_order'),
+            'sort_order' => $this->request->getPost('sort_order') ?: 0,
             'is_active' => $this->request->getPost('is_active') ? 1 : 0,
         ];
 

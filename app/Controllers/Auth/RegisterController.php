@@ -26,6 +26,7 @@ class RegisterController extends BaseController
             'name' => 'required|min_length[2]|max_length[100]',
             'email' => 'required|valid_email|max_length[160]',
             'phone' => 'permit_empty|max_length[30]',
+            'address' => 'permit_empty|max_length[1000]',
             'password' => 'required|min_length[8]',
             'password_confirm' => 'required|matches[password]',
         ];

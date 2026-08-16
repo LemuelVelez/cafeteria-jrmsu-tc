@@ -74,13 +74,40 @@ class OrderService
         if ($orderType === OrderType::Delivery && mb_strlen($deliveryAddress) < 5) {
             throw new \DomainException('A delivery address is required.');
         }
+        if (mb_strlen($deliveryAddress) > 1000) {
+            throw new \DomainException('The delivery address must not exceed 1000 characters.');
+        }
 
-        $customerId = $actorRole === 'customer' ? $actorId : (int) ($payload['customer_id'] ?? 0);
-        if ($actorRole === 'cashier' && $customerId > 0) {
-            $customer = (new UserModel())->where(['id' => $customerId, 'role' => 'customer', 'status' => 'active'])->first();
-            if (! $customer) {
-                throw new \DomainException('Selected customer is not active.');
+        $requestToken = trim((string) ($payload['request_token'] ?? ''));
+        if ($requestToken === '') {
+            throw new \DomainException('An order request token is required.');
+        }
+        if (! preg_match('/^[A-Za-z0-9_-]{16,64}$/', $requestToken)) {
+            throw new \DomainException('Invalid order request token.');
+        }
+
+        $customerId = $actorRole === 'customer' ? $actorId : 0;
+        if ($actorRole === 'cashier') {
+            $customerIdInput = $payload['customer_id'] ?? null;
+            if ($customerIdInput !== null && $customerIdInput !== '' && $customerIdInput !== 0 && $customerIdInput !== '0') {
+                $validatedCustomerId = filter_var($customerIdInput, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                if ($validatedCustomerId === false) {
+                    throw new \DomainException('Selected customer is invalid.');
+                }
+                $customerId = (int) $validatedCustomerId;
             }
+
+            if ($customerId > 0) {
+                $customer = (new UserModel())->where(['id' => $customerId, 'role' => 'customer', 'status' => 'active'])->first();
+                if (! $customer) {
+                    throw new \DomainException('Selected customer is not active.');
+                }
+            }
+        }
+
+        $existingOrder = $this->findIdempotentOrder($requestToken, $actorRole, $actorId);
+        if ($existingOrder) {
+            return $existingOrder;
         }
 
         $this->db->transBegin();
@@ -95,13 +122,16 @@ class OrderService
                     throw new \DomainException('One or more cart items are invalid.');
                 }
 
-                $productId = (int) ($line['product_id'] ?? 0);
+                $productId = filter_var($line['product_id'] ?? null, FILTER_VALIDATE_INT, [
+                    'options' => ['min_range' => 1],
+                ]);
                 $quantity = filter_var($line['quantity'] ?? 1, FILTER_VALIDATE_INT, [
                     'options' => ['min_range' => 1, 'max_range' => 99],
                 ]);
-                if ($productId < 1 || $quantity === false) {
+                if ($productId === false || $quantity === false) {
                     throw new \DomainException('Each cart item must have a valid product and a quantity from 1 to 99.');
                 }
+                $productId = (int) $productId;
 
                 if (! isset($lockedProducts[$productId])) {
                     $lockedProducts[$productId] = $this->db
@@ -127,10 +157,19 @@ class OrderService
                 }
 
                 $selectedAddonIds = [];
-                foreach (($line['addons'] ?? []) as $selectedAddon) {
-                    $selectedAddonIds[] = (int) (is_array($selectedAddon) ? ($selectedAddon['id'] ?? 0) : $selectedAddon);
+                $submittedAddons = $line['addons'] ?? [];
+                if (! is_array($submittedAddons)) {
+                    throw new \DomainException('One or more selected add-ons are invalid.');
                 }
-                $selectedAddonIds = array_values(array_unique(array_filter($selectedAddonIds)));
+                foreach ($submittedAddons as $selectedAddon) {
+                    $addonIdInput = is_array($selectedAddon) ? ($selectedAddon['id'] ?? null) : $selectedAddon;
+                    $addonId = filter_var($addonIdInput, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                    if ($addonId === false) {
+                        throw new \DomainException('One or more selected add-ons are invalid.');
+                    }
+                    $selectedAddonIds[] = (int) $addonId;
+                }
+                $selectedAddonIds = array_values(array_unique($selectedAddonIds));
                 $actualAddons = [];
                 if ($selectedAddonIds !== []) {
                     $actualAddons = $this->addons
@@ -188,6 +227,7 @@ class OrderService
                 'delivery_address' => $orderType === OrderType::Delivery ? $deliveryAddress : null,
                 'notes' => mb_substr(trim((string) ($payload['notes'] ?? '')), 0, 1000),
                 'promo_id' => $promoId,
+                'request_token' => $requestToken,
             ], true);
             if (! $orderId) {
                 throw new \RuntimeException('Unable to save the order.');
@@ -258,8 +298,26 @@ class OrderService
             return $order;
         } catch (Throwable $exception) {
             $this->db->transRollback();
+            $existingOrder = $this->findIdempotentOrder($requestToken, $actorRole, $actorId);
+            if ($existingOrder) {
+                return $existingOrder;
+            }
             throw $exception;
         }
+    }
+
+    private function findIdempotentOrder(string $requestToken, string $actorRole, int $actorId): ?array
+    {
+        $order = $this->orders->where('request_token', $requestToken)->first();
+        if (! $order) {
+            return null;
+        }
+
+        $belongsToActor = $actorRole === 'customer'
+            ? (int) ($order['customer_id'] ?? 0) === $actorId
+            : (int) ($order['cashier_id'] ?? 0) === $actorId;
+
+        return $belongsToActor ? $order : null;
     }
 
     public static function allowedTransitions(array $order, array $actor): array
@@ -416,27 +474,37 @@ class OrderService
             throw new \DomainException('Only administrators may assign riders.');
         }
 
-        $order = $this->orders->find($orderId);
-        if (! $order || $order['order_type'] !== 'delivery') {
-            throw new \DomainException('Delivery order not found.');
-        }
-        if (in_array($order['status'], ['out_for_delivery', 'delivered', 'cancelled'], true)) {
-            throw new \DomainException('The rider cannot be changed at this order stage.');
-        }
+        $this->db->transBegin();
+        try {
+            $order = $this->db->query('SELECT * FROM orders WHERE id = ? FOR UPDATE', [$orderId])->getRowArray();
+            if (! $order || $order['order_type'] !== 'delivery') {
+                throw new \DomainException('Delivery order not found.');
+            }
+            if (in_array($order['status'], ['out_for_delivery', 'delivered', 'cancelled'], true)) {
+                throw new \DomainException('The rider cannot be changed at this order stage.');
+            }
 
-        $rider = (new UserModel())->where(['id' => $riderId, 'role' => 'rider', 'status' => 'active'])->first();
-        if (! $rider) {
-            throw new \DomainException('Select an active rider.');
-        }
-        if (! $this->orders->update($orderId, ['rider_id' => $riderId])) {
-            throw new \RuntimeException('Unable to assign the rider.');
-        }
+            $rider = (new UserModel())->where(['id' => $riderId, 'role' => 'rider', 'status' => 'active'])->first();
+            if (! $rider) {
+                throw new \DomainException('Select an active rider.');
+            }
+            if (! $this->orders->update($orderId, ['rider_id' => $riderId])) {
+                throw new \RuntimeException('Unable to assign the rider.');
+            }
+            if (! $this->db->transStatus()) {
+                throw new \RuntimeException('Unable to assign the rider.');
+            }
 
-        $updatedOrder = $this->orders->find($orderId);
-        if (! $updatedOrder) {
-            throw new \RuntimeException('The updated order could not be loaded.');
-        }
+            $updatedOrder = $this->orders->find($orderId);
+            if (! $updatedOrder) {
+                throw new \RuntimeException('The updated order could not be loaded.');
+            }
 
-        return $updatedOrder;
+            $this->db->transCommit();
+            return $updatedOrder;
+        } catch (Throwable $exception) {
+            $this->db->transRollback();
+            throw $exception;
+        }
     }
 }

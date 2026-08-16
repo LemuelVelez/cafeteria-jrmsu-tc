@@ -108,13 +108,12 @@
                 'application/pdf': ['.pdf'],
             };
 
-            return accepted.some((rule) => (
-                rule.startsWith('.')
-                    ? filename.endsWith(rule)
-                    : rule.endsWith('/*')
-                        ? mime.startsWith(rule.slice(0, -1))
-                        : mime === rule || (mimeExtensions[rule] || []).some((extension) => filename.endsWith(extension))
-            ));
+            return accepted.some((rule) => {
+                if (rule.startsWith('.')) return filename.endsWith(rule);
+                if (rule.endsWith('/*')) return mime !== '' && mime.startsWith(rule.slice(0, -1));
+                if (mime !== '') return mime === rule;
+                return (mimeExtensions[rule] || []).some((extension) => filename.endsWith(extension));
+            });
         };
 
         document.querySelectorAll('input[type="file"]').forEach((field, index) => {

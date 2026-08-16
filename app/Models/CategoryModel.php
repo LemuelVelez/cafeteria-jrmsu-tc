@@ -13,5 +13,6 @@ class CategoryModel extends BaseModel
         'name' => 'required|min_length[2]|max_length[80]',
         'slug' => 'required|alpha_dash|max_length[100]',
         'is_active' => 'permit_empty|in_list[0,1]',
+        'sort_order' => 'permit_empty|integer|greater_than_equal_to[0]',
     ];
 }

@@ -70,7 +70,7 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="riderPhone">Phone</label>
-                    <input class="form-control" id="riderPhone" name="phone" value="<?= old('phone') ?>">
+                    <input class="form-control" id="riderPhone" name="phone" value="<?= old('phone') ?>" maxlength="30">
                 </div>
                 <div>
                     <label class="form-label" for="riderPassword">Temporary password</label>

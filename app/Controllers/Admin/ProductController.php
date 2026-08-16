@@ -26,20 +26,20 @@ class ProductController extends BaseController
             return redirect()->to('/admin/products')->with('error', 'Product not found.');
         }
 
-        $categoryId = (int) $this->request->getPost('category_id');
-        if (! (new CategoryModel())->where(['id' => $categoryId, 'is_active' => 1])->first()) {
+        $categoryId = filter_var($this->request->getPost('category_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($categoryId === false || ! (new CategoryModel())->where(['id' => (int) $categoryId, 'is_active' => 1])->first()) {
             return redirect()->to('/admin/products')
                 ->withInput()
                 ->with('error', 'Select an active product category.');
         }
 
         $data = [
-            'category_id' => $categoryId,
+            'category_id' => (int) $categoryId,
             'name' => trim((string) $this->request->getPost('name')),
             'slug' => url_title((string) $this->request->getPost('name'), '-', true),
             'description' => trim((string) $this->request->getPost('description')),
-            'price' => (float) $this->request->getPost('price'),
-            'stock' => (int) $this->request->getPost('stock'),
+            'price' => $this->request->getPost('price'),
+            'stock' => $this->request->getPost('stock'),
             'is_available' => $this->request->getPost('is_available') ? 1 : 0,
             'is_featured' => $this->request->getPost('is_featured') ? 1 : 0,
             'image' => $existing['image'] ?? null,

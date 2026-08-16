@@ -18,11 +18,11 @@
         </div>
         <div class="col-md-5">
             <label class="form-label fw-semibold" for="phone">Phone number</label>
-            <input class="form-control" id="phone" name="phone" value="<?= old('phone') ?>" autocomplete="tel">
+            <input class="form-control" id="phone" name="phone" value="<?= old('phone') ?>" autocomplete="tel" maxlength="30">
         </div>
         <div class="col-12">
             <label class="form-label fw-semibold" for="address">Default campus delivery address</label>
-            <textarea class="form-control" id="address" name="address" rows="2"><?= old('address') ?></textarea>
+            <textarea class="form-control" id="address" name="address" rows="2" maxlength="1000"><?= old('address') ?></textarea>
         </div>
         <div class="col-md-6">
             <label class="form-label fw-semibold" for="password">Password</label>

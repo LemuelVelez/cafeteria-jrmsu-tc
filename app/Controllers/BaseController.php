@@ -37,6 +37,7 @@ abstract class BaseController extends Controller
             'success' => true,
             'message' => $message,
             'data' => $data,
+            'errors' => null,
         ]);
     }
 
@@ -45,6 +46,7 @@ abstract class BaseController extends Controller
         return $this->response->setStatusCode($status)->setJSON([
             'success' => false,
             'message' => $message,
+            'data' => null,
             'errors' => $errors,
         ]);
     }

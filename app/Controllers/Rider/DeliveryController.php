@@ -7,6 +7,8 @@ use App\Models\OrderItemModel;
 use App\Models\OrderModel;
 use App\Services\OrderService;
 use CodeIgniter\Exceptions\PageNotFoundException;
+use DomainException;
+use Throwable;
 
 class DeliveryController extends BaseController
 {
@@ -46,8 +48,11 @@ class DeliveryController extends BaseController
             );
 
             return redirect()->to('/rider/deliveries/' . $id)->with('success', 'Delivery status updated.');
-        } catch (\Throwable $e) {
-            return redirect()->to('/rider/deliveries/' . $id)->with('error', $e->getMessage());
+        } catch (DomainException $exception) {
+            return redirect()->to('/rider/deliveries/' . $id)->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            log_message('error', 'Rider delivery status update failed: {message}', ['message' => $exception->getMessage()]);
+            return redirect()->to('/rider/deliveries/' . $id)->with('error', 'The delivery status could not be updated right now.');
         }
     }
 }

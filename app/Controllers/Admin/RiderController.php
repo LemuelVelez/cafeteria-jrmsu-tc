@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
+use Throwable;
 
 class RiderController extends BaseController
 {
@@ -14,7 +15,7 @@ class RiderController extends BaseController
 
     public function save()
     {
-        if (! $this->validate(['name' => 'required|min_length[2]|max_length[100]', 'email' => 'required|valid_email|max_length[160]', 'password' => 'required|min_length[8]'])) {
+        if (! $this->validate(['name' => 'required|min_length[2]|max_length[100]', 'email' => 'required|valid_email|max_length[160]', 'phone' => 'permit_empty|max_length[30]', 'password' => 'required|min_length[8]'])) {
             return redirect()->to('/admin/riders')->withInput()->with('errors', $this->validator->getErrors());
         }
 
@@ -33,7 +34,14 @@ class RiderController extends BaseController
             'status' => 'active',
         ];
 
-        if (! $model->insert($data)) {
+        try {
+            $created = $model->insert($data);
+        } catch (Throwable $exception) {
+            log_message('error', 'Rider creation failed: {message}', ['message' => $exception->getMessage()]);
+            return redirect()->to('/admin/riders')->withInput()->with('error', 'The rider account could not be created.');
+        }
+
+        if (! $created) {
             return redirect()->to('/admin/riders')->withInput()->with('errors', $model->errors());
         }
 

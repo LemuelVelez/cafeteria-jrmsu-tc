@@ -19,6 +19,10 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
 
 <div class="row g-4">
     <div class="col-xl-8">
+        <div class="input-group mb-3">
+            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+            <input class="form-control" type="search" data-pos-search placeholder="Search products" aria-label="Search products">
+        </div>
         <div class="d-flex flex-wrap gap-2 mb-3" data-category-filters>
             <button class="btn btn-sm btn-primary" type="button" data-category="all">All</button>
             <?php foreach ($categories as $category): ?>
@@ -38,6 +42,7 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                         data-product-name="<?= esc($product['name'], 'attr') ?>"
                         data-product-price="<?= esc($product['price'], 'attr') ?>"
                         data-product-stock="<?= esc($product['stock'], 'attr') ?>"
+                        data-product-image="<?= esc($product['image'] ? media_url($product['image']) : base_url('assets/img/jrmsu-cafeteria-logo.png'), 'attr') ?>"
                     >
                         <?php if (! empty($product['image'])): ?>
                             <img class="product-image rounded mb-3" src="<?= media_url($product['image']) ?>" alt="<?= esc($product['name']) ?>">
@@ -51,6 +56,30 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                             <span class="price text-nowrap"><?= format_price($product['price']) ?></span>
                         </div>
                         <small class="text-secondary">Stock: <?= esc($product['stock']) ?></small>
+                        <?php if (! empty($addons[$product['id']])): ?>
+                            <div class="product-addons mt-3">
+                                <div class="product-addons-title"><span>Add-ons</span><i class="bi bi-plus-circle" aria-hidden="true"></i></div>
+                                <div class="product-addon-list">
+                                    <?php foreach ($addons[$product['id']] as $addon): ?>
+                                        <div class="form-check product-addon-option">
+                                            <input
+                                                class="form-check-input"
+                                                type="checkbox"
+                                                data-addon
+                                                value="<?= esc($addon['id'], 'attr') ?>"
+                                                data-name="<?= esc($addon['name'], 'attr') ?>"
+                                                data-price="<?= esc($addon['price'], 'attr') ?>"
+                                                id="pos-addon-<?= esc($addon['id'], 'attr') ?>"
+                                            >
+                                            <label class="form-check-label" for="pos-addon-<?= esc($addon['id'], 'attr') ?>">
+                                                <span><?= esc($addon['name']) ?></span>
+                                                <small>+<?= format_price($addon['price']) ?></small>
+                                            </label>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                         <input type="hidden" data-quantity value="1">
                         <button class="btn btn-primary w-100 mt-3" type="button" data-add-product>
                             <i class="bi bi-plus-lg"></i> Add
@@ -107,17 +136,19 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                         id="pos-delivery-address"
                         name="delivery_address"
                         rows="2"
+                        minlength="5"
+                        maxlength="1000"
                         placeholder="Building, office, dormitory, or campus landmark"
                     ></textarea>
                 </div>
 
                 <div class="mt-3">
                     <label class="form-label" for="pos-promo">Promo code</label>
-                    <input class="form-control text-uppercase" id="pos-promo" name="promo_code">
+                    <input class="form-control text-uppercase" id="pos-promo" name="promo_code" maxlength="40">
                 </div>
 
                 <label class="visually-hidden" for="pos-notes">Order notes</label>
-                <textarea class="form-control mt-3" id="pos-notes" name="notes" placeholder="Order notes"></textarea>
+                <textarea class="form-control mt-3" id="pos-notes" name="notes" maxlength="1000" placeholder="Order notes"></textarea>
             </form>
 
             <div class="d-flex justify-content-between h5 mt-4">
