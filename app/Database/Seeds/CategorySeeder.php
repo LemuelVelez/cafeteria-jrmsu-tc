@@ -15,9 +15,15 @@ class CategorySeeder extends Seeder
             ['name' => 'Coffee', 'slug' => 'coffee', 'description' => 'Hot and iced coffee drinks.', 'sort_order' => 3],
             ['name' => 'Cold Drinks', 'slug' => 'cold-drinks', 'description' => 'Refreshing juices and beverages.', 'sort_order' => 4],
         ];
-        foreach ($rows as &$row) {
+        $categories = $this->db->table('categories');
+
+        foreach ($rows as $row) {
+            if ($categories->where('slug', $row['slug'])->countAllResults() > 0) {
+                continue;
+            }
+
             $row += ['is_active' => 1, 'created_at' => $now, 'updated_at' => $now];
+            $categories->insert($row);
         }
-        $this->db->table('categories')->insertBatch($rows);
     }
 }

@@ -20,10 +20,16 @@ class ProductSeeder extends Seeder
             ['category_id' => $categories['coffee'], 'name' => 'Hot Americano', 'slug' => 'hot-americano', 'description' => 'Bold espresso with hot water.', 'price' => 60, 'stock' => 45, 'is_featured' => 0],
             ['category_id' => $categories['cold-drinks'], 'name' => 'Calamansi Juice', 'slug' => 'calamansi-juice', 'description' => 'Fresh local calamansi juice served chilled.', 'price' => 45, 'stock' => 60, 'is_featured' => 0],
         ];
-        foreach ($rows as &$row) {
+        $productTable = $this->db->table('products');
+
+        foreach ($rows as $row) {
+            if ($productTable->where('slug', $row['slug'])->countAllResults() > 0) {
+                continue;
+            }
+
             $row += ['image' => null, 'is_available' => 1, 'created_at' => $now, 'updated_at' => $now];
+            $productTable->insert($row);
         }
-        $this->db->table('products')->insertBatch($rows);
 
         $products = array_column($this->db->table('products')->get()->getResultArray(), 'id', 'slug');
         $addons = [
@@ -32,9 +38,18 @@ class ProductSeeder extends Seeder
             ['product_id' => $products['iced-spanish-latte'], 'name' => 'Extra Espresso Shot', 'price' => 25],
             ['product_id' => $products['crispy-fries'], 'name' => 'Cheese Dip', 'price' => 15],
         ];
-        foreach ($addons as &$addon) {
+        $addonTable = $this->db->table('product_addons');
+
+        foreach ($addons as $addon) {
+            if ($addonTable
+                ->where('product_id', $addon['product_id'])
+                ->where('name', $addon['name'])
+                ->countAllResults() > 0) {
+                continue;
+            }
+
             $addon += ['is_active' => 1, 'created_at' => $now, 'updated_at' => $now];
+            $addonTable->insert($addon);
         }
-        $this->db->table('product_addons')->insertBatch($addons);
     }
 }

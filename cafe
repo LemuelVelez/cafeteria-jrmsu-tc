@@ -195,16 +195,19 @@ case "$command_name:$subcommand" in
         ;;
     db:migrate)
         ensure_php_dependencies
-        exec php spark migrate
+        php spark migrate
+        printf 'Database migration complete. All migrations are applied.\n'
         ;;
     db:seed)
         ensure_php_dependencies
-        exec php spark db:seed DatabaseSeeder
+        php spark db:seed DatabaseSeeder
+        printf 'Database seeding complete. Starter data is present.\n'
         ;;
     db:refresh)
         ensure_php_dependencies
         php spark migrate:refresh
-        exec php spark db:seed DatabaseSeeder
+        php spark db:seed DatabaseSeeder
+        printf 'Database refresh complete. Database is fully migrated and seeded.\n'
         ;;
     test:)
         ensure_php_dependencies

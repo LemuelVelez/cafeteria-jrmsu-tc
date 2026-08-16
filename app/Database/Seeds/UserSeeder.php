@@ -16,10 +16,16 @@ class UserSeeder extends Seeder
             ['name' => 'Student Customer', 'email' => 'customer@jrmsu.edu.ph', 'phone' => '09170000004', 'password_hash' => $password, 'role' => 'customer', 'status' => 'active', 'address' => 'JRMSU-TC Campus, Tampilisan'],
         ];
         $now = date('Y-m-d H:i:s');
-        foreach ($rows as &$row) {
+        $users = $this->db->table('users');
+
+        foreach ($rows as $row) {
+            if ($users->where('email', $row['email'])->countAllResults() > 0) {
+                continue;
+            }
+
             $row['created_at'] = $now;
             $row['updated_at'] = $now;
+            $users->insert($row);
         }
-        $this->db->table('users')->insertBatch($rows);
     }
 }

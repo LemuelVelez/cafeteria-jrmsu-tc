@@ -17,9 +17,15 @@ class SettingSeeder extends Seeder
             ['setting_key' => 'pickup_enabled', 'setting_value' => '1', 'description' => 'Enable pickup orders.'],
             ['setting_key' => 'delivery_enabled', 'setting_value' => '1', 'description' => 'Enable delivery orders.'],
         ];
-        foreach ($rows as &$row) {
+        $settings = $this->db->table('settings');
+
+        foreach ($rows as $row) {
+            if ($settings->where('setting_key', $row['setting_key'])->countAllResults() > 0) {
+                continue;
+            }
+
             $row += ['setting_type' => 'string', 'created_at' => $now, 'updated_at' => $now];
+            $settings->insert($row);
         }
-        $this->db->table('settings')->insertBatch($rows);
     }
 }

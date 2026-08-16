@@ -8,7 +8,12 @@ class PromoSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->db->table('promos')->insert([
+        $promos = $this->db->table('promos');
+        if ($promos->where('code', 'WELCOME10')->countAllResults() > 0) {
+            return;
+        }
+
+        $promos->insert([
             'code' => 'WELCOME10',
             'description' => '10% welcome discount for orders of at least ₱150.',
             'discount_type' => 'percentage',
