@@ -8,6 +8,7 @@ $landingImages = [
     'step-track' => 'https://images.unsplash.com/photo-1695654390723-479197a8c4a3?fm=webp&q=75&w=800&h=600&fit=crop',
     'fallback-rice-meals' => 'https://images.unsplash.com/photo-1625477811233-044633d10dd1?fm=webp&q=75&w=800&h=600&fit=crop',
     'fallback-snacks' => 'https://images.unsplash.com/photo-1537495988501-f9cd94a78f3e?fm=webp&q=75&w=800&h=600&fit=crop',
+    'fallback-burger' => 'https://images.unsplash.com/photo-1747146132567-e56789e89260?fm=webp&q=75&w=800&h=600&fit=crop',
     'fallback-coffee' => 'https://images.unsplash.com/photo-1527156231393-7023794f363c?fm=webp&q=75&w=800&h=600&fit=crop',
     'fallback-cold-drinks' => 'https://images.unsplash.com/photo-1497534446932-c925b458314e?fm=webp&q=75&w=800&h=600&fit=crop',
 ];
@@ -104,6 +105,7 @@ $landingImages = [
         $fallbackImages = [
             'Rice Meals' => [$landingImages['fallback-rice-meals'], 'Rice meal served in the cafeteria'],
             'Snacks' => [$landingImages['fallback-snacks'], 'Assorted cafeteria snacks served on a banana leaf'],
+            'Burger' => [$landingImages['fallback-burger'], 'Cheeseburger with fries served as a cafeteria snack'],
             'Coffee' => [$landingImages['fallback-coffee'], 'Iced coffee drink from the cafeteria'],
             'Cold Drinks' => [$landingImages['fallback-cold-drinks'], 'Cold fruit drinks served with ice'],
         ];
@@ -115,7 +117,12 @@ $landingImages = [
                         <?php if ($product['image']): ?>
                             <img class="product-image landing-product-image" src="<?= media_url($product['image']) ?>" alt="<?= esc($product['name']) ?>" width="800" height="600" loading="lazy" decoding="async">
                         <?php else: ?>
-                            <?php [$fallbackImage, $fallbackAlt] = $fallbackImages[$product['category_name']] ?? $fallbackImages['Rice Meals']; ?>
+                            <?php
+                            $fallbackKey = stripos((string) $product['name'], 'burger') !== false
+                                ? 'Burger'
+                                : (string) $product['category_name'];
+                            [$fallbackImage, $fallbackAlt] = $fallbackImages[$fallbackKey] ?? $fallbackImages['Rice Meals'];
+                            ?>
                             <div class="product-placeholder landing-product-placeholder">
                                 <img src="<?= esc($fallbackImage, 'attr') ?>" alt="<?= esc($fallbackAlt) ?>" width="800" height="600" loading="lazy" decoding="async">
                             </div>
