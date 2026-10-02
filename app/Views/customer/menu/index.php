@@ -46,6 +46,11 @@
 
     <div class="row g-4 menu-grid">
         <?php foreach ($products as $product): ?>
+            <?php
+            $fallback = product_fallback_image($product);
+            $productImage = $product['image'] ? media_url($product['image']) : $fallback['url'];
+            $productImageAlt = $product['image'] ? (string) $product['name'] : $fallback['alt'];
+            ?>
             <div class="col-sm-6 col-xl-4" data-product-column>
                 <article
                     class="product-card bg-white"
@@ -54,16 +59,10 @@
                     data-product-name="<?= esc($product['name'], 'attr') ?>"
                     data-product-price="<?= $product['price'] ?>"
                     data-product-stock="<?= (int) $product['stock'] ?>"
-                    data-product-image="<?= esc($product['image'] ? media_url($product['image']) : base_url('assets/img/jrmsu-cafeteria-logo.webp'), 'attr') ?>"
+                    data-product-image="<?= esc($productImage, 'attr') ?>"
                 >
                     <div class="product-media">
-                        <?php if ($product['image']): ?>
-                            <img class="product-image" src="<?= media_url($product['image']) ?>" alt="<?= esc($product['name']) ?>">
-                        <?php else: ?>
-                            <div class="product-placeholder">
-                                <img src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="">
-                            </div>
-                        <?php endif; ?>
+                        <img class="product-image" src="<?= esc($productImage, 'attr') ?>" alt="<?= esc($productImageAlt, 'attr') ?>" width="800" height="600" loading="lazy" decoding="async">
                         <span class="product-category-badge"><?= esc($product['category_name']) ?></span>
                     </div>
 

@@ -14,6 +14,100 @@ if (! function_exists('format_price')) {
 
 
 
+if (! function_exists('product_fallback_image')) {
+    /**
+     * Return an accurate fallback menu image when a product has no uploaded image.
+     * Uploaded product images must always take priority in the view.
+     *
+     * @param array<string, mixed> $product
+     * @return array{url: string, alt: string}
+     */
+    function product_fallback_image(array $product): array
+    {
+        $name = strtolower(trim((string) ($product['name'] ?? '')));
+        $slug = strtolower(trim((string) ($product['slug'] ?? '')));
+        $category = trim((string) ($product['category_name'] ?? ''));
+
+        $specific = [
+            'chicken-adobo-rice' => [
+                'url' => 'https://images.unsplash.com/photo-1538974463296-4d76476ffeb2?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Chicken adobo served with steamed rice',
+            ],
+            'pork-sisig-rice' => [
+                'url' => 'https://images.unsplash.com/photo-1673518415903-c243d36cd269?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Pork sisig served hot on a plate',
+            ],
+            'fried-chicken-meal' => [
+                'url' => 'https://images.unsplash.com/photo-1580835267448-536d00f9cd4c?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Fried chicken served with rice',
+            ],
+            'cheese-burger' => [
+                'url' => 'https://images.unsplash.com/photo-1568732547279-42ecb5239cbf?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Cheeseburger served with French fries',
+            ],
+            'crispy-fries' => [
+                'url' => 'https://images.unsplash.com/photo-1529259266118-cf22737f713f?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Golden crispy French fries',
+            ],
+            'iced-spanish-latte' => [
+                'url' => 'https://images.unsplash.com/photo-1645243370554-62fa18b1485b?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Iced milk coffee served in a glass',
+            ],
+            'hot-americano' => [
+                'url' => 'https://images.unsplash.com/photo-1771250852008-eb5a5d124165?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Freshly brewed hot Americano coffee',
+            ],
+            'calamansi-juice' => [
+                'url' => 'https://images.unsplash.com/photo-1507281549113-040fcfef650e?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Chilled citrus juice with fresh citrus slices',
+            ],
+        ];
+
+        $key = $slug !== '' ? $slug : str_replace(' ', '-', preg_replace('/[^a-z0-9 ]+/', '', $name) ?? $name);
+        if (isset($specific[$key])) {
+            return $specific[$key];
+        }
+
+        $keywordMatches = [
+            'adobo' => $specific['chicken-adobo-rice'],
+            'sisig' => $specific['pork-sisig-rice'],
+            'fried chicken' => $specific['fried-chicken-meal'],
+            'burger' => $specific['cheese-burger'],
+            'fries' => $specific['crispy-fries'],
+            'spanish latte' => $specific['iced-spanish-latte'],
+            'americano' => $specific['hot-americano'],
+            'calamansi' => $specific['calamansi-juice'],
+        ];
+        foreach ($keywordMatches as $keyword => $image) {
+            if ($name !== '' && str_contains($name, $keyword)) {
+                return $image;
+            }
+        }
+
+        $categoryFallbacks = [
+            'Rice Meals' => [
+                'url' => 'https://images.unsplash.com/photo-1625477811233-044633d10dd1?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Rice meal served in the cafeteria',
+            ],
+            'Snacks' => [
+                'url' => 'https://images.unsplash.com/photo-1537495988501-f9cd94a78f3e?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Assorted cafeteria snacks',
+            ],
+            'Coffee' => [
+                'url' => 'https://images.unsplash.com/photo-1527156231393-7023794f363c?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Coffee drink served in the cafeteria',
+            ],
+            'Cold Drinks' => [
+                'url' => 'https://images.unsplash.com/photo-1497534446932-c925b458314e?fm=webp&q=75&w=800&h=600&fit=crop',
+                'alt' => 'Chilled fruit drinks served with ice',
+            ],
+        ];
+
+        return $categoryFallbacks[$category] ?? $categoryFallbacks['Rice Meals'];
+    }
+}
+
+
 if (! function_exists('payment_modes')) {
     /**
      * @return array<string, array{value: string, label: string}>
