@@ -18,7 +18,7 @@
                 type="search"
                 name="q"
                 value="<?= esc($search ?? '') ?>"
-                placeholder="Search meals and drinks"
+                placeholder="e.g. Chicken adobo or iced coffee"
                 aria-label="Search meals and drinks"
             >
             <button class="btn btn-primary" type="submit" aria-label="Submit search">
@@ -42,7 +42,7 @@
             </a>
         <?php endforeach; ?>
     </nav>
-    <form class="surface-card p-3 mb-4" method="get"><div class="row g-2 align-items-end"><?php if ($selectedCategory): ?><input type="hidden" name="category" value="<?= (int)$selectedCategory ?>"><?php endif; ?><?php if ($search): ?><input type="hidden" name="q" value="<?= esc($search, 'attr') ?>"><?php endif; ?><div class="col-md-4"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="under_500" value="1" id="under500" <?= $under500 ? 'checked' : '' ?>><label class="form-check-label" for="under500">Under 500 kcal</label></div></div><div class="col-md-5"><label class="form-label" for="excludeAllergen">Exclude allergen</label><input class="form-control" id="excludeAllergen" name="exclude_allergen" value="<?= esc($excludeAllergen ?? '') ?>" placeholder="e.g. peanuts"></div><div class="col-md-3"><button class="btn btn-outline-primary w-100">Apply food filters</button></div></div></form>
+    <form class="surface-card p-3 mb-4" method="get"><div class="row g-2 align-items-end"><?php if ($selectedCategory): ?><input type="hidden" name="category" value="<?= (int)$selectedCategory ?>"><?php endif; ?><?php if ($search): ?><input type="hidden" name="q" value="<?= esc($search, 'attr') ?>"><?php endif; ?><div class="col-md-4"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="under_500" value="1" id="under500" <?= $under500 ? 'checked' : '' ?>><label class="form-check-label" for="under500">Under 500 kcal</label></div></div><div class="col-md-5"><label class="form-label" for="excludeAllergen">Exclude allergen</label><input class="form-control" id="excludeAllergen" name="exclude_allergen" value="<?= esc($excludeAllergen ?? '') ?>" placeholder="e.g. peanuts, milk, or egg"></div><div class="col-md-3"><button class="btn btn-outline-primary w-100">Apply food filters</button></div></div></form>
 
     <div class="row g-4 menu-grid">
         <?php foreach ($products as $product): ?>

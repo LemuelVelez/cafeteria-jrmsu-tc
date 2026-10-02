@@ -15,9 +15,9 @@
 <?php foreach ([['stock-in','Stock-In','bi-box-arrow-in-down','Quantity received'],['adjust','Adjustment','bi-sliders','Signed quantity (+/-)'],['waste','Waste','bi-trash3','Quantity wasted']] as [$route,$label,$icon,$qtyLabel]): ?>
 <div class="col-lg-4"><form class="surface-card p-4 h-100" action="<?= base_url('admin/inventory/'.$route) ?>" method="post"><?= csrf_field() ?><h2 class="h5 section-title fw-bold"><i class="bi <?= esc($icon) ?>"></i> <?= esc($label) ?></h2>
 <div class="mb-3"><label class="form-label">Product</label><select class="form-select" name="product_id" data-inventory-product required><option value="">Select product</option><?php foreach ($products as $product): ?><option value="<?= (int)$product['id'] ?>" data-barcode="<?= esc($product['barcode'] ?? '', 'attr') ?>"><?= esc($product['name']) ?> · Stock <?= (int)$product['stock'] ?></option><?php endforeach; ?></select></div>
-<div class="mb-3"><label class="form-label"><?= esc($qtyLabel) ?></label><input class="form-control" type="number" name="quantity" value="1" <?= $route === 'adjust' ? '' : 'min="1"' ?> required></div>
-<?php if ($route === 'stock-in'): ?><div class="mb-3"><label class="form-label">Reference</label><input class="form-control" name="reference" maxlength="120" placeholder="Supplier receipt"></div><?php endif; ?>
-<div class="mb-3"><label class="form-label">Reason / note<?= $route === 'stock-in' ? '' : ' *' ?></label><textarea class="form-control" name="note" maxlength="1000" <?= $route === 'stock-in' ? '' : 'required' ?>></textarea></div>
+<div class="mb-3"><label class="form-label"><?= esc($qtyLabel) ?></label><input class="form-control" type="number" name="quantity" value="1" placeholder="e.g. 10" <?= $route === 'adjust' ? '' : 'min="1"' ?> required></div>
+<?php if ($route === 'stock-in'): ?><div class="mb-3"><label class="form-label">Reference</label><input class="form-control" name="reference" maxlength="120" placeholder="e.g. Supplier receipt #INV-1042"></div><?php endif; ?>
+<div class="mb-3"><label class="form-label">Reason / note<?= $route === 'stock-in' ? '' : ' *' ?></label><textarea class="form-control" name="note" maxlength="1000" placeholder="e.g. Restocked from supplier delivery or corrected a count" <?= $route === 'stock-in' ? '' : 'required' ?>></textarea></div>
 <button class="btn btn-primary w-100">Save <?= esc($label) ?></button></form></div>
 <?php endforeach; ?>
 </div>

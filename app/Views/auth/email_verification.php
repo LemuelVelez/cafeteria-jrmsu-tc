@@ -11,7 +11,7 @@
         <label class="form-label fw-semibold" for="email">Email address</label>
         <div class="input-group">
             <span class="input-group-text"><i class="bi bi-envelope-check"></i></span>
-            <input class="form-control" id="email" name="email" type="email" autocomplete="email" value="<?= esc($email) ?>" required>
+            <input class="form-control" id="email" name="email" type="email" autocomplete="email" value="<?= esc($email) ?>" placeholder="e.g. student@jrmsu.edu.ph" required>
         </div>
     </div>
     <button class="btn btn-primary btn-lg w-100" type="submit">Send verification link</button>

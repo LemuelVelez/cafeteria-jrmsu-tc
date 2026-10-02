@@ -20,15 +20,15 @@
             <div class="row g-4">
                 <div class="col-12 col-md-6">
                     <label class="form-label fw-semibold" for="profileName">Full name</label>
-                    <input class="form-control" id="profileName" name="name" value="<?= old('name', $profile['name']) ?>" autocomplete="name" required>
+                    <input class="form-control" id="profileName" name="name" value="<?= old('name', $profile['name']) ?>" placeholder="e.g. Juan Dela Cruz" autocomplete="name" required>
                 </div>
                 <div class="col-12 col-md-6">
                     <label class="form-label fw-semibold" for="profileEmail">Email address</label>
-                    <input class="form-control" id="profileEmail" name="email" type="email" value="<?= old('email', $profile['email']) ?>" autocomplete="email" required>
+                    <input class="form-control" id="profileEmail" name="email" type="email" value="<?= old('email', $profile['email']) ?>" placeholder="e.g. juan.delacruz@example.com" autocomplete="email" required>
                 </div>
                 <div class="col-12 col-md-6">
                     <label class="form-label fw-semibold" for="profilePhone">Phone number</label>
-                    <input class="form-control" id="profilePhone" name="phone" value="<?= old('phone', $profile['phone'] ?? '') ?>" autocomplete="tel" maxlength="30">
+                    <input class="form-control" id="profilePhone" name="phone" value="<?= old('phone', $profile['phone'] ?? '') ?>" placeholder="e.g. 0917 123 4567" autocomplete="tel" maxlength="30">
                 </div>
                 <div class="col-12 col-md-6">
                     <label class="form-label fw-semibold">Account role</label>
@@ -36,7 +36,7 @@
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold" for="profileAddress">Default address</label>
-                    <textarea class="form-control" id="profileAddress" name="address" rows="3" autocomplete="street-address" maxlength="1000"><?= old('address', $profile['address'] ?? '') ?></textarea>
+                    <textarea class="form-control" id="profileAddress" name="address" rows="3" placeholder="e.g. Dormitory 2, JRMSU-TC Campus" autocomplete="street-address" maxlength="1000"><?= old('address', $profile['address'] ?? '') ?></textarea>
                 </div>
             </div>
 
@@ -60,15 +60,15 @@
                     <?= csrf_field() ?>
                     <div class="mb-3">
                         <label class="form-label fw-semibold" for="currentPassword">Current password</label>
-                        <input class="form-control" id="currentPassword" name="current_password" type="password" autocomplete="current-password" required>
+                        <input class="form-control" id="currentPassword" name="current_password" type="password" placeholder="Enter your current password" autocomplete="current-password" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold" for="newPassword">New password</label>
-                        <input class="form-control" id="newPassword" name="password" type="password" minlength="10" data-strong-password autocomplete="new-password" required>
+                        <input class="form-control" id="newPassword" name="password" type="password" minlength="10" placeholder="At least 10 characters" data-strong-password autocomplete="new-password" required>
                     </div>
                     <div class="mb-4">
                         <label class="form-label fw-semibold" for="confirmPassword">Confirm new password</label>
-                        <input class="form-control" id="confirmPassword" name="password_confirm" type="password" minlength="10" autocomplete="new-password" required>
+                        <input class="form-control" id="confirmPassword" name="password_confirm" type="password" minlength="10" placeholder="Re-enter your new password" autocomplete="new-password" required>
                     </div>
                     <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-key"></i>Change password</button>
                 </form>

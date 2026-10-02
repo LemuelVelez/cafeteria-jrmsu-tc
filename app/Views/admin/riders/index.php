@@ -62,19 +62,19 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label" for="riderName">Full name</label>
-                    <input class="form-control" id="riderName" name="name" value="<?= old('name') ?>" required>
+                    <input class="form-control" id="riderName" name="name" value="<?= old('name') ?>" placeholder="e.g. Maria Santos" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="riderEmail">Email</label>
-                    <input class="form-control" id="riderEmail" type="email" name="email" value="<?= old('email') ?>" required>
+                    <input class="form-control" id="riderEmail" type="email" name="email" value="<?= old('email') ?>" placeholder="e.g. maria.santos@example.com" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="riderPhone">Phone</label>
-                    <input class="form-control" id="riderPhone" name="phone" value="<?= old('phone') ?>" maxlength="30">
+                    <input class="form-control" id="riderPhone" name="phone" value="<?= old('phone') ?>" placeholder="e.g. 0917 123 4567" maxlength="30">
                 </div>
                 <div>
                     <label class="form-label" for="riderPassword">Temporary password</label>
-                    <input class="form-control" id="riderPassword" type="password" name="password" minlength="10" data-strong-password autocomplete="new-password" required>
+                    <input class="form-control" id="riderPassword" type="password" name="password" minlength="10" placeholder="At least 10 characters" data-strong-password autocomplete="new-password" required>
                 </div>
             </div>
             <div class="modal-footer">

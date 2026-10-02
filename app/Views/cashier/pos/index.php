@@ -26,7 +26,7 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
         </div>
         <div class="input-group mb-3">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" type="search" data-pos-search placeholder="Search products" aria-label="Search products">
+            <input class="form-control" type="search" data-pos-search placeholder="e.g. Chicken adobo or iced coffee" aria-label="Search products">
         </div>
         <div class="d-flex flex-wrap gap-2 mb-3" data-category-filters>
             <button class="btn btn-sm btn-primary" type="button" data-category="all">All</button>
@@ -143,17 +143,17 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                         rows="2"
                         minlength="5"
                         maxlength="1000"
-                        placeholder="Building, office, dormitory, or campus landmark"
+                        placeholder="e.g. Building A, Dormitory 2, or campus landmark"
                     ></textarea>
                 </div>
 
                 <div class="mt-3">
                     <label class="form-label" for="pos-promo">Promo code</label>
-                    <input class="form-control text-uppercase" id="pos-promo" name="promo_code" maxlength="40">
+                    <input class="form-control text-uppercase" id="pos-promo" name="promo_code" maxlength="40" placeholder="e.g. WELCOME10">
                 </div>
 
                 <label class="visually-hidden" for="pos-notes">Order notes</label>
-                <textarea class="form-control mt-3" id="pos-notes" name="notes" maxlength="1000" placeholder="Order notes"></textarea>
+                <textarea class="form-control mt-3" id="pos-notes" name="notes" maxlength="1000" placeholder="e.g. No onions; call on arrival"></textarea>
             </form>
 
             <div class="d-flex justify-content-between h5 mt-4">

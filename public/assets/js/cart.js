@@ -353,7 +353,7 @@
                             </div>
                             <div class="cart-addon-list">${addonMarkup}</div>
                             <label class="small text-muted mt-2 d-block" for="cart-note-${index}">Item note (optional)</label>
-                            <textarea class="form-control form-control-sm mt-1" id="cart-note-${index}" rows="2" maxlength="500" data-cart-note="${index}" placeholder="Special request for this item">${escapeHtml(line.notes || '')}</textarea>
+                            <textarea class="form-control form-control-sm mt-1" id="cart-note-${index}" rows="2" maxlength="500" data-cart-note="${index}" placeholder="e.g. No onions or sauce on the side">${escapeHtml(line.notes || '')}</textarea>
                             ${line.available === false ? '<div class="small text-danger mt-2">This product is no longer available.</div>' : ''}
                             ${line.addon_invalid ? '<div class="small text-danger mt-2">A selected add-on is no longer available.</div>' : ''}
                         </div>

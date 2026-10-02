@@ -11,7 +11,7 @@
         <label class="form-label fw-semibold" for="email">Email address</label>
         <div class="input-group">
             <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-            <input class="form-control" id="email" name="email" type="email" autocomplete="email" value="<?= old('email') ?>" required>
+            <input class="form-control" id="email" name="email" type="email" autocomplete="email" value="<?= old('email') ?>" placeholder="e.g. student@jrmsu.edu.ph" required>
         </div>
     </div>
     <button class="btn btn-primary btn-lg w-100" type="submit">Send reset link</button>

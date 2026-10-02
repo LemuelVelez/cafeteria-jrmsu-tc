@@ -68,7 +68,7 @@
                             <option value="<?= esc($status, 'attr') ?>"><?= esc(ucwords(str_replace('_', ' ', $status))) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <textarea class="form-control mb-3" name="note" maxlength="1000" placeholder="Optional note"></textarea>
+                    <textarea class="form-control mb-3" name="note" maxlength="1000" placeholder="e.g. Customer requested a delivery update"></textarea>
                     <button class="btn btn-primary w-100">Update order</button>
                 </form>
             <?php else: ?>
