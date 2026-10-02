@@ -16,6 +16,7 @@ class SettingSeeder extends Seeder
             ['setting_key' => 'contact_number', 'setting_value' => '0917 000 0000', 'description' => 'Customer support number.'],
             ['setting_key' => 'pickup_enabled', 'setting_value' => '1', 'description' => 'Enable pickup orders.'],
             ['setting_key' => 'delivery_enabled', 'setting_value' => '1', 'description' => 'Enable delivery orders.'],
+            ['setting_key' => 'email_order_notifications', 'setting_value' => '1', 'description' => 'Enable customer email notifications for important order statuses.'],
         ];
         $settings = $this->db->table('settings');
 

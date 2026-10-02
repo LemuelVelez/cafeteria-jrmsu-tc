@@ -53,6 +53,28 @@ class AccountEmailService
         );
     }
 
+    public function sendOrderStatus(array $user, array $order, string $statusLabel, string $statusMessage): bool
+    {
+        $url = site_url('customer/orders/' . (int) ($order['id'] ?? 0));
+        $name = trim((string) ($user['name'] ?? 'Customer'));
+        $orderNumber = (string) ($order['order_number'] ?? 'your order');
+        $safeStatus = trim($statusLabel) !== '' ? $statusLabel : 'Order update';
+        return $this->send(
+            (string) ($user['email'] ?? ''),
+            $safeStatus . ' · ' . $orderNumber,
+            $this->buildMessage(
+                $safeStatus,
+                'Hello ' . $name . ',',
+                $statusMessage . ' (' . $orderNumber . ')',
+                'View order',
+                $url,
+                'Your order page always shows the latest verified status.',
+                'This is an automated order notification from the cafeteria.',
+            ),
+            "Hello {$name},\n\n{$statusMessage} ({$orderNumber})\n\nView your order: {$url}",
+        );
+    }
+
     private function buildMessage(
         string $heading,
         string $greeting,
@@ -206,10 +228,7 @@ class AccountEmailService
             return true;
         }
 
-        log_message('error', 'Account email delivery failed for {recipient}: {debug}', [
-            'recipient' => $recipient,
-            'debug' => strip_tags($email->printDebugger(['headers'])),
-        ]);
+        log_message('error', 'Account email delivery failed. Mail transport returned an error.');
 
         return false;
     }

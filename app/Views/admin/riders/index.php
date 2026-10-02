@@ -74,7 +74,7 @@
                 </div>
                 <div>
                     <label class="form-label" for="riderPassword">Temporary password</label>
-                    <input class="form-control" id="riderPassword" type="password" name="password" minlength="8" autocomplete="new-password" required>
+                    <input class="form-control" id="riderPassword" type="password" name="password" minlength="10" data-strong-password autocomplete="new-password" required>
                 </div>
             </div>
             <div class="modal-footer">

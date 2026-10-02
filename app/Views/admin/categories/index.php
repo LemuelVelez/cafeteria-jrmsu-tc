@@ -5,25 +5,5 @@
 <div class="modal fade" id="categoryModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="categoryForm" action="<?= base_url('admin/categories') ?>" data-base-action="<?= esc(base_url('admin/categories'), 'attr') ?>" method="post" data-confirm="Save this category?" data-confirm-title="Save category" data-confirm-label="Save"><?= csrf_field() ?><div class="modal-header"><h2 class="modal-title h5">Category details</h2><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label class="form-label">Name</label><input class="form-control" name="name" required></div><div class="mb-3"><label class="form-label">Description</label><textarea class="form-control" name="description"></textarea></div><div class="row"><div class="col-6"><label class="form-label">Sort order</label><input class="form-control" name="sort_order" type="number" min="0" value="0"></div><div class="col-6 d-flex align-items-end"><div class="form-check mb-3"><input class="form-check-input" name="is_active" value="1" type="checkbox" id="categoryActive" checked><label class="form-check-label" for="categoryActive">Active</label></div></div></div></div><div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save category</button></div></form></div></div>
 <?= $this->endSection() ?>
 <?= $this->section('scripts') ?>
-<script>
-(() => {
-    const form = document.getElementById('categoryForm');
-    const modal = document.getElementById('categoryModal');
-    const resetForm = () => {
-        form.reset();
-        form.action = form.dataset.baseAction;
-        form.elements.sort_order.value = 0;
-        form.elements.is_active.checked = true;
-    };
-
-    document.querySelector('[data-create-category]')?.addEventListener('click', resetForm);
-    document.querySelectorAll('[data-edit-category]').forEach((button) => button.addEventListener('click', () => {
-        const category = JSON.parse(button.dataset.editCategory);
-        form.action = `${form.dataset.baseAction}/${category.id}`;
-        ['name', 'description', 'sort_order'].forEach((name) => { form.elements[name].value = category[name] ?? ''; });
-        form.elements.is_active.checked = Number(category.is_active) === 1;
-        bootstrap.Modal.getOrCreateInstance(modal).show();
-    }));
-})();
-</script>
+<script src="<?= base_url('assets/js/admin-categories.js') ?>"></script>
 <?= $this->endSection() ?>

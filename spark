@@ -20,6 +20,14 @@ if (version_compare(PHP_VERSION, $minPhpVersion, '<')) {
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
+// Project command aliases. Keep CodeIgniter's native migrate command available
+// internally while making `php spark migrate` run the all-namespace wrapper.
+if (($argv[1] ?? null) === 'migrate') {
+    $argv[1] = 'cafeteria:migrate';
+    $_SERVER['argv'] = $argv;
+    $_SERVER['argc'] = count($argv);
+}
+
 define('FCPATH', __DIR__ . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR);
 chdir(FCPATH);
 

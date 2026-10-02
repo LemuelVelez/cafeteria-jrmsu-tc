@@ -19,9 +19,9 @@ class ReviewApiController extends BaseController
         if (! (new OrderModel())->where([
             'id' => $orderId,
             'customer_id' => $userId,
-            'status' => 'delivered',
+            'status' => 'completed',
         ])->first()) {
-            return $this->jsonError('Only delivered orders can be reviewed.');
+            return $this->jsonError('Only completed orders can be reviewed.');
         }
 
         $model = new ReviewModel();

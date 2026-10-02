@@ -14,7 +14,7 @@ class DashboardController extends BaseController
         $orders = (new OrderModel())->where('customer_id', $userId)->orderBy('created_at', 'DESC')->findAll();
         return $this->render('customer/dashboard', [
             'orders' => array_slice($orders, 0, 5),
-            'activeOrders' => count(array_filter($orders, fn ($order) => ! in_array($order['status'], ['delivered', 'cancelled'], true))),
+            'activeOrders' => count(array_filter($orders, fn ($order) => ! in_array($order['status'], ['completed', 'cancelled'], true))),
             'featuredProducts' => (new ProductModel())->featured(4),
         ]);
     }

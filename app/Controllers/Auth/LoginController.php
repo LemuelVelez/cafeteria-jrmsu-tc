@@ -19,7 +19,7 @@ class LoginController extends BaseController
             return redirect()->to('/login')->withInput()->with('error', 'Too many sign-in attempts. Please try again in one minute.');
         }
 
-        $rules = ['email' => 'required|valid_email', 'password' => 'required|min_length[8]'];
+        $rules = ['email' => 'required|valid_email', 'password' => 'required'];
         if (! $this->validate($rules)) {
             return redirect()->to('/login')->withInput()->with('errors', $this->validator->getErrors());
         }

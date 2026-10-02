@@ -28,7 +28,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td data-label="Phone"><?= esc($user['phone'] ?: '—') ?></td>
+                        <td data-label="Phone"><span data-customer-phone><?= esc(mask_phone($user['phone'] ?? null)) ?></span><?php if (!empty($user['phone'])): ?> <button class="btn btn-sm btn-link p-0 ms-1" type="button" data-reveal-customer-phone="<?= (int)$user['id'] ?>">Reveal</button><?php endif; ?></td>
                         <td data-label="Address"><?= esc(mb_strimwidth($user['address'] ?? '', 0, 55, '…') ?: '—') ?></td>
                         <td data-label="Status"><span class="badge <?= $user['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?> text-capitalize"><?= esc($user['status']) ?></span></td>
                         <td data-label="Update" class="text-end">
@@ -48,4 +48,8 @@
         </table>
     </div>
 </div>
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script src="<?= base_url('assets/js/admin-customers.js') ?>"></script>
 <?= $this->endSection() ?>

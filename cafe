@@ -27,8 +27,8 @@ Usage:
   cafe run dev               Start backend first, then frontend
   cafe run backend           Start the CodeIgniter backend only
   cafe run frontend          Start the frontend gateway only
-  cafe db migrate            Run pending migrations
-  cafe db seed               Seed starter data
+  cafe db migrate            Run and verify all migrations
+  cafe db seed               Run and verify all registered seeders
   cafe db refresh            Rebuild and reseed the database
   cafe test                  Run PHPUnit tests
   cafe lint                  Run PHP and JavaScript syntax checks
@@ -196,18 +196,15 @@ case "$command_name:$subcommand" in
     db:migrate)
         ensure_php_dependencies
         php spark migrate
-        printf 'Database migration complete. All migrations are applied.\n'
         ;;
     db:seed)
         ensure_php_dependencies
-        php spark db:seed DatabaseSeeder
-        printf 'Database seeding complete. Starter data is present.\n'
+        php spark seed
         ;;
     db:refresh)
         ensure_php_dependencies
-        php spark migrate:refresh
-        php spark db:seed DatabaseSeeder
-        printf 'Database refresh complete. Database is fully migrated and seeded.\n'
+        php spark migrate:refresh --all
+        php spark seed
         ;;
     test:)
         ensure_php_dependencies

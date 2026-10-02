@@ -64,11 +64,11 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold" for="newPassword">New password</label>
-                        <input class="form-control" id="newPassword" name="password" type="password" minlength="8" autocomplete="new-password" required>
+                        <input class="form-control" id="newPassword" name="password" type="password" minlength="10" data-strong-password autocomplete="new-password" required>
                     </div>
                     <div class="mb-4">
                         <label class="form-label fw-semibold" for="confirmPassword">Confirm new password</label>
-                        <input class="form-control" id="confirmPassword" name="password_confirm" type="password" minlength="8" autocomplete="new-password" required>
+                        <input class="form-control" id="confirmPassword" name="password_confirm" type="password" minlength="10" autocomplete="new-password" required>
                     </div>
                     <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-key"></i>Change password</button>
                 </form>

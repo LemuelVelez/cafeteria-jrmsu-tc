@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\OrderType;
+use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 
 class OrderModel extends BaseModel
@@ -16,13 +17,14 @@ class OrderModel extends BaseModel
     ];
     protected $validationRules = [
         'order_number' => 'required|max_length[40]',
-        'status' => 'required|in_list[pending,confirmed,preparing,ready,out_for_delivery,delivered,cancelled]',
+        'status' => 'required',
         'request_token' => 'permit_empty|max_length[64]|regex_match[/^[A-Za-z0-9_-]+$/]',
     ];
 
     protected function initialize(): void
     {
         $this->validationRules['order_type'] = 'required|in_list[' . implode(',', OrderType::values()) . ']';
+        $this->validationRules['status'] = 'required|in_list[' . implode(',', OrderStatus::values()) . ']';
         $this->validationRules['payment_method'] = 'required|in_list[' . implode(',', PaymentMethod::values()) . ']';
     }
 
@@ -42,7 +44,7 @@ class OrderModel extends BaseModel
     {
         $builder = $this->select('COUNT(*) AS order_count, COALESCE(SUM(total), 0) AS revenue')
             ->where('DATE(created_at)', date('Y-m-d'))
-            ->where('status !=', 'cancelled');
+            ->where('payment_status', 'paid');
         if ($cashierId) {
             $builder->where('cashier_id', $cashierId);
         }

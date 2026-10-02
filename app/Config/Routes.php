@@ -11,6 +11,7 @@ $routes->set404Override();
 $routes->setAutoRoute(false);
 
 $routes->get('/', 'Home::index');
+$routes->get('menu/(:segment)', 'PublicSite\MenuController::show/$1');
 $routes->group('', ['filter' => 'guest'], static function (RouteCollection $routes): void {
     $routes->get('login', 'Auth\\LoginController::index');
     $routes->post('login', 'Auth\\LoginController::store');
@@ -86,6 +87,11 @@ $routes->group('rider', ['filter' => ['auth', 'active', 'role:rider']], static f
     $routes->get('deliveries', 'Rider\\DeliveryController::index');
     $routes->get('deliveries/(:num)', 'Rider\\DeliveryController::show/$1');
     $routes->post('deliveries/(:num)/status', 'Rider\\DeliveryController::status/$1');
+});
+
+
+$routes->group('staff', ['filter' => ['auth', 'active', 'role:admin,cashier,rider']], static function (RouteCollection $routes): void {
+    $routes->get('orders/verify/(:segment)', 'Staff\OrderVerifyController::show/$1');
 });
 
 $routes->group('api', ['filter' => ['auth', 'active']], static function (RouteCollection $routes): void {

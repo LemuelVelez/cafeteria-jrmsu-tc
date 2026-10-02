@@ -26,11 +26,11 @@
         </div>
         <div class="col-md-6">
             <label class="form-label fw-semibold" for="password">Password</label>
-            <input class="form-control" id="password" name="password" type="password" minlength="8" autocomplete="new-password" required>
+            <input class="form-control" id="password" name="password" type="password" minlength="10" data-strong-password autocomplete="new-password" required>
         </div>
         <div class="col-md-6">
             <label class="form-label fw-semibold" for="password_confirm">Confirm password</label>
-            <input class="form-control" id="password_confirm" name="password_confirm" type="password" minlength="8" autocomplete="new-password" required>
+            <input class="form-control" id="password_confirm" name="password_confirm" type="password" minlength="10" autocomplete="new-password" required>
         </div>
     </div>
     <button class="btn btn-primary btn-lg w-100 mt-4" type="submit">Create account</button>

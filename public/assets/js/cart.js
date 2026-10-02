@@ -599,6 +599,32 @@
         });
     }
 
+    document.querySelectorAll('[data-reorder-order]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const orderId = Number(button.dataset.reorderOrder || 0);
+            if (!orderId || typeof window.cafeteriaFetch !== 'function') return;
+            const original = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
+            try {
+                const result = await window.cafeteriaFetch(window.cafeteriaUrl(`api/orders/${orderId}/reorder`), { method: 'POST' });
+                const items = Array.isArray(result?.data?.items) ? result.data.items : [];
+                const skipped = Array.isArray(result?.data?.skipped) ? result.data.skipped : [];
+                let added = 0;
+                items.forEach((item) => { if (cart.add(item)) added += 1; });
+                const message = [`${added} item line(s) added to your cart.`];
+                if (skipped.length) message.push(`Skipped: ${skipped.join('; ')}`);
+                window.alert(message.join('\n'));
+                if (added) window.location.assign(window.cafeteriaUrl('customer/cart'));
+            } catch (error) {
+                window.alert(error instanceof Error ? error.message : 'Unable to reorder these items.');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = original;
+            }
+        });
+    });
+
     render();
     cart.refreshProducts().catch((error) => console.warn('Unable to refresh cart product data.', error));
 

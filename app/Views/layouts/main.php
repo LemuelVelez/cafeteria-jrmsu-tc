@@ -4,10 +4,10 @@ $role = $user['role'] ?? 'customer';
 $path = service('uri')->getPath();
 $menus = [
     'admin' => [
-        ['/admin/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/admin/products', 'bi-cup-hot', 'Products'], ['/admin/categories', 'bi-tags', 'Categories'], ['/admin/orders', 'bi-receipt', 'Orders'], ['/admin/users', 'bi-person-gear', 'Users'], ['/admin/customers', 'bi-people', 'Customers'], ['/admin/riders', 'bi-bicycle', 'Riders'], ['/admin/promos', 'bi-ticket-perforated', 'Promotions'], ['/admin/reports', 'bi-bar-chart', 'Reports'], ['/admin/settings', 'bi-sliders', 'Cafeteria settings'], ['/settings', 'bi-person-circle', 'My settings'],
+        ['/admin/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/admin/products', 'bi-cup-hot', 'Products'], ['/admin/inventory', 'bi-box-seam', 'Inventory'], ['/admin/categories', 'bi-tags', 'Categories'], ['/admin/orders', 'bi-receipt', 'Orders'], ['/admin/users', 'bi-person-gear', 'Users'], ['/admin/customers', 'bi-people', 'Customers'], ['/admin/riders', 'bi-bicycle', 'Riders'], ['/admin/promos', 'bi-ticket-perforated', 'Promotions'], ['/admin/reports', 'bi-bar-chart', 'Reports'], ['/admin/audit-logs', 'bi-shield-check', 'Audit Logs'], ['/admin/settings', 'bi-sliders', 'Cafeteria settings'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'cashier' => [
-        ['/cashier/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/cashier/pos', 'bi-calculator', 'Point of Sale'], ['/cashier/orders', 'bi-receipt', 'Orders'], ['/settings', 'bi-person-circle', 'My settings'],
+        ['/cashier/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/cashier/pos', 'bi-calculator', 'Point of Sale'], ['/cashier/orders', 'bi-receipt', 'Orders'], ['/cashier/inventory', 'bi-box-seam', 'Inventory'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'customer' => [
         ['/customer/dashboard', 'bi-house', 'Dashboard'], ['/customer/menu', 'bi-cup-straw', 'Menu'], ['/customer/cart', 'bi-basket', 'Cart'], ['/customer/orders', 'bi-bag-check', 'My Orders'], ['/customer/reviews', 'bi-star', 'Reviews'], ['/settings', 'bi-person-circle', 'My settings'],
@@ -76,6 +76,16 @@ $nav = static function (array $items, string $path): string {
             <div class="fw-bold"><?= esc($title ?? 'Dashboard') ?></div>
         </div>
         <div class="topbar-actions">
+            <div class="dropdown">
+                <button class="topbar-icon-button position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications" data-notification-bell>
+                    <i class="bi bi-bell" aria-hidden="true"></i><span class="cart-count-badge" data-notification-count hidden>0</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end p-0 shadow notification-dropdown" style="width:min(360px,90vw)">
+                    <div class="d-flex align-items-center justify-content-between p-3 border-bottom"><strong>Notifications</strong><button class="btn btn-sm btn-link" type="button" data-notifications-read-all>Mark all read</button></div>
+                    <div data-notification-list><div class="p-3 text-secondary small">Loading notifications…</div></div>
+                    <a class="dropdown-item text-center border-top py-2" href="<?= base_url('notifications') ?>">View all notifications</a>
+                </div>
+            </div>
             <?php if ($role === 'customer'): ?>
                 <div class="cart-hover-preview">
                     <a
@@ -119,20 +129,22 @@ $nav = static function (array $items, string $path): string {
             <i class="bi bi-list" aria-hidden="true"></i>
         </button>
         <div class="fw-bold text-truncate mx-3"><?= esc($title ?? 'Dashboard') ?></div>
+        <div class="d-flex align-items-center gap-1">
+            <a class="topbar-icon-button position-relative" href="<?= base_url('notifications') ?>" aria-label="Notifications"><i class="bi bi-bell" aria-hidden="true"></i><span class="cart-count-badge" data-notification-count hidden>0</span></a>
         <?php if ($role === 'customer'): ?>
             <a class="topbar-icon-button position-relative" href="<?= base_url('customer/cart') ?>" aria-label="Open cart">
                 <i class="bi bi-basket2" aria-hidden="true"></i>
                 <span class="cart-count-badge" data-cart-count hidden>0</span>
             </a>
-        <?php else: ?>
-            <span class="topbar-icon-spacer" aria-hidden="true"></span>
         <?php endif; ?>
+        </div>
     </div>
     <div class="page-shell">
         <?= view('components/alerts') ?>
         <?= $this->renderSection('content') ?>
     </div>
 </main>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" data-notification-toasts aria-live="polite" aria-atomic="true"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?= base_url('assets/js/app.js') ?>"></script>
 <?php if (in_array($role, ['customer', 'cashier'], true)): ?><script src="<?= base_url('assets/js/cart.js') ?>"></script><?php endif; ?>

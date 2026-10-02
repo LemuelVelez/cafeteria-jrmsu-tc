@@ -9,9 +9,9 @@
         </div>
 
         <form class="menu-search" method="get" role="search">
-            <?php if ($selectedCategory): ?>
-                <input type="hidden" name="category" value="<?= (int) $selectedCategory ?>">
-            <?php endif; ?>
+            <?php if ($selectedCategory): ?><input type="hidden" name="category" value="<?= (int) $selectedCategory ?>"><?php endif; ?>
+            <?php if ($under500): ?><input type="hidden" name="under_500" value="1"><?php endif; ?>
+            <?php if ($excludeAllergen): ?><input type="hidden" name="exclude_allergen" value="<?= esc($excludeAllergen, 'attr') ?>"><?php endif; ?>
             <i class="bi bi-search menu-search-icon" aria-hidden="true"></i>
             <input
                 class="form-control"
@@ -42,6 +42,7 @@
             </a>
         <?php endforeach; ?>
     </nav>
+    <form class="surface-card p-3 mb-4" method="get"><div class="row g-2 align-items-end"><?php if ($selectedCategory): ?><input type="hidden" name="category" value="<?= (int)$selectedCategory ?>"><?php endif; ?><?php if ($search): ?><input type="hidden" name="q" value="<?= esc($search, 'attr') ?>"><?php endif; ?><div class="col-md-4"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="under_500" value="1" id="under500" <?= $under500 ? 'checked' : '' ?>><label class="form-check-label" for="under500">Under 500 kcal</label></div></div><div class="col-md-5"><label class="form-label" for="excludeAllergen">Exclude allergen</label><input class="form-control" id="excludeAllergen" name="exclude_allergen" value="<?= esc($excludeAllergen ?? '') ?>" placeholder="e.g. peanuts"></div><div class="col-md-3"><button class="btn btn-outline-primary w-100">Apply food filters</button></div></div></form>
 
     <div class="row g-4 menu-grid">
         <?php foreach ($products as $product): ?>
@@ -72,6 +73,8 @@
                             <span class="price text-nowrap"><?= format_price($product['price']) ?></span>
                         </div>
                         <p class="product-description text-secondary"><?= esc($product['description']) ?></p>
+                        <div class="d-flex flex-wrap gap-2 mb-3"><?php if ($product['calories'] !== null): ?><span class="badge text-bg-light border"><?= (int)$product['calories'] ?> kcal</span><?php endif; ?><?php if (!empty($product['is_healthy_choice'])): ?><span class="badge text-bg-success">Healthy choice</span><?php endif; ?></div>
+                        <details class="mb-3"><summary class="small fw-semibold">Nutrition & allergens</summary><div class="small text-secondary mt-2"><?php if ($product['calories'] !== null || $product['serving_size']): ?>Serving: <?= esc($product['serving_size'] ?: '1 serving') ?> · Protein <?= esc($product['protein_g'] ?? '—') ?>g · Carbs <?= esc($product['carbohydrates_g'] ?? '—') ?>g · Fat <?= esc($product['fat_g'] ?? '—') ?>g<br>Allergens: <?= esc($product['allergens'] ?: 'None listed') ?><br><em>Values are estimates per serving.</em><?php else: ?>Nutrition information not available.<?php endif; ?></div></details>
 
                         <?php if (!empty($addons[$product['id']])): ?>
                             <div class="product-addons">

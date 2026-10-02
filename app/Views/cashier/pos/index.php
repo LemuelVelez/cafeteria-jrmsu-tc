@@ -19,6 +19,11 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
 
 <div class="row g-4">
     <div class="col-xl-8">
+        <div class="surface-card p-3 mb-3">
+            <label class="form-label fw-semibold" for="posBarcode"><i class="bi bi-upc-scan me-1"></i>Scan barcode / order QR</label>
+            <input class="form-control form-control-lg" id="posBarcode" type="text" autocomplete="off" data-pos-barcode placeholder="Scan barcode then press Enter" autofocus>
+            <div class="form-text" data-pos-scan-feedback>USB/Bluetooth scanners are supported. Product barcodes add directly to the order; staff order QR URLs open verification.</div>
+        </div>
         <div class="input-group mb-3">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
             <input class="form-control" type="search" data-pos-search placeholder="Search products" aria-label="Search products">

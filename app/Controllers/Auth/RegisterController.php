@@ -27,7 +27,7 @@ class RegisterController extends BaseController
             'email' => 'required|valid_email|max_length[160]',
             'phone' => 'permit_empty|max_length[30]',
             'address' => 'permit_empty|max_length[1000]',
-            'password' => 'required|min_length[8]',
+            'password' => 'required|strong_password',
             'password_confirm' => 'required|matches[password]',
         ];
         if (! $this->validate($rules)) {

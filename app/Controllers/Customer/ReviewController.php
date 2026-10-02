@@ -18,7 +18,7 @@ class ReviewController extends BaseController
         $reviewedOrderIds = array_map('intval', array_column($reviews, 'order_id'));
 
         $orderModel = (new OrderModel())
-            ->where(['customer_id' => $userId, 'status' => 'delivered'])
+            ->where(['customer_id' => $userId, 'status' => 'completed'])
             ->orderBy('created_at', 'DESC');
         if ($reviewedOrderIds !== []) {
             $orderModel->whereNotIn('id', $reviewedOrderIds);
@@ -37,11 +37,11 @@ class ReviewController extends BaseController
         $order = (new OrderModel())->where([
             'id' => $orderId,
             'customer_id' => $userId,
-            'status' => 'delivered',
+            'status' => 'completed',
         ])->first();
 
         if (! $order) {
-            return redirect()->to('/customer/reviews')->with('error', 'Only delivered orders can be reviewed.');
+            return redirect()->to('/customer/reviews')->with('error', 'Only completed orders can be reviewed.');
         }
 
         $model = new ReviewModel();

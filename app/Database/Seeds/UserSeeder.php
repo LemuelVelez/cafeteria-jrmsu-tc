@@ -8,7 +8,7 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $password = password_hash('Password123!', PASSWORD_DEFAULT);
+        $password = password_hash('Cafeteria#2026Demo', PASSWORD_DEFAULT);
         $rows = [
             ['name' => 'System Administrator', 'email' => 'admin@jrmsu.edu.ph', 'phone' => '09170000001', 'password_hash' => $password, 'role' => 'admin', 'status' => 'active', 'address' => null],
             ['name' => 'Main Cashier', 'email' => 'cashier@jrmsu.edu.ph', 'phone' => '09170000002', 'password_hash' => $password, 'role' => 'cashier', 'status' => 'active', 'address' => null],

@@ -3,6 +3,8 @@
 namespace App\Controllers\Auth;
 
 use App\Controllers\BaseController;
+use App\Models\AuthTokenModel;
+use App\Models\UserModel;
 use App\Services\AuthService;
 
 class ResetPasswordController extends BaseController
@@ -13,11 +15,7 @@ class ResetPasswordController extends BaseController
         if ($token === '' || ! (new AuthService())->isPasswordResetTokenValid($token)) {
             return redirect()->to('/forgot-password')->with('error', 'The password reset link is invalid or has expired.');
         }
-
-        return $this->render('auth/reset_password', [
-            'title' => 'Reset password',
-            'token' => $token,
-        ]);
+        return $this->render('auth/reset_password', ['title' => 'Reset password', 'token' => $token]);
     }
 
     public function store()
@@ -28,18 +26,32 @@ class ResetPasswordController extends BaseController
             return redirect()->to('/forgot-password')->with('error', 'Too many password reset attempts. Request a new reset link.');
         }
 
-        if (! $this->validate([
-            'token' => 'required|exact_length[64]|alpha_numeric',
-            'password' => 'required|min_length[8]',
-            'password_confirm' => 'required|matches[password]',
-        ])) {
-            return redirect()->to('/reset-password?token=' . rawurlencode($token))->withInput()->with('errors', $this->validator->getErrors());
-        }
-
-        if (! (new AuthService())->resetPassword($token, (string) $this->request->getPost('password'))) {
+        $tokenRow = (new AuthTokenModel())->findValid($token, AuthTokenModel::PASSWORD_RESET);
+        $user = $tokenRow ? (new UserModel())->find((int) $tokenRow['user_id']) : null;
+        if (! $user) {
             return redirect()->to('/forgot-password')->with('error', 'The password reset link is invalid or has expired.');
         }
 
+        $validation = service('validation');
+        $validation->setRules([
+            'token' => 'required|exact_length[64]|alpha_numeric',
+            'password' => 'required|strong_password',
+            'password_confirm' => 'required|matches[password]',
+        ]);
+        $data = [
+            'token' => $token,
+            'password' => (string) $this->request->getPost('password'),
+            'password_confirm' => (string) $this->request->getPost('password_confirm'),
+            'name' => $user['name'],
+            'email' => $user['email'],
+        ];
+        if (! $validation->run($data)) {
+            return redirect()->to('/reset-password?token=' . rawurlencode($token))->withInput()->with('errors', $validation->getErrors());
+        }
+
+        if (! (new AuthService())->resetPassword($token, $data['password'])) {
+            return redirect()->to('/forgot-password')->with('error', 'The password reset link is invalid or has expired.');
+        }
         return redirect()->to('/login')->with('success', 'Your password has been reset. You may now sign in.');
     }
 }

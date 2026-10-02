@@ -85,8 +85,8 @@ textarea.form-control { min-height: 110px; }
 .order-status-badge--pending { color: #9a3412; background: #fff7ed; border-color: #fed7aa; }
 .order-status-badge--confirmed { color: #155e75; background: #ecfeff; border-color: #a5f3fc; }
 .order-status-badge--preparing { color: #1e40af; background: #eff6ff; border-color: #bfdbfe; }
-.order-status-badge--ready,
-.order-status-badge--delivered { color: #065f46; background: #ecfdf5; border-color: #a7f3d0; }
+.order-status-badge--ready-for-pickup,
+.order-status-badge--completed { color: #065f46; background: #ecfdf5; border-color: #a7f3d0; }
 .order-status-badge--out-for-delivery { color: #5b21b6; background: #f5f3ff; border-color: #ddd6fe; }
 .order-status-badge--cancelled { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
 .order-status-badge--neutral { color: #334155; background: #f8fafc; border-color: #cbd5e1; }

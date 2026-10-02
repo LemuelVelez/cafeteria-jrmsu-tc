@@ -17,6 +17,19 @@
     const deliveryFee = Math.max(0, Number(form.dataset.deliveryFee || 0));
     const orderEndpoint = form.dataset.orderEndpoint || window.cafeteriaUrl('api/orders');
     const ordersUrl = form.dataset.ordersUrl || window.cafeteriaUrl('cashier/orders');
+    const barcodeInput = document.querySelector('[data-pos-barcode]');
+    const scanFeedback = document.querySelector('[data-pos-scan-feedback]');
+    const beep = (ok = true) => {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const context = new AudioContext(); const oscillator = context.createOscillator(); const gain = context.createGain();
+            oscillator.type = 'sine'; oscillator.frequency.value = ok ? 880 : 220; gain.gain.value = 0.05;
+            oscillator.connect(gain); gain.connect(context.destination); oscillator.start(); oscillator.stop(context.currentTime + (ok ? 0.08 : 0.18));
+        } catch (_) {}
+    };
+    const setScanFeedback = (message, ok) => {
+        if (!scanFeedback) return; scanFeedback.textContent = message; scanFeedback.classList.toggle('text-success', ok === true); scanFeedback.classList.toggle('text-danger', ok === false);
+    };
 
     const total = () => cart.subtotal() + (orderType?.value === 'delivery' ? deliveryFee : 0);
 
@@ -77,6 +90,28 @@
             render();
         }));
     };
+
+    barcodeInput?.addEventListener('keydown', async (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault(); const scanned = barcodeInput.value.trim(); if (!scanned) return;
+        try {
+            const maybeUrl = new URL(scanned, window.location.origin);
+            if (maybeUrl.origin === window.location.origin && maybeUrl.pathname.includes('/staff/orders/verify/')) {
+                window.location.assign(maybeUrl.toString()); return;
+            }
+        } catch (_) {}
+        barcodeInput.disabled = true;
+        try {
+            const { data: product } = await window.cafeteriaFetch(window.cafeteriaUrl(`api/products/barcode/${encodeURIComponent(scanned)}`));
+            if (!product.is_available) throw new Error(`${product.name} is unavailable.`);
+            if (Number(product.stock) < 1) throw new Error(`${product.name} is out of stock.`);
+            const full = cart.add({ product_id: Number(product.id), name: product.name, price: Number(product.price), stock: Number(product.stock), quantity: 1, image: product.image_url || '', addons: [], addon_total: 0, notes: '', available: true });
+            if (!full) throw new Error(`No more stock is available for ${product.name}.`);
+            render(); beep(true); setScanFeedback(`${product.name} added.`, true); barcodeInput.value = '';
+        } catch (error) {
+            beep(false); setScanFeedback(error instanceof Error ? error.message : 'Barcode scan failed.', false); barcodeInput.select();
+        } finally { barcodeInput.disabled = false; barcodeInput.focus(); }
+    });
 
     document.querySelectorAll('[data-add-product]').forEach((button) => {
         button.addEventListener('click', () => setTimeout(render, 0));

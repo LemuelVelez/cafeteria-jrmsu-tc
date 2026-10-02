@@ -325,6 +325,44 @@
             });
     };
 
+    const enhanceStrongPasswords = () => {
+        document.querySelectorAll('input[type="password"][data-strong-password]').forEach((field) => {
+            if (field.dataset.strengthReady === 'true') return;
+            const host = field.closest('.mb-3, .col-12, .col-md-6, .form-group') || field.parentElement;
+            const box = document.createElement('div');
+            box.className = 'password-requirements small mt-2';
+            box.innerHTML = `
+                <div class="progress mb-2" style="height:5px"><div class="progress-bar" data-password-meter style="width:0%"></div></div>
+                <div class="row g-1">
+                    <div class="col-sm-6" data-password-check="length"><i class="bi bi-circle me-1"></i>10+ characters</div>
+                    <div class="col-sm-6" data-password-check="upper"><i class="bi bi-circle me-1"></i>Uppercase letter</div>
+                    <div class="col-sm-6" data-password-check="lower"><i class="bi bi-circle me-1"></i>Lowercase letter</div>
+                    <div class="col-sm-6" data-password-check="number"><i class="bi bi-circle me-1"></i>Number</div>
+                    <div class="col-sm-6" data-password-check="symbol"><i class="bi bi-circle me-1"></i>Symbol</div>
+                </div>`;
+            host.appendChild(box);
+            const tests = {
+                length: (value) => value.length >= 10,
+                upper: (value) => /[A-Z]/.test(value),
+                lower: (value) => /[a-z]/.test(value),
+                number: (value) => /\d/.test(value),
+                symbol: (value) => /[^A-Za-z0-9]/.test(value),
+            };
+            const update = () => {
+                const value = field.value;
+                const passed = Object.entries(tests).filter(([key, test]) => {
+                    const ok = test(value); const row = box.querySelector(`[data-password-check="${key}"]`);
+                    row?.classList.toggle('text-success', ok); row?.classList.toggle('text-secondary', !ok);
+                    const icon = row?.querySelector('.bi'); if (icon) icon.className = `bi ${ok ? 'bi-check-circle-fill' : 'bi-circle'} me-1`;
+                    return ok;
+                }).length;
+                const meter = box.querySelector('[data-password-meter]');
+                if (meter) meter.style.width = `${passed * 20}%`;
+            };
+            field.addEventListener('input', update); update(); field.dataset.strengthReady = 'true';
+        });
+    };
+
     const buttonIcon = (label) => {
         const rules = [
             [/sign out|log out/i, 'bi-box-arrow-right'],
@@ -559,6 +597,7 @@
     enhanceFormFields();
     enhanceFileInputs();
     enhancePasswordFields();
+    enhanceStrongPasswords();
     enhanceButtons();
     enhanceResponsiveTables();
     enhanceCopyButtons();
@@ -596,5 +635,71 @@
             .catch(() => {});
         refresh();
         window.setInterval(refresh, 60000);
+    }
+
+    const notificationBadges = document.querySelectorAll('[data-notification-count]');
+    const notificationList = document.querySelector('[data-notification-list]');
+    let lastNotificationId = Number(sessionStorage.getItem('cafeteria-last-notification') || 0);
+    const renderNotifications = (rows) => {
+        if (!notificationList) return;
+        notificationList.innerHTML = rows.length ? rows.slice(0, 8).map((row) => `
+            <a class="dropdown-item py-2 ${row.read_at ? '' : 'fw-semibold bg-light'}" href="${row.link ? window.cafeteriaUrl(row.link) : window.cafeteriaUrl('notifications')}" data-notification-id="${Number(row.id)}">
+                <div>${String(row.title || '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]))}</div>
+                <small class="text-secondary text-wrap">${String(row.message || '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]))}</small>
+            </a>`).join('') : '<div class="p-3 text-secondary small">No notifications yet.</div>';
+        notificationList.querySelectorAll('[data-notification-id]').forEach((link) => link.addEventListener('click', () => {
+            window.cafeteriaFetch(window.cafeteriaUrl(`api/notifications/${link.dataset.notificationId}/read`), { method: 'PATCH' }).catch(() => {});
+        }));
+    };
+    const showNotificationToast = (row) => {
+        const host = document.querySelector('[data-notification-toasts]');
+        if (!host || !window.bootstrap?.Toast) return;
+        const toast = document.createElement('div'); toast.className = 'toast'; toast.setAttribute('role','status');
+        toast.innerHTML = `<div class="toast-header"><i class="bi bi-bell me-2"></i><strong class="me-auto"></strong><button type="button" class="btn-close" data-bs-dismiss="toast"></button></div><div class="toast-body"></div>`;
+        toast.querySelector('strong').textContent = row.title || 'Notification'; toast.querySelector('.toast-body').textContent = row.message || '';
+        host.appendChild(toast); const instance = bootstrap.Toast.getOrCreateInstance(toast, { delay: 5000 }); instance.show(); toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    };
+    const refreshNotifications = async () => {
+        if (document.hidden || !notificationBadges.length) return;
+        try {
+            const [{ data: countData }, { data: rows }] = await Promise.all([
+                window.cafeteriaFetch(window.cafeteriaUrl('api/notifications/unread-count')),
+                window.cafeteriaFetch(window.cafeteriaUrl('api/notifications')),
+            ]);
+            notificationBadges.forEach((badge) => { badge.textContent = countData.count; badge.hidden = Number(countData.count) < 1; });
+            renderNotifications(rows || []);
+            const newest = Number(rows?.[0]?.id || 0);
+            if (lastNotificationId && newest > lastNotificationId) rows.filter((row) => Number(row.id) > lastNotificationId).slice(0, 3).reverse().forEach(showNotificationToast);
+            if (newest) { lastNotificationId = Math.max(lastNotificationId, newest); sessionStorage.setItem('cafeteria-last-notification', String(lastNotificationId)); }
+        } catch (_) {}
+    };
+    if (notificationBadges.length) { refreshNotifications(); window.setInterval(refreshNotifications, 25000); document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshNotifications(); }); }
+    document.querySelector('[data-notifications-read-all]')?.addEventListener('click', async () => {
+        try { await window.cafeteriaFetch(window.cafeteriaUrl('api/notifications/read-all'), { method: 'PATCH' }); await refreshNotifications(); } catch (_) {}
+    });
+
+    document.querySelectorAll('[data-inventory-barcode-scan]').forEach((input) => input.addEventListener('keydown', async (event) => {
+        if (event.key !== 'Enter') return; event.preventDefault(); const code = input.value.trim(); if (!code) return;
+        try {
+            const { data } = await window.cafeteriaFetch(window.cafeteriaUrl(`api/products/barcode/${encodeURIComponent(code)}`));
+            const selector = input.dataset.target || 'select[name="product_id"]';
+            const selects = document.querySelectorAll(selector);
+            selects.forEach((select) => { select.value = String(data.id); select.dispatchEvent(new Event('change', { bubbles: true })); });
+            if (selects.length) input.value = '';
+        } catch (error) { alert(error.message || 'Barcode not found.'); }
+    }));
+
+    document.querySelectorAll('[data-order-qr-scan]').forEach((input) => input.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return; event.preventDefault(); const value = input.value.trim();
+        try { const url = new URL(value, window.location.origin); if (url.origin === window.location.origin && url.pathname.includes('/staff/orders/verify/')) window.location.assign(url.toString()); else alert('This is not a valid order verification code.'); } catch (_) { alert('This is not a valid order verification code.'); }
+    }));
+
+    const tracker = document.querySelector('[data-order-status-tracker]');
+    if (tracker?.dataset.orderId) {
+        const initial = tracker.dataset.orderStatus;
+        window.setInterval(async () => {
+            if (document.hidden) return;
+            try { const { data } = await window.cafeteriaFetch(window.cafeteriaUrl(`api/orders/${tracker.dataset.orderId}`)); if (data?.status && data.status !== initial) window.location.reload(); } catch (_) {}
+        }, 25000);
     }
 })();

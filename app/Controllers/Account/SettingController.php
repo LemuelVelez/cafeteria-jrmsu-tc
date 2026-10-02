@@ -5,6 +5,7 @@ namespace App\Controllers\Account;
 use App\Controllers\BaseController;
 use App\Models\UserModel;
 use App\Services\AccountEmailService;
+use App\Services\AuditLogService;
 use App\Services\AuthService;
 use App\Services\MediaStorageService;
 use CodeIgniter\Exceptions\PageNotFoundException;
@@ -154,28 +155,57 @@ class SettingController extends BaseController
     public function savePassword()
     {
         $user = $this->currentUser();
-        $rules = [
+        $validation = service('validation');
+        $validation->setRules([
             'current_password' => 'required',
-            'password' => 'required|min_length[8]',
+            'password' => 'required|strong_password',
             'password_confirm' => 'required|matches[password]',
+        ]);
+        $data = [
+            'current_password' => (string) $this->request->getPost('current_password'),
+            'password' => (string) $this->request->getPost('password'),
+            'password_confirm' => (string) $this->request->getPost('password_confirm'),
+            'name' => $user['name'],
+            'email' => $user['email'],
         ];
-
-        if (! $this->validate($rules)) {
-            return redirect()->to('/settings')->with('errors', $this->validator->getErrors());
+        if (! $validation->run($data)) {
+            return redirect()->to('/settings')->with('errors', $validation->getErrors());
         }
-
-        if (! password_verify((string) $this->request->getPost('current_password'), (string) $user['password_hash'])) {
+        if (! password_verify($data['current_password'], (string) $user['password_hash'])) {
             return redirect()->to('/settings')->with('error', 'The current password is incorrect.');
         }
 
-        $model = new UserModel();
-        if (! $model->update((int) $user['id'], [
-            'password_hash' => password_hash((string) $this->request->getPost('password'), PASSWORD_DEFAULT),
-        ])) {
-            return redirect()->to('/settings')->with('errors', $model->errors());
+        $db = db_connect();
+        $db->transBegin();
+        try {
+            $locked = $db->query('SELECT id, session_version FROM users WHERE id=? FOR UPDATE', [(int) $user['id']])->getRowArray();
+            if (! $locked) {
+                throw new \RuntimeException('User account not found.');
+            }
+            $newVersion = (int) ($locked['session_version'] ?? 1) + 1;
+            $model = new UserModel();
+            if (! $model->update((int) $user['id'], [
+                'password_hash' => password_hash($data['password'], PASSWORD_DEFAULT),
+                'failed_login_attempts' => 0,
+                'locked_until' => null,
+                'session_version' => $newVersion,
+            ])) {
+                throw new \RuntimeException('Unable to update password.');
+            }
+            (new AuditLogService($db))->record('password_change', 'user', (int) $user['id'], ['source' => 'account_settings'], (int) $user['id']);
+            if (! $db->transStatus()) {
+                throw new \RuntimeException('Unable to update password.');
+            }
+            $db->transCommit();
+            $this->session->regenerate(true);
+            $user['session_version'] = $newVersion;
+            $this->refreshSessionUser($user);
+            $this->session->set('last_activity', time());
+            return redirect()->to('/settings')->with('success', 'Password updated.');
+        } catch (Throwable $exception) {
+            $db->transRollback();
+            return redirect()->to('/settings')->with('error', 'The password could not be updated.');
         }
-
-        return redirect()->to('/settings')->with('success', 'Password updated.');
     }
 
     private function currentUser(): array
@@ -199,6 +229,7 @@ class SettingController extends BaseController
             'role' => $user['role'],
             'status' => $user['status'],
             'avatar' => $user['avatar'] ?? null,
+            'session_version' => (int) ($user['session_version'] ?? ($sessionUser['session_version'] ?? 1)),
         ]));
     }
 }

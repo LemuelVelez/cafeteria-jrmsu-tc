@@ -12,14 +12,14 @@
         <label class="form-label fw-semibold" for="password">New password</label>
         <div class="input-group">
             <span class="input-group-text"><i class="bi bi-lock"></i></span>
-            <input class="form-control" id="password" name="password" type="password" minlength="8" autocomplete="new-password" required>
+            <input class="form-control" id="password" name="password" type="password" minlength="10" data-strong-password autocomplete="new-password" required>
         </div>
     </div>
     <div class="mb-4">
         <label class="form-label fw-semibold" for="password_confirm">Confirm new password</label>
         <div class="input-group">
             <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
-            <input class="form-control" id="password_confirm" name="password_confirm" type="password" minlength="8" autocomplete="new-password" required>
+            <input class="form-control" id="password_confirm" name="password_confirm" type="password" minlength="10" autocomplete="new-password" required>
         </div>
     </div>
     <button class="btn btn-primary btn-lg w-100" type="submit">Reset password</button>

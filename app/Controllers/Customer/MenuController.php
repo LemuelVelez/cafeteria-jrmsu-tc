@@ -13,7 +13,9 @@ class MenuController extends BaseController
     {
         $categoryId = $this->request->getGet('category') ? (int) $this->request->getGet('category') : null;
         $search = trim((string) $this->request->getGet('q')) ?: null;
-        $products = (new ProductModel())->menu($categoryId, $search);
+        $under500 = $this->request->getGet('under_500') === '1';
+        $excludeAllergen = trim((string) $this->request->getGet('exclude_allergen')) ?: null;
+        $products = (new ProductModel())->menu($categoryId, $search, $under500 ? 500 : null, $excludeAllergen);
         $addons = [];
         if ($products) {
             $ids = array_column($products, 'id');
@@ -27,6 +29,8 @@ class MenuController extends BaseController
             'addons' => $addons,
             'selectedCategory' => $categoryId,
             'search' => $search,
+            'under500' => $under500,
+            'excludeAllergen' => $excludeAllergen,
         ]);
     }
 }

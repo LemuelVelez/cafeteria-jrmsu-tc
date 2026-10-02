@@ -16,13 +16,17 @@ class App extends BaseConfig
     public array $supportedLocales = ['en'];
     public string $appTimezone = 'Asia/Manila';
     public string $charset = 'UTF-8';
-    public bool $forceGlobalSecureRequests = false;
+    public bool $forceGlobalSecureRequests;
     public array $proxyIPs = [];
-    public bool $CSPEnabled = false;
+    public bool $CSPEnabled;
 
     public function __construct()
     {
         parent::__construct();
+
+        $production = defined('ENVIRONMENT') && ENVIRONMENT === 'production';
+        $this->forceGlobalSecureRequests = filter_var(env('app.forceGlobalSecureRequests', $production), FILTER_VALIDATE_BOOL);
+        $this->CSPEnabled = filter_var(env('app.CSPEnabled', $production), FILTER_VALIDATE_BOOL);
 
         $runtimeBaseUrl = trim((string) env('APP_BASE_URL', ''));
         if ($runtimeBaseUrl !== '') {

@@ -13,6 +13,13 @@ final class ProjectStructureTest extends TestCase
             'app/Config/Routes.php',
             'app/Services/OrderService.php',
             'app/Enums/PaymentMethod.php',
+            'app/Enums/OrderStatus.php',
+            'app/Services/InventoryService.php',
+            'app/Services/NotificationService.php',
+            'app/Services/ReportService.php',
+            'app/Commands/MigrateAll.php',
+            'app/Commands/SeedAll.php',
+            'app/Database/Migrations/2026-08-17-000022_CreateSeederRuns.php',
             'frontend/dev-server.mjs',
             'cafe',
             'package.json',
@@ -25,6 +32,40 @@ final class ProjectStructureTest extends TestCase
         foreach ($required as $file) {
             self::assertFileExists($root . DIRECTORY_SEPARATOR . $file);
         }
+    }
+
+
+    public function testDatabaseCliRunsAllMigrationsAndRegisteredSeeders(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $spark = file_get_contents($root . '/spark');
+        $migrate = file_get_contents($root . '/app/Commands/MigrateAll.php');
+        $seed = file_get_contents($root . '/app/Commands/SeedAll.php');
+        $databaseSeeder = file_get_contents($root . '/app/Database/Seeds/DatabaseSeeder.php');
+        $cafe = file_get_contents($root . '/cafe');
+
+        foreach ([$spark, $migrate, $seed, $databaseSeeder, $cafe] as $source) {
+            self::assertIsString($source);
+        }
+
+        self::assertStringContainsString("(\$argv[1] ?? null) === 'migrate'", $spark);
+        self::assertStringContainsString("\$argv[1] = 'cafeteria:migrate'", $spark);
+        self::assertStringContainsString("protected \$name = 'cafeteria:migrate'", $migrate);
+        self::assertStringContainsString("\$native = ['--all']", $migrate);
+        self::assertStringContainsString('SKIPPED (already applied)', $migrate);
+        self::assertStringContainsString('No pending migrations', $migrate);
+        self::assertStringContainsString("protected \$name = 'seed'", $seed);
+        self::assertStringContainsString('DatabaseSeeder::seeders()', $seed);
+        self::assertStringContainsString("tableExists('seeder_runs')", $seed);
+        self::assertStringContainsString('DatabaseSeeder::isSatisfied', $seed);
+        self::assertStringContainsString('SKIPPED (already seeded)', $seed);
+        self::assertStringContainsString('No pending seeders', $seed);
+        self::assertStringContainsString('public const SEEDERS = [', $databaseSeeder);
+        self::assertStringContainsString('public static function isSatisfied', $databaseSeeder);
+        self::assertStringContainsString('COUNT(DISTINCT product_id) AS seeded_products', $databaseSeeder);
+        self::assertStringNotContainsString("->groupBy('product_id')\n            ->countAllResults()", $databaseSeeder);
+        self::assertStringContainsString('php spark migrate', $cafe);
+        self::assertStringContainsString('php spark seed', $cafe);
     }
 
     public function testRiderDeliveryUsesCopyAddressInsteadOfExternalMap(): void
@@ -109,13 +150,14 @@ final class ProjectStructureTest extends TestCase
         $service = file_get_contents(dirname(__DIR__, 2) . '/app/Services/OrderService.php');
         self::assertIsString($service);
 
-        self::assertStringContainsString('INNER JOIN categories ON categories.id = products.category_id', $service);
-        self::assertStringContainsString('AND categories.deleted_at IS NULL', $service);
-        self::assertStringContainsString('AND categories.is_active = 1', $service);
+        self::assertStringContainsString('INNER JOIN categories ON categories.id=products.category_id', $service);
+        self::assertStringContainsString('categories.deleted_at IS NULL', $service);
+        self::assertStringContainsString('categories.is_active=1', $service);
         self::assertStringContainsString('max(0.0, (float) $this->settings->getValue', $service);
-        self::assertStringContainsString("if (\$status === 'delivered' && \$isDelivery", $service);
-        self::assertStringContainsString("return ['out_for_delivery'];", $service);
-        self::assertStringContainsString("return ['delivered'];", $service);
+        self::assertStringContainsString('OrderStatus::ReadyForPickup', $service);
+        self::assertStringContainsString('OrderStatus::OutForDelivery', $service);
+        self::assertStringContainsString('OrderStatus::Completed', $service);
+        self::assertStringContainsString('InventoryService', $service);
     }
 
     public function testCustomerEmailChangesRequireFreshVerification(): void

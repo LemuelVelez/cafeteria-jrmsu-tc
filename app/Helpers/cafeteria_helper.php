@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\OrderType;
+use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Models\SettingModel;
 
@@ -50,22 +51,38 @@ if (! function_exists('generate_order_number')) {
 if (! function_exists('order_status_badge')) {
     function order_status_badge(string $status): string
     {
-        $variants = [
-            'pending' => ['pending', 'bi-clock'],
-            'confirmed' => ['confirmed', 'bi-check-circle'],
-            'preparing' => ['preparing', 'bi-cup-hot'],
-            'ready' => ['ready', 'bi-bag-check'],
-            'out_for_delivery' => ['out-for-delivery', 'bi-bicycle'],
-            'delivered' => ['delivered', 'bi-check2-circle'],
-            'cancelled' => ['cancelled', 'bi-x-circle'],
-        ];
-        [$variant, $icon] = $variants[$status] ?? ['neutral', 'bi-info-circle'];
-        $label = ucwords(str_replace('_', ' ', $status));
+        $orderStatus = OrderStatus::tryFrom($status);
+        if (! $orderStatus) {
+            return '<span class="order-status-badge order-status-badge--neutral"><i class="bi bi-info-circle" aria-hidden="true"></i><span>' . esc(ucwords(str_replace('_', ' ', $status))) . '</span></span>';
+        }
 
-        return '<span class="order-status-badge order-status-badge--' . esc($variant, 'attr') . '">'
-            . '<i class="bi ' . esc($icon, 'attr') . '" aria-hidden="true"></i>'
-            . '<span>' . esc($label) . '</span>'
+        return '<span class="order-status-badge order-status-badge--' . esc($orderStatus->badgeVariant(), 'attr') . '">'
+            . '<i class="bi ' . esc($orderStatus->icon(), 'attr') . '" aria-hidden="true"></i>'
+            . '<span>' . esc($orderStatus->label()) . '</span>'
             . '</span>';
+    }
+}
+
+
+if (! function_exists('mask_phone')) {
+    function mask_phone(?string $phone): string
+    {
+        $phone = trim((string) $phone);
+        if ($phone === '') return '—';
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if (strlen($digits) < 4) return str_repeat('*', max(1, strlen($phone)));
+        return substr($digits, 0, min(4, strlen($digits) - 2)) . ' *** **' . substr($digits, -2);
+    }
+}
+
+if (! function_exists('mask_address')) {
+    function mask_address(?string $address): string
+    {
+        $address = trim((string) $address);
+        if ($address === '') return '—';
+        $parts = preg_split('/[,\n]/', $address) ?: [];
+        $last = trim((string) end($parts));
+        return 'Address hidden after delivery' . ($last !== '' ? ' · ' . $last : '');
     }
 }
 

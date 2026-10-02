@@ -16,7 +16,7 @@ class CreateOrdersTable extends Migration
             'rider_id' => ['type' => 'BIGINT', 'unsigned' => true, 'null' => true],
             'promo_id' => ['type' => 'BIGINT', 'unsigned' => true, 'null' => true],
             'order_type' => ['type' => 'ENUM', 'constraint' => ['pickup', 'delivery'], 'default' => 'pickup'],
-            'status' => ['type' => 'ENUM', 'constraint' => ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'], 'default' => 'pending'],
+            'status' => ['type' => 'ENUM', 'constraint' => ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'completed', 'cancelled'], 'default' => 'pending'],
             'subtotal' => ['type' => 'DECIMAL', 'constraint' => '12,2', 'default' => 0],
             'discount' => ['type' => 'DECIMAL', 'constraint' => '12,2', 'default' => 0],
             'delivery_fee' => ['type' => 'DECIMAL', 'constraint' => '12,2', 'default' => 0],

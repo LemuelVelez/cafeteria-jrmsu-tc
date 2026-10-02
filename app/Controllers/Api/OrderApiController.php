@@ -5,6 +5,8 @@ namespace App\Controllers\Api;
 use App\Controllers\BaseController;
 use App\Models\OrderItemModel;
 use App\Models\OrderModel;
+use App\Models\ProductAddonModel;
+use App\Models\ProductModel;
 use App\Services\OrderService;
 use DomainException;
 use Throwable;
@@ -47,6 +49,48 @@ class OrderApiController extends BaseController
             return $this->jsonError('Order not found.', null, 404);
         }
         return $this->jsonSuccess('Order loaded.', ['order' => $order, 'items' => (new OrderItemModel())->where('order_id', $id)->findAll()]);
+    }
+
+
+    public function reorder(int $id)
+    {
+        $user = session()->get('user');
+        $order = (new OrderModel())->where(['id' => $id, 'customer_id' => (int) ($user['id'] ?? 0)])->first();
+        if (! $order || ($user['role'] ?? '') !== 'customer') {
+            return $this->jsonError('Order not found.', null, 404);
+        }
+        $items = (new OrderItemModel())->where('order_id', $id)->findAll();
+        $ready = [];
+        $skipped = [];
+        foreach ($items as $item) {
+            $product = (new ProductModel())->find((int) $item['product_id']);
+            if (! $product || ! (bool) $product['is_available']) {
+                $skipped[] = $item['product_name'] . ': unavailable';
+                continue;
+            }
+            if ((int) $product['stock'] < 1) {
+                $skipped[] = $item['product_name'] . ': out of stock';
+                continue;
+            }
+            $selected = json_decode((string) ($item['addons_json'] ?? '[]'), true) ?: [];
+            $selectedIds = array_map(static fn (array $addon): int => (int) ($addon['id'] ?? 0), $selected);
+            $addons = $selectedIds ? (new ProductAddonModel())->where('product_id', $product['id'])->where('is_active', 1)->whereIn('id', $selectedIds)->findAll() : [];
+            if (count($addons) !== count(array_filter($selectedIds))) {
+                $skipped[] = $item['product_name'] . ': one or more add-ons are no longer available';
+                continue;
+            }
+            $ready[] = [
+                'product_id' => (int) $product['id'],
+                'name' => $product['name'],
+                'price' => (float) $product['price'],
+                'stock' => (int) $product['stock'],
+                'image' => ! empty($product['image']) ? media_url((string) $product['image']) : '',
+                'quantity' => min((int) $item['quantity'], (int) $product['stock']),
+                'addons' => array_map(static fn (array $addon): array => ['id'=>(int)$addon['id'],'name'=>$addon['name'],'price'=>(float)$addon['price']], $addons),
+                'notes' => (string) ($item['notes'] ?? ''),
+            ];
+        }
+        return $this->jsonSuccess('Reorder items checked against current menu and stock.', ['items' => $ready, 'skipped' => $skipped]);
     }
 
     public function pendingCount()

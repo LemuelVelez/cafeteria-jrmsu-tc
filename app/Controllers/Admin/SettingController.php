@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\SettingModel;
+use App\Services\AuditLogService;
 use Throwable;
 
 class SettingController extends BaseController
@@ -15,6 +16,7 @@ class SettingController extends BaseController
         'contact_number',
         'pickup_enabled',
         'delivery_enabled',
+        'email_order_notifications',
     ];
 
     public function index(): string
@@ -33,6 +35,7 @@ class SettingController extends BaseController
             'contact_number' => 'permit_empty|max_length[50]',
             'pickup_enabled' => 'required|in_list[0,1]',
             'delivery_enabled' => 'required|in_list[0,1]',
+            'email_order_notifications' => 'required|in_list[0,1]',
         ])) {
             return redirect()->to('/admin/settings')
                 ->withInput()
@@ -54,6 +57,7 @@ class SettingController extends BaseController
                 throw new \RuntimeException('Unable to save the cafeteria settings.');
             }
 
+            (new AuditLogService($database))->record('settings_change', 'settings', null, ['keys' => self::KEYS]);
             $database->transCommit();
 
             return redirect()->to('/admin/settings')->with('success', 'Settings updated.');
