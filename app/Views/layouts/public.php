@@ -15,7 +15,12 @@
     <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
 </head>
 <body>
-<nav class="navbar navbar-expand-lg public-navbar sticky-top py-2">
+<?php
+$publicPath = trim(service('uri')->getPath(), '/');
+$isLandingPage = $publicPath === '';
+$isLoginPage = $publicPath === 'login';
+?>
+<nav class="navbar navbar-expand-lg public-navbar<?= $isLandingPage ? ' public-navbar--overlay' : '' ?> sticky-top py-2" data-public-navbar>
     <div class="container">
         <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="<?= base_url('/') ?>">
             <img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="JRMSU-TC Cafeteria logo">
@@ -24,12 +29,12 @@
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#publicNav" aria-controls="publicNav" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
         <div class="collapse navbar-collapse" id="publicNav">
             <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-                <li class="nav-item"><a class="nav-link" href="<?= base_url('/#menu') ?>">Menu</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?= base_url('/#how-it-works') ?>">How it works</a></li>
+                <li class="nav-item"><a class="nav-link public-nav-link" data-public-section="menu" href="<?= base_url('/#menu') ?>">Menu</a></li>
+                <li class="nav-item"><a class="nav-link public-nav-link" data-public-section="how-it-works" href="<?= base_url('/#how-it-works') ?>">How it works</a></li>
                 <?php if ($currentUser ?? null): ?>
                     <li class="nav-item"><a class="btn btn-primary" href="<?= base_url(role_home($currentUser['role'])) ?>">Open dashboard</a></li>
                 <?php else: ?>
-                    <li class="nav-item"><a class="nav-link" href="<?= base_url('login') ?>">Sign in</a></li>
+                    <li class="nav-item"><a class="nav-link public-nav-link<?= $isLoginPage ? ' is-active' : '' ?>" href="<?= base_url('login') ?>"<?= $isLoginPage ? ' aria-current="page"' : '' ?>>Sign in</a></li>
                     <li class="nav-item"><a class="btn btn-primary" href="<?= base_url('register') ?>">Create account</a></li>
                 <?php endif; ?>
             </ul>
@@ -44,6 +49,7 @@
     </div>
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= base_url('assets/js/public-nav.js') ?>"></script>
 <script src="<?= base_url('assets/js/app.js') ?>"></script>
 <?= $this->renderSection('scripts') ?>
 </body>
