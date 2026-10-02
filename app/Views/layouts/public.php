@@ -18,7 +18,7 @@
 <nav class="navbar navbar-expand-lg public-navbar sticky-top py-2">
     <div class="container">
         <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="<?= base_url('/') ?>">
-            <img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.png') ?>" alt="JRMSU-TC Cafeteria logo">
+            <img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="JRMSU-TC Cafeteria logo">
             <span>JRMSU-TC <span class="text-primary">Cafeteria</span></span>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#publicNav" aria-controls="publicNav" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>

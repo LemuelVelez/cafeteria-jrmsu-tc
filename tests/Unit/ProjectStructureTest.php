@@ -25,7 +25,7 @@ final class ProjectStructureTest extends TestCase
             'package.json',
             'app/Views/layouts/main.php',
             'public/assets/css/app.css',
-            'public/assets/img/jrmsu-cafeteria-logo.png',
+            'public/assets/img/jrmsu-cafeteria-logo.webp',
             '.env.example',
         ];
 

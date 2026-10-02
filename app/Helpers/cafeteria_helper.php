@@ -142,7 +142,7 @@ if (! function_exists('media_url')) {
 if (! function_exists('user_avatar_url')) {
     function user_avatar_url(?string $path): string
     {
-        return $path ? media_url($path) : base_url('assets/img/jrmsu-cafeteria-logo.png');
+        return $path ? media_url($path) : base_url('assets/img/jrmsu-cafeteria-logo.webp');
     }
 }
 

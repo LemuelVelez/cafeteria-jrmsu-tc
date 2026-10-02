@@ -85,7 +85,7 @@ class AccountEmailService
         string $securityNotice,
     ): string {
         $cafeteriaName = (string) env('CAFETERIA_NAME', 'JRMSU-TC Cafeteria');
-        $logoUrl = (string) env('CAFETERIA_LOGO_URL', base_url('assets/img/jrmsu-cafeteria-logo.png'));
+        $logoUrl = (string) env('CAFETERIA_LOGO_URL', base_url('assets/img/jrmsu-cafeteria-logo.webp'));
         $safeName = esc($cafeteriaName);
         $safeLogoUrl = esc($logoUrl, 'attr');
         $safeHeading = esc($heading);

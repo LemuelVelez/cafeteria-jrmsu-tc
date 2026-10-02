@@ -54,14 +54,14 @@
                     data-product-name="<?= esc($product['name'], 'attr') ?>"
                     data-product-price="<?= $product['price'] ?>"
                     data-product-stock="<?= (int) $product['stock'] ?>"
-                    data-product-image="<?= esc($product['image'] ? media_url($product['image']) : base_url('assets/img/jrmsu-cafeteria-logo.png'), 'attr') ?>"
+                    data-product-image="<?= esc($product['image'] ? media_url($product['image']) : base_url('assets/img/jrmsu-cafeteria-logo.webp'), 'attr') ?>"
                 >
                     <div class="product-media">
                         <?php if ($product['image']): ?>
                             <img class="product-image" src="<?= media_url($product['image']) ?>" alt="<?= esc($product['name']) ?>">
                         <?php else: ?>
                             <div class="product-placeholder">
-                                <img src="<?= base_url('assets/img/jrmsu-cafeteria-logo.png') ?>" alt="">
+                                <img src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="">
                             </div>
                         <?php endif; ?>
                         <span class="product-category-badge"><?= esc($product['category_name']) ?></span>

@@ -17,7 +17,7 @@ class CartController extends BaseController
         foreach ($products as $product) {
             $productImages[(string) $product['id']] = ! empty($product['image'])
                 ? media_url($product['image'])
-                : base_url('assets/img/jrmsu-cafeteria-logo.png');
+                : base_url('assets/img/jrmsu-cafeteria-logo.webp');
         }
 
         return $this->render('customer/cart/index', [

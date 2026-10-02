@@ -47,13 +47,13 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                         data-product-name="<?= esc($product['name'], 'attr') ?>"
                         data-product-price="<?= esc($product['price'], 'attr') ?>"
                         data-product-stock="<?= esc($product['stock'], 'attr') ?>"
-                        data-product-image="<?= esc($product['image'] ? media_url($product['image']) : base_url('assets/img/jrmsu-cafeteria-logo.png'), 'attr') ?>"
+                        data-product-image="<?= esc($product['image'] ? media_url($product['image']) : base_url('assets/img/jrmsu-cafeteria-logo.webp'), 'attr') ?>"
                     >
                         <?php if (! empty($product['image'])): ?>
                             <img class="product-image rounded mb-3" src="<?= media_url($product['image']) ?>" alt="<?= esc($product['name']) ?>">
                         <?php else: ?>
                             <div class="product-placeholder rounded mb-3">
-                                <img src="<?= base_url('assets/img/jrmsu-cafeteria-logo.png') ?>" alt="">
+                                <img src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="">
                             </div>
                         <?php endif; ?>
                         <div class="d-flex justify-content-between gap-2">

@@ -40,7 +40,7 @@ $landingImages = [
                 <div class="hero-card">
                     <div class="visual p-5 text-center text-white">
                         <div class="position-relative z-1">
-                            <img class="brand-logo-lg mb-4" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.png') ?>" alt="JRMSU-TC Cafeteria logo" width="86" height="86" loading="lazy" decoding="async">
+                            <img class="brand-logo-lg mb-4" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="JRMSU-TC Cafeteria logo" width="86" height="86" loading="lazy" decoding="async">
                             <div class="display-6 fw-bold">Fresh food.<br>Faster campus days.</div>
                             <p class="text-white-50 mt-3 mb-0">Ordering, cashier POS, and delivery in one system.</p>
                         </div>
@@ -141,7 +141,7 @@ $landingImages = [
     <div class="container py-4">
         <div class="surface-card landing-cta p-4 p-lg-5 text-center">
             <div class="landing-cta-content">
-                <img class="brand-logo-lg mb-3" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.png') ?>" alt="JRMSU-TC Cafeteria logo" width="86" height="86" loading="lazy" decoding="async">
+                <img class="brand-logo-lg mb-3" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="JRMSU-TC Cafeteria logo" width="86" height="86" loading="lazy" decoding="async">
                 <h2 class="display-6 fw-bold">Ready for your next meal?</h2>
                 <p class="landing-cta-copy text-white-50 mx-auto">Create your customer account, save your delivery details, and keep all your cafeteria orders in one place.</p>
                 <a class="btn btn-warning btn-lg" href="<?= base_url('register') ?>">Create free account</a>
