@@ -9,6 +9,7 @@
     <meta name="app-base-url" content="<?= esc(base_url(), 'attr') ?>">
     <title><?= esc($title ?? $cafeteriaName ?? 'JRMSU-TC Cafeteria') ?></title>
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
+    <?= $this->renderSection('head') ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
