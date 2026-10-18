@@ -7,30 +7,44 @@ use App\Services\ReportService;
 
 class ReportController extends BaseController
 {
-    private const TYPES = ['sales', 'orders', 'inventory', 'popular', 'deliveries', 'profit', 'lowstock', 'audit'];
+    private const TYPES = ['sales', 'orders', 'inventory', 'popular', 'deliveries', 'profit', 'lowstock', 'audit', 'attendance'];
+
+    private function isAttendanceEnabled(): bool
+    {
+        return (string)(db_connect()->table('settings')->where('setting_key','attendance_enabled')->get()->getRow('setting_value')??'0') === '1';
+    }
 
     public function index(): string
     {
         [$from, $to] = $this->dateRange();
         $active = (string) ($this->request->getGet('type') ?: 'sales');
-        if (! in_array($active, self::TYPES, true)) $active = 'sales';
+        if (! in_array($active, self::TYPES, true) || ($active==='attendance' && !$this->isAttendanceEnabled())) $active = 'sales';
         $service = new ReportService();
-        return $this->render('admin/reports/index', [
+        // Run only the selected report; historical orders/ledger exports can be large.
+        $data = [
             'title' => 'Reports', 'from' => $from, 'to' => $to, 'active' => $active,
-            'sales' => $service->sales($from, $to),
-            'ordersReport' => $service->orders($from, $to),
-            'inventoryReport' => $service->inventory($from, $to),
-            'popularReport' => $service->popular($from, $to),
-            'deliveryReport' => $service->deliveries($from, $to),
-            'profitReport' => $service->profit($from,$to),
-            'lowStockReport' => $service->lowStock($from,$to),
-            'auditReport' => $service->audit($from,$to),
-        ]);
+            'sales' => [], 'ordersReport' => [], 'inventoryReport' => [],
+            'popularReport' => [], 'deliveryReport' => [], 'profitReport' => [],
+            'lowStockReport' => [], 'auditReport' => [], 'attendanceReport' => [],
+            'attendanceEnabled' => $this->isAttendanceEnabled(),
+        ];
+        switch ($active) {
+            case 'sales': $data['sales'] = $service->sales($from,$to); break;
+            case 'orders': $data['ordersReport'] = $service->orders($from,$to); break;
+            case 'inventory': $data['inventoryReport'] = $service->inventory($from,$to); break;
+            case 'popular': $data['popularReport'] = $service->popular($from,$to); break;
+            case 'deliveries': $data['deliveryReport'] = $service->deliveries($from,$to); break;
+            case 'profit': $data['profitReport'] = $service->profit($from,$to); break;
+            case 'lowstock': $data['lowStockReport'] = $service->lowStock($from,$to); break;
+            case 'audit': $data['auditReport'] = $service->audit($from,$to); break;
+            case 'attendance': $data['attendanceReport'] = $service->attendance($from,$to); break;
+        }
+        return $this->render('admin/reports/index', $data);
     }
 
     public function export(string $type)
     {
-        if (! in_array($type, self::TYPES, true)) return redirect()->to('/admin/reports')->with('error', 'Invalid report type.');
+        if (! in_array($type, self::TYPES, true) || ($type==='attendance' && !$this->isAttendanceEnabled())) return redirect()->to('/admin/reports')->with('error', 'Invalid report type.');
         [$from, $to] = $this->dateRange(false);
         $service = new ReportService();
         $data = match ($type) {
@@ -42,6 +56,7 @@ class ReportController extends BaseController
             'profit' => $service->profit($from,$to)['rows'],
             'lowstock' => $service->lowStock($from,$to),
             'audit' => $service->audit($from,$to),
+            'attendance' => $service->attendance($from,$to),
         };
         $stream = fopen('php://temp', 'r+');
         if ($data !== []) {

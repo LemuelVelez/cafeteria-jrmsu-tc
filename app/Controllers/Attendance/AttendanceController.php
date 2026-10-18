@@ -18,6 +18,9 @@ class AttendanceController extends BaseController
     {
         $id=(int)session()->get('user')['id'];$db=db_connect();$db->transBegin();
         try {
+            // Lock the employee record even on their very first clock-in, when no punch row exists.
+            $employee=$db->query('SELECT id FROM users WHERE id=? FOR UPDATE',[$id])->getRowArray();
+            if(!$employee)throw new \DomainException('Employee not found.');
             $last=$db->query('SELECT kind FROM attendance_punches WHERE user_id=? ORDER BY id DESC LIMIT 1 FOR UPDATE',[$id])->getRowArray();
             $kind=($last['kind']??'out')==='out'?'in':'out';
             $db->table('attendance_punches')->insert(['user_id'=>$id,'kind'=>$kind,'at'=>date('Y-m-d H:i:s'),'method'=>'dashboard','ip_address'=>$this->request->getIPAddress()]);
@@ -75,19 +78,7 @@ class AttendanceController extends BaseController
         if(!$this->admin())return redirect()->to('/attendance');
         $from=(string)($this->request->getGet('from')?:date('Y-m-01'));$to=(string)($this->request->getGet('to')?:date('Y-m-d'));
         if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$from)||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$to)||$from>$to)return redirect()->to('/admin/attendance')->with('error','Invalid date range.');
-        $db=db_connect();$staff=$db->table('users')->select('id,name,role')->whereIn('role',['admin','cashier','rider'])->get()->getResultArray();
-        $rows=[];
-        foreach($staff as $person){
-            $id=$person['id'];$punches=$db->table('attendance_punches')->where('user_id',$id)->where('at >=',$from.' 00:00:00')->where('at <=',$to.' 23:59:59')->orderBy('at')->get()->getResultArray();
-            $rates=$db->table('attendance_pay_rates')->where('user_id',$id)->orderBy('effective_from','DESC')->get()->getResultArray();
-            $rate=(float)($rates[0]['hourly_rate']??0);
-            for($i=0;$i+1<count($punches);$i++){
-                if($punches[$i]['kind']!=='in'||$punches[$i+1]['kind']!=='out')continue;
-                $day=(int)date('N',strtotime($punches[$i]['at']));$shift=$db->table('attendance_shifts')->where(['user_id'=>$id,'weekday'=>$day])->get()->getRowArray();
-                $calculated=AttendanceService::estimate($punches[$i]['at'],$punches[$i+1]['at'],$shift['start_time']??'08:00:00',$shift['end_time']??'17:00:00',$rate,(int)($shift['grace_minutes']??5),(float)env('ATTENDANCE_OVERTIME_PREMIUM',0.25),(float)env('ATTENDANCE_NIGHT_DIFFERENTIAL',0.10));
-                $rows[]=array_merge(['employee'=>$person['name'],'date'=>substr($punches[$i]['at'],0,10)],$calculated);$i++;
-            }
-        }
+        $rows=(new \App\Services\ReportService())->attendance($from,$to);
         if($this->request->getGet('format')==='csv'){
             $f=fopen('php://temp','w+');if($rows){fputcsv($f,array_keys($rows[0]));foreach($rows as $row)fputcsv($f,$row);}rewind($f);$csv=stream_get_contents($f);fclose($f);
             return $this->response->setHeader('Content-Type','text/csv')->setHeader('Content-Disposition','attachment; filename="wage-estimates.csv"')->setBody($csv?:'');

@@ -17,6 +17,7 @@ class CostingController extends BaseController
             'title'=>'Food costing and nutrition', 'products'=>$products,
             'ingredients'=>$db->table('ingredients')->orderBy('name')->get()->getResultArray(),
             'recipes'=>$db->table('product_recipes')->get()->getResultArray(),
+            'ingredientMovements'=>$db->table('ingredient_movements m')->select('m.*,i.name')->join('ingredients i','i.id=m.ingredient_id')->orderBy('m.id','DESC')->limit(30)->get()->getResultArray(),
         ]);
     }
     public function saveIngredient()
@@ -26,7 +27,10 @@ class CostingController extends BaseController
         try {
             $name=trim((string)$this->request->getPost('name'));
             $prior=$db->table('ingredients')->where('name',$name)->get()->getRowArray();
+            $density=filter_var($this->request->getPost('density_g_per_ml')??1,FILTER_VALIDATE_FLOAT);
+            if($density===false || $density<=0 || $density>25)throw new \DomainException('Enter a valid liquid density (0 to 25 g/mL).');
             $fields=['name'=>$name,'cost_per_unit'=>(float)$this->request->getPost('cost_per_unit'),'purchase_unit'=>$this->request->getPost('purchase_unit'),
+                'density_g_per_ml'=>(float)$density,
                 'nutrient_basis'=>$this->request->getPost('purchase_unit')==='pcs'?'unit':'100g',
                 'supplier'=>trim((string)$this->request->getPost('supplier')),'source_reference'=>trim((string)$this->request->getPost('source_reference'))];
             foreach (['calories','protein_g','carbohydrates_g','fat_g','sugar_g','fiber_g','sodium_mg'] as $field) {
@@ -45,6 +49,19 @@ class CostingController extends BaseController
             if (! $db->transStatus()) throw new \RuntimeException('Unable to save ingredient.');
             $db->transCommit();return redirect()->to('/admin/costing')->with('success','Ingredient saved and affected nutrition recalculated.');
         } catch (\Throwable $e) {$db->transRollback();return redirect()->to('/admin/costing')->with('error',$e->getMessage());}
+    }
+    public function stockIngredient()
+    {
+        $ingredientId=filter_var($this->request->getPost('ingredient_id'),FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $quantity=filter_var($this->request->getPost('quantity'),FILTER_VALIDATE_FLOAT);
+        $note=trim((string)$this->request->getPost('note'));
+        if($ingredientId===false||$quantity===false||$quantity<=0||$note==='')return redirect()->to('/admin/costing')->with('error','Valid ingredient, quantity, and reference required.');
+        $db=db_connect();$db->transBegin();
+        try {
+            (new \App\Services\IngredientInventoryService($db))->stockIn((int)$ingredientId,(float)$quantity,(int)session()->get('user')['id'],$note);
+            if (!$db->transStatus())throw new \RuntimeException('Ingredient stock-in failed.');
+            $db->transCommit();return redirect()->to('/admin/costing')->with('success','Ingredient stock was received.');
+        }catch(\Throwable $e){$db->transRollback();return redirect()->to('/admin/costing')->with('error',$e->getMessage());}
     }
     public function saveRecipe()
     {

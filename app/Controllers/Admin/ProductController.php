@@ -119,17 +119,7 @@ class ProductController extends BaseController
                 (new InventoryService($db))->opening($productId, (int) $initialStock, (int) (session()->get('user')['id'] ?? 0));
             }
             $newProduct = $model->find($productId);
-            (new AuditLogService($db))->record(
-                $id === null ? 'product_created' : 'product_updated',
-                'product',
-                $productId,
-                [
-                    'old_price' => $existing['price'] ?? null,
-                    'new_price' => $newProduct['price'] ?? null,
-                    'old_reorder_level' => $existing['reorder_level'] ?? null,
-                    'new_reorder_level' => $newProduct['reorder_level'] ?? null,
-                ],
-            );
+            (new AuditLogService($db))->recordChange($id===null?'product_created':'product_updated','product',$productId,$locked??[],$newProduct??[]);
             if (! $db->transStatus()) {
                 throw new \RuntimeException('Unable to save the product.');
             }
@@ -161,12 +151,15 @@ class ProductController extends BaseController
         if (! $product) {
             return redirect()->to('/admin/products')->with('error', 'Product not found.');
         }
+        $db=db_connect();$db->transBegin();
         try {
-            $deleted = $model->delete($id);
-        } catch (Throwable $exception) {
-            log_message('error', 'Product delete failed: {message}', ['message' => $exception->getMessage()]);
-            $deleted = false;
-        }
+            $row=$db->query('SELECT id FROM products WHERE id=? FOR UPDATE',[$id])->getRowArray();
+            if(!$row)throw new \DomainException('Product not found.');
+            $deleted=$model->delete($id);
+            if(!$deleted)throw new \RuntimeException('Product removal failed.');
+            (new AuditLogService($db))->record('product_deleted','product',$id,['product_id'=>$id]);
+            $db->transCommit();
+        }catch(Throwable $exception){$db->transRollback();$deleted=false;}
         if ($deleted && ! empty($product['image'])) {
             (new MediaStorageService())->delete((string) $product['image']);
         }

@@ -34,6 +34,11 @@ class NotificationService
         }
         if (! empty($order['customer_id'])) {
             $message = $enum->customerDescription();
+            if ($status === OrderStatus::OutForDelivery->value) {
+                $rider = $this->db()->table('users')->select('name')->where('id',(int)($order['rider_id']??0))->get()->getRowArray();
+                if($rider)$message .= ' Your rider is ' . $rider['name'] . '.';
+                $message .= ' Estimated arrival depends on traffic; please contact the cafeteria for an updated ETA.';
+            }
             if ($status === OrderStatus::Cancelled->value && trim((string) $note) !== '') {
                 $message .= ' Reason: ' . mb_substr(trim((string) $note), 0, 180);
             }
@@ -54,6 +59,12 @@ class NotificationService
             $this->insert($oldRiderId, (int) $order['id'], 'rider_unassigned', 'Delivery assignment removed', 'Order ' . $order['order_number'] . ' is no longer assigned to you.', '/rider/deliveries');
         }
         if ($newRiderId) {
+            if (!empty($order['customer_id'])) {
+                $rider = $this->db()->table('users')->select('name')->where('id',$newRiderId)->get()->getRowArray();
+                $this->insert((int)$order['customer_id'],(int)$order['id'],'rider_assigned','Delivery rider assigned',
+                    'Your rider is '.($rider['name']??'assigned').'. You will be notified when they depart.',
+                    '/customer/orders/'.$order['id']);
+            }
             $this->insert($newRiderId, (int) $order['id'], 'rider_assigned', 'New delivery assignment', 'Order ' . $order['order_number'] . ' has been assigned to you.', '/rider/deliveries/' . $order['id']);
         }
     }
@@ -106,6 +117,7 @@ class NotificationService
             'read_at' => null,
             'created_at' => date('Y-m-d H:i:s'),
         ]);
+        (new WebPushService($this->db()))->enqueue($userId,(int)$this->db()->insertID());
     }
 
     /** @return list<int> */

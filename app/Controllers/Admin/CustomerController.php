@@ -31,7 +31,7 @@ class CustomerController extends BaseController
                 throw new \DomainException('Customer account not found.');
             }
             $db->table('users')->where('id', $id)->update(['status' => $status, 'session_version' => (int) ($customer['session_version'] ?? 1) + 1, 'updated_at' => date('Y-m-d H:i:s')]);
-            (new AuditLogService($db))->record('customer_status_change', 'user', $id, ['old_status' => $customer['status'], 'new_status' => $status]);
+            (new AuditLogService($db))->recordChange('customer_status_change', 'user', $id, ['status'=>$customer['status']], ['status'=>$status]);
             if (! $db->transStatus()) {
                 throw new \RuntimeException('Unable to update customer status.');
             }

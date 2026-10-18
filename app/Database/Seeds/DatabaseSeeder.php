@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         'CategorySeeder',
         'ProductSeeder',
         'SettingSeeder',
+        'OperationalSettingsSeeder',
         'PromoSeeder',
         'NotificationSeeder',
     ];
@@ -59,6 +60,7 @@ class DatabaseSeeder extends Seeder
                 'delivery_enabled',
                 'email_order_notifications',
             ]),
+            'OperationalSettingsSeeder' => self::hasAllValues($db, 'settings', 'setting_key', array_keys(OperationalSettingsSeeder::DEFAULTS)),
             'PromoSeeder' => self::hasAllValues($db, 'promos', 'code', ['WELCOME10']),
             'NotificationSeeder' => self::notificationSeedIsSatisfied($db),
             default => false,

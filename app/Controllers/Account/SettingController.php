@@ -103,6 +103,8 @@ class SettingController extends BaseController
             $media->delete((string) $user['avatar']);
         }
 
+        (new AuditLogService())->recordChange('profile_changed','user',(int)$user['id'],
+            ['name'=>$user['name'],'email'=>$user['email']],['name'=>$data['name'],'email'=>$data['email']]);
         $updatedUser = array_merge($user, $data);
         if ($requiresEmailVerification) {
             $sent = false;

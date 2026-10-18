@@ -53,6 +53,7 @@ $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static f
     $routes->post('inventory/stock-in', 'Admin\InventoryController::stockIn');
     $routes->post('inventory/stock-out', 'Admin\InventoryController::stockOut');
     $routes->post('inventory/count', 'Admin\InventoryController::count');
+    $routes->post('inventory/count/batch', 'Admin\InventoryController::batchCount');
     $routes->post('inventory/adjust', 'Admin\InventoryController::adjust');
     $routes->post('inventory/waste', 'Admin\InventoryController::waste');
     $routes->post('inventory/reconcile', 'Admin\InventoryController::reconcile');
@@ -60,9 +61,12 @@ $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static f
     $routes->get('reports/export/(:segment)', 'Admin\ReportController::export/$1');
     $routes->post('customers/(:num)/reveal-phone', 'Admin\CustomerController::revealPhone/$1');
     $routes->get('costing', 'Admin\CostingController::index');
+    $routes->get('costing/nutrition-search', 'Admin\NutritionLookupController::index');
+    $routes->post('costing/nutrition-import', 'Admin\NutritionLookupController::import');
     $routes->get('menu/poster', 'Admin\MenuPosterController::index');
     $routes->post('costing/ingredient', 'Admin\CostingController::saveIngredient');
     $routes->post('costing/recipe', 'Admin\CostingController::saveRecipe');
+    $routes->post('costing/ingredient/stock-in', 'Admin\CostingController::stockIngredient');
     $routes->post('costing/verify/(:num)', 'Admin\CostingController::verify/$1');
     $routes->get('backups', 'Admin\BackupController::index');
     $routes->get('privacy/deletion-requests', 'Admin\PrivacyController::index');
@@ -135,6 +139,9 @@ $routes->group('staff', ['filter' => ['auth', 'active', 'role:admin,cashier,ride
 
 $routes->group('api', ['filter' => ['auth', 'active', 'role:admin,cashier,rider,customer']], static function (RouteCollection $routes): void {
     $routes->get('notifications', 'Api\NotificationApiController::index');
+    $routes->get('push/config', 'Api\WebPushController::config');
+    $routes->post('push/subscribe', 'Api\WebPushController::subscribe');
+    $routes->post('push/unsubscribe', 'Api\WebPushController::unsubscribe');
     $routes->get('notifications/unread-count', 'Api\NotificationApiController::unreadCount');
     $routes->patch('notifications/(:num)/read', 'Api\NotificationApiController::read/$1');
     $routes->patch('notifications/read-all', 'Api\NotificationApiController::readAll');

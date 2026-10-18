@@ -5,6 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\CategoryModel;
 use Throwable;
+use App\Services\AuditLogService;
 
 class CategoryController extends BaseController
 {
@@ -30,14 +31,21 @@ class CategoryController extends BaseController
             'is_active' => $this->request->getPost('is_active') ? 1 : 0,
         ];
 
+        $db=db_connect();$db->transBegin();
         try {
-            $ok = $id !== null ? $model->update($id, $data) : $model->insert($data);
+            $before=$id!==null?$db->query('SELECT * FROM categories WHERE id=? FOR UPDATE',[$id])->getRowArray():[];
+            if($id!==null && !$before)throw new \DomainException('Record not found.');
+            $ok=$id!==null?$model->update($id,$data):$model->insert($data,true);
+            if(!$ok)throw new \DomainException(implode(' ',$model->errors())?:'Invalid record.');
+            $savedId=(int)($id??$ok);
+            $after=$model->find($savedId)?:$data;
+            (new AuditLogService($db))->recordChange('category_saved','category',$savedId,$before?:[],$after);
+            if(!$db->transStatus())throw new \RuntimeException('Database transaction failed.');
+            $db->transCommit();
         } catch (Throwable $exception) {
-            log_message('error', 'Category save failed: {message}', ['message' => $exception->getMessage()]);
-
-            return redirect()->to('/admin/categories')
-                ->withInput()
-                ->with('error', 'The category could not be saved.');
+            $db->transRollback();
+            log_message('error', 'Category save failed for {id}', ['id'=>(int)($id??0)]);
+            return redirect()->to('/admin/categories')->withInput()->with('error', $exception->getMessage());
         }
 
         return $ok
@@ -52,12 +60,15 @@ class CategoryController extends BaseController
             return redirect()->to('/admin/categories')->with('error', 'Category not found.');
         }
 
+        $db=db_connect();$db->transBegin();
         try {
-            $deleted = $model->delete($id);
-        } catch (Throwable $exception) {
-            log_message('error', 'Category delete failed: {message}', ['message' => $exception->getMessage()]);
-            $deleted = false;
-        }
+            $before=$db->query('SELECT * FROM categories WHERE id=? FOR UPDATE',[$id])->getRowArray();
+            if(!$before)throw new \DomainException('Category not found.');
+            $deleted=$model->delete($id);
+            if(!$deleted)throw new \RuntimeException('Category removal failed.');
+            (new AuditLogService($db))->record('category_deleted','category',$id,['category_id'=>$id]);
+            $db->transCommit();
+        }catch(Throwable $exception){$db->transRollback();$deleted=false;}
 
         return $deleted
             ? redirect()->to('/admin/categories')->with('success', 'Category removed.')

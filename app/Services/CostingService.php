@@ -12,10 +12,36 @@ class CostingService
     public static function convert(float $quantity, string $from, string $to): float
     {
         $factors = ['g'=>1, 'kg'=>1000, 'ml'=>1, 'l'=>1000, 'pcs'=>1];
-        if (! isset($factors[$from],$factors[$to]) || (($from === 'pcs') !== ($to === 'pcs'))) {
+        if (! isset($factors[$from],$factors[$to]) || self::unitFamily($from) !== self::unitFamily($to)) {
             throw new \DomainException('Incompatible ingredient units.');
         }
         return $quantity * $factors[$from] / $factors[$to];
+    }
+
+    private static function unitFamily(string $unit): string
+    {
+        return match ($unit) {
+            'g', 'kg' => 'mass',
+            'ml', 'l' => 'volume',
+            'pcs' => 'count',
+            default => 'unknown',
+        };
+    }
+
+    /** Convert a weighed or measured recipe line into an edible mass. */
+    public static function nutrientQuantity(float $quantity, string $unit, float $gramsPerMl): float
+    {
+        if (!is_finite($gramsPerMl) || $gramsPerMl <= 0 || $gramsPerMl > 25) {
+            throw new \DomainException('Liquid density must be greater than zero and at most 25 g/mL.');
+        }
+        return match ($unit) {
+            'g' => $quantity,
+            'kg' => $quantity * 1000,
+            'ml' => $quantity * $gramsPerMl,
+            'l' => $quantity * 1000 * $gramsPerMl,
+            'pcs' => $quantity,
+            default => throw new \DomainException('Unrecognized ingredient unit.'),
+        };
     }
 
     public function calculate(int $productId): array
@@ -23,7 +49,7 @@ class CostingService
         $db = $this->db();
         $product = $db->table('products')->where('id',$productId)->get()->getRowArray();
         if (! $product) throw new \DomainException('Product not found.');
-        $rows = $db->table('product_recipes r')->select('r.*,i.name,i.purchase_unit,i.cost_per_unit,i.nutrient_basis,i.source_reference,i.calories,i.protein_g,i.carbohydrates_g,i.fat_g,i.sugar_g,i.fiber_g,i.sodium_mg')
+        $rows = $db->table('product_recipes r')->select('r.*,i.name,i.purchase_unit,i.cost_per_unit,i.nutrient_basis,i.source_reference,i.density_g_per_ml,i.calories,i.protein_g,i.carbohydrates_g,i.fat_g,i.sugar_g,i.fiber_g,i.sodium_mg')
             ->join('ingredients i','i.id=r.ingredient_id')->where('r.product_id',$productId)->get()->getResultArray();
         $cost = 0.0;
         $nutrients = array_fill_keys(['calories','protein_g','carbohydrates_g','fat_g','sugar_g','fiber_g','sodium_mg'],0.0);
@@ -32,7 +58,7 @@ class CostingService
         foreach ($rows as $row) {
             $units = self::convert((float)$row['quantity'], (string)$row['unit'],(string)$row['purchase_unit']);
             $cost += $units * (float)$row['cost_per_unit'] * (1+(float)$row['wastage_percent']/100);
-            $grams = self::convert((float)$row['quantity'],(string)$row['unit'], 'pcs' === $row['unit'] ? 'pcs' : 'g');
+            $grams = self::nutrientQuantity((float)$row['quantity'], (string)$row['unit'], (float)$row['density_g_per_ml']);
             $basis = $row['nutrient_basis'] === 'unit' ? 1.0 : 100.0;
             foreach ($nutrients as $name => &$value) $value += $grams / $basis * (float)$row[$name];
             unset($value);

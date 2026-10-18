@@ -53,7 +53,7 @@
                     <span class="settings-icon"><i class="bi bi-shield-lock"></i></span>
                     <div>
                         <h2 class="h5 fw-bold mb-1">Change password</h2>
-                        <p class="text-secondary small mb-0">Use at least eight characters.</p>
+                        <p class="text-secondary small mb-0">Use at least ten characters with uppercase, lowercase, a number, and a symbol.</p>
                     </div>
                 </div>
                 <form action="<?= base_url('settings/password') ?>" method="post" data-confirm="Change your account password?" data-confirm-title="Change password" data-confirm-label="Change password">
@@ -74,6 +74,7 @@
                 </form>
             </section>
 
+            <section class="surface-card p-4"><h2 class="h5">Push notifications</h2><p class="text-secondary small">Optional alerts while the tab is closed, when the administrator enables Push and your browser supports it.</p><button type="button" class="btn btn-outline-primary" data-web-push-toggle>Enable push on this device</button><p class="small mt-2" role="status" data-web-push-status></p></section>
             <section class="surface-card p-4"><h2 class="h5">Order email notifications</h2><form method="post" action="<?= base_url('settings/notifications/preferences') ?>"><?= csrf_field() ?><?php $prefs=json_decode((string)($profile['notification_email_prefs']??'null'),true);foreach(['ready_for_pickup','out_for_delivery','completed','delivered','cancelled'] as $event): ?><div class="form-check"><label class="form-check-label"><input class="form-check-input" type="checkbox" name="<?= esc($event) ?>" value="1" <?= $prefs===null||!empty($prefs[$event])?'checked':'' ?>> <?= esc(ucwords(str_replace('_',' ',$event))) ?></label></div><?php endforeach; ?><button class="btn btn-outline-primary mt-3">Save preferences</button></form></section>
             <section class="surface-card p-4"><h2 class="h5">Authenticator security (TOTP)</h2>
             <?php if(!empty($profile['totp_secret'])): ?><p class="text-success">Two-factor authentication enabled.</p><?php elseif(!session()->get('totp_pending_secret')): ?><form method="post" action="<?= base_url('settings/totp/start') ?>"><?= csrf_field() ?><button class="btn btn-outline-primary">Set up authenticator</button></form><?php else: ?><p>Add this secret to your authenticator: <strong><?= esc(session()->get('totp_pending_secret')) ?></strong></p><form method="post" action="<?= base_url('settings/totp/confirm') ?>"><?= csrf_field() ?><label class="form-label">Six-digit code<input name="code" class="form-control" pattern="[0-9]{6}" required></label><button class="btn btn-primary">Enable two-factor</button></form><?php endif; ?></section>
@@ -92,3 +93,5 @@
     </div>
 </div>
 <?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?><script src="<?= base_url('assets/js/web-push.js') ?>"></script><?= $this->endSection() ?>

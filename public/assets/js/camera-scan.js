@@ -9,8 +9,8 @@
     button.textContent = 'Scan with camera';
     field.insertAdjacentElement('afterend', button);
     button.addEventListener('click', async () => {
-      if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
-        window.alert('Camera scanning is not supported in this browser. Use a USB scanner or enter the code.');
+      if (!navigator.mediaDevices?.getUserMedia) {
+        window.alert('Camera access requires HTTPS or localhost. Use a USB scanner or enter the code.');
         return;
       }
       let stream;
@@ -28,11 +28,29 @@
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
         video.srcObject = stream; await video.play();
-        const detector = new BarcodeDetector({ formats: ['code_128', 'ean_13', 'upc_a', 'qr_code'] });
+        let detector=null;
+        if ('BarcodeDetector' in window) {
+          try { detector=new BarcodeDetector({formats:['code_128','ean_13','upc_a','qr_code']}); }catch (_) {}
+        }
+        if (!detector && !window.CafeteriaBarcodeDecoder) {
+          await new Promise((resolve,reject) => {
+            const script=document.createElement('script');script.src=window.cafeteriaUrl('assets/vendor/cafeteria-barcode-decoder/decoder.js');
+            script.onload=resolve;script.onerror=reject;document.head.appendChild(script);
+          });
+        }
+        const canvas=document.createElement('canvas');canvas.width=960;canvas.height=540;
+        const context=canvas.getContext('2d',{willReadFrequently:true});
         while (!closed) {
-          const found = await detector.detect(video);
-          if (found.length && found[0].rawValue) {
-            field.value = found[0].rawValue;
+          let decoded=null;
+          if (detector) {
+            const found=await detector.detect(video);
+            decoded=found.length&&found[0].rawValue?found[0].rawValue:null;
+          } else if (video.readyState>=2 && context) {
+            context.drawImage(video,0,0,canvas.width,canvas.height);
+            decoded=window.CafeteriaBarcodeDecoder.decode(canvas);
+          }
+          if (decoded) {
+            field.value = decoded;
             field.dispatchEvent(new Event('input', { bubbles: true }));
             field.dispatchEvent(new Event('change', { bubbles: true }));
             field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));

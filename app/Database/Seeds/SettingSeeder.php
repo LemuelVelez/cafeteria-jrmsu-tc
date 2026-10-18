@@ -21,6 +21,17 @@ class SettingSeeder extends Seeder
             ['setting_key' => 'cost_overhead_percent', 'setting_value' => '0', 'description' => 'Overhead surcharge used in food costing.'],
             ['setting_key' => 'target_food_cost_percent', 'setting_value' => '35', 'description' => 'Target food cost percentage.'],
             ['setting_key' => 'email_order_notifications', 'setting_value' => '1', 'description' => 'Enable customer email notifications for important order statuses.'],
+
+            ['setting_key' => 'backup_keep_daily', 'setting_value' => '7', 'description' => 'Backups retained by day.'],
+            ['setting_key' => 'backup_keep_weekly', 'setting_value' => '4', 'description' => 'Backups retained by week.'],
+            ['setting_key' => 'backup_keep_monthly', 'setting_value' => '6', 'description' => 'Backups retained by month.'],
+            ['setting_key' => 'attendance_overtime_premium', 'setting_value' => '0.25', 'description' => 'Additional pay fraction for overtime; not a statutory rule.'],
+            ['setting_key' => 'attendance_night_differential', 'setting_value' => '0.10', 'description' => 'Additional pay fraction for night work; not a statutory rule.'],
+            ['setting_key' => 'notification_read_retention_days', 'setting_value' => '90', 'description' => 'Days to keep read notifications.'],
+            ['setting_key' => 'inventory_ingredient_tracking_enabled', 'setting_value' => '0', 'description' => 'Deduct ingredient stock from sale recipes; enable only after stocking ingredients.'],
+            ['setting_key' => 'web_push_enabled', 'setting_value' => '0', 'description' => 'Optional Web Push notifications; keys are generated locally and stored encrypted.'],
+            ['setting_key' => 'low_stock_email_digest', 'setting_value' => '0', 'description' => 'Enable the optional daily low-stock email digest.'],
+
         ];
         $settings = $this->db->table('settings');
 

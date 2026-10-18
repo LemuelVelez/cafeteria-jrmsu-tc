@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node frontend/dev-server.mjs",
     "frontend": "node frontend/dev-server.mjs",
-    "check": "node --check frontend/dev-server.mjs && node --check public/assets/js/app.js && node --check public/assets/js/cart.js && node --check public/assets/js/pos.js"
+    "check": "node --check frontend/dev-server.mjs && node --check public/assets/js/app.js && node --check public/assets/js/cart.js && node --check public/assets/js/pos.js && node --check public/assets/js/camera-scan.js && node --check public/assets/vendor/cafeteria-barcode-decoder/decoder.js && node tests/js/barcode-fallback.test.cjs"
   },
   "engines": {
     "node": ">=18"

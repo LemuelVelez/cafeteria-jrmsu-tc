@@ -17,8 +17,39 @@ class ReportService
     }
     public function lowStock(string $from,string $to): array
     {
-        return $this->db()->query('SELECT id,name,sku,stock,reorder_level,max_stock,GREATEST(0,max_stock-stock) suggested_reorder FROM products WHERE deleted_at IS NULL AND stock<=reorder_level ORDER BY stock,name')->getResultArray();
+        // Reconstruct the balance at the end of the selected day from immutable movements.
+        // Reorder and par levels are the current thresholds; their history is not recorded.
+        return $this->db()->query("SELECT p.id,p.name,p.sku,COALESCE(t.balance,0) stock,p.reorder_level,p.max_stock,GREATEST(0,p.max_stock-COALESCE(t.balance,0)) suggested_reorder FROM products p LEFT JOIN (SELECT product_id,SUM(quantity) balance FROM inventory_movements WHERE created_at < ? GROUP BY product_id) t ON t.product_id=p.id WHERE p.deleted_at IS NULL AND (p.created_at IS NULL OR p.created_at < ?) AND COALESCE(t.balance,0)<=p.reorder_level ORDER BY stock,p.name",[$to.' 23:59:59.999999',$to.' 23:59:59.999999'])->getResultArray();
     }
+
+    /** Payroll estimates are in the admin reports and staff attendance view only when enabled. */
+    public function attendance(string $from,string $to): array
+    {
+        $db=$this->db();
+        $settings=$db->table('settings')->whereIn('setting_key',['attendance_overtime_premium','attendance_night_differential'])->get()->getResultArray();
+        $values=array_column($settings,'setting_value','setting_key');
+        $premium=max(0,(float)($values['attendance_overtime_premium']??0.25));
+        $night=max(0,(float)($values['attendance_night_differential']??0.10));
+        $staff=$db->table('users')->select('id,name,role')->whereIn('role',['admin','cashier','rider'])->get()->getResultArray();
+        $rows=[];
+        $scanEnd=(new \DateTimeImmutable($to.' 00:00:00'))->modify('+2 days')->format('Y-m-d H:i:s');
+        foreach($staff as $person){
+            $id=(int)$person['id'];
+            $punches=$db->table('attendance_punches')->where('user_id',$id)->where('at >=',$from.' 00:00:00')->where('at <',$scanEnd)->orderBy('at')->get()->getResultArray();
+            for($i=0;$i+1<count($punches);$i++){
+                if($punches[$i]['kind']!=='in' || $punches[$i+1]['kind']!=='out')continue;
+                $in=$punches[$i]['at'];$day=substr($in,0,10);
+                if($day>$to)break;
+                $shift=$db->table('attendance_shifts')->where(['user_id'=>$id,'weekday'=>(int)date('N',strtotime($in))])->get()->getRowArray();
+                $rates=$db->table('attendance_pay_rates')->where('user_id',$id)->where('effective_from <=',$day)->orderBy('effective_from','DESC')->limit(1)->get()->getRowArray();
+                $results=AttendanceService::estimate($in,$punches[$i+1]['at'],$shift['start_time']??'08:00:00',$shift['end_time']??'17:00:00',(float)($rates['hourly_rate']??0),(int)($shift['grace_minutes']??5),$premium,$night);
+                $rows[]=array_merge(['employee'=>$person['name'],'date'=>$day],$results);
+                $i++;
+            }
+        }
+        return $rows;
+    }
+
     public function audit(string $from,string $to): array
     {
         return $this->db()->query('SELECT a.id,a.created_at,a.action,a.entity_type,a.entity_id,a.details_json,u.name user_name FROM audit_logs a LEFT JOIN users u ON a.user_id=u.id WHERE DATE(a.created_at)>=? AND DATE(a.created_at)<=? ORDER BY a.created_at DESC',[$from,$to])->getResultArray();

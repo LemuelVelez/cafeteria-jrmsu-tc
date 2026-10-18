@@ -29,6 +29,8 @@ class RiderController extends BaseController
         if ($model->findByEmail($email)) {
             return redirect()->to('/admin/riders')->withInput()->with('error', 'That email address is already registered.');
         }
+        $db = db_connect();
+        $db->transBegin();
         try {
             $created = $model->insert([
                 'name' => trim((string) $this->request->getPost('name')),
@@ -37,10 +39,12 @@ class RiderController extends BaseController
                 'password_hash' => \App\Services\PasswordHasher::hash((string) $this->request->getPost('password')),
                 'role' => 'rider', 'status' => 'active', 'session_version' => 1,
             ], true);
-            if ($created) {
-                (new AuditLogService())->record('rider_created', 'user', (int) $created, ['role' => 'rider']);
-            }
+            if (! $created) throw new \RuntimeException('Unable to create account.');
+            (new AuditLogService($db))->record('rider_created', 'user', (int) $created, ['role' => 'rider']);
+            if (! $db->transStatus()) throw new \RuntimeException('Unable to create account.');
+            $db->transCommit();
         } catch (Throwable $exception) {
+            $db->transRollback();
             log_message('error', 'Rider creation failed: {message}', ['message' => $exception->getMessage()]);
             return redirect()->to('/admin/riders')->withInput()->with('error', 'The rider account could not be created.');
         }
@@ -64,7 +68,7 @@ class RiderController extends BaseController
                 throw new \DomainException('Rider account not found.');
             }
             $db->table('users')->where('id', $id)->update(['status' => $status, 'session_version' => (int) ($rider['session_version'] ?? 1) + 1, 'updated_at' => date('Y-m-d H:i:s')]);
-            (new AuditLogService($db))->record('rider_status_change', 'user', $id, ['old_status' => $rider['status'], 'new_status' => $status]);
+            (new AuditLogService($db))->recordChange('rider_status_change', 'user', $id, ['status'=>$rider['status']], ['status'=>$status]);
             if (! $db->transStatus()) {
                 throw new \RuntimeException('Unable to update rider status.');
             }

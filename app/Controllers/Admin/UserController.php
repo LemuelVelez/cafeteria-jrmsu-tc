@@ -29,6 +29,8 @@ class UserController extends BaseController
         if ($model->findByEmail($email)) {
             return redirect()->to('/admin/users')->withInput()->with('error', 'That email address is already registered.');
         }
+        $db = db_connect();
+        $db->transBegin();
         try {
             $created = $model->insert([
                 'name' => trim((string) $this->request->getPost('name')),
@@ -37,10 +39,12 @@ class UserController extends BaseController
                 'password_hash' => \App\Services\PasswordHasher::hash((string) $this->request->getPost('password')),
                 'role' => 'admin', 'status' => 'active', 'session_version' => 1,
             ], true);
-            if ($created) {
-                (new AuditLogService())->record('user_created', 'user', (int) $created, ['role' => 'admin']);
-            }
+            if (! $created) throw new \RuntimeException('Unable to create account.');
+            (new AuditLogService($db))->record('user_created', 'user', (int) $created, ['role' => 'admin']);
+            if (! $db->transStatus()) throw new \RuntimeException('Unable to create account.');
+            $db->transCommit();
         } catch (Throwable $exception) {
+            $db->transRollback();
             log_message('error', 'Administrator creation failed: {message}', ['message' => $exception->getMessage()]);
             return redirect()->to('/admin/users')->withInput()->with('error', 'The administrator account could not be created.');
         }
@@ -75,7 +79,7 @@ class UserController extends BaseController
             if (! $db->table('users')->where('id', $id)->update(['status' => $status, 'session_version' => $newVersion, 'updated_at' => date('Y-m-d H:i:s')])) {
                 throw new \RuntimeException('Unable to update account status.');
             }
-            (new AuditLogService($db))->record('user_status_change', 'user', $id, ['old_status' => $user['status'], 'new_status' => $status]);
+            (new AuditLogService($db))->recordChange('user_status_change', 'user', $id, ['status'=>$user['status']], ['status'=>$status]);
             if (! $db->transStatus()) {
                 throw new \RuntimeException('Unable to update account status.');
             }

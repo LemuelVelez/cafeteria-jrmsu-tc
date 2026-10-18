@@ -71,6 +71,36 @@ class InventoryController extends BaseController
         return redirect()->to('/admin/inventory')->with('error', 'Inventory reconciliation found ' . count($rows) . ' stock mismatch(es). Run php spark inventory:reconcile for details.');
     }
 
+    /** Post one reconciliation adjustment per product for a physical scan session. */
+    public function batchCount()
+    {
+        $payload=$this->request->getJSON(true);
+        $items=$payload['items']??null;
+        if(!is_array($items) || !$items || count($items)>100)return $this->jsonError('Count session must contain 1–100 products.',null,422);
+        $counts=[];
+        foreach($items as $item){
+            if(!is_array($item))return $this->jsonError('Invalid count item.',null,422);
+            $id=filter_var($item['product_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            $quantity=filter_var($item['counted_quantity']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>0,'max_range'=>500000]]);
+            if($id===false||$quantity===false||isset($counts[$id]))return $this->jsonError('Duplicate or invalid product count.',null,422);
+            $counts[$id]=$quantity;
+        }
+        ksort($counts,SORT_NUMERIC);
+        $db=db_connect();$db->transBegin();
+        try{
+            $inventory=new InventoryService($db);
+            $alerts=new NotificationService($db);
+            $actor=(int)(session()->get('user')['id']??0);
+            foreach($counts as $id=>$quantity){
+                $product=$inventory->count((int)$id,(int)$quantity,$actor,'Physical barcode scan session');
+                $alerts->lowStock($product);
+            }
+            (new AuditLogService($db))->record('inventory_count_session','inventory',null,['products'=>count($counts)],$actor);
+            if(!$db->transStatus())throw new \RuntimeException('Unable to reconcile all counts.');
+            $db->transCommit();return $this->jsonSuccess('Physical count session reconciled.', ['products'=>count($counts)]);
+        }catch(Throwable $e){$db->transRollback();return $this->jsonError($e->getMessage(),null,422);}
+    }
+
     private function mutate(string $type)
     {
         $productId = filter_var($this->request->getPost('product_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

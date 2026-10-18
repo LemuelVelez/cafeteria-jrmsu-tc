@@ -678,10 +678,52 @@
         try { await window.cafeteriaFetch(window.cafeteriaUrl('api/notifications/read-all'), { method: 'PATCH' }); await refreshNotifications(); } catch (_) {}
     });
 
+    // Scanned physical counts are accumulated on this device until the admin posts them.
+    const countToggle=document.querySelector('[data-count-session-toggle]');
+    const countPanel=document.querySelector('[data-count-session-panel]');
+    const countList=document.querySelector('[data-count-session-list]');
+    const countStatus=document.querySelector('[data-count-session-status]');
+    const counted=new Map();
+    let counting=false;
+    const showCounts=()=>{
+        if(!countList)return;
+        countList.replaceChildren();
+        for(const item of counted.values()){
+            const line=document.createElement('p');line.className='mb-1';
+            line.textContent=`${item.name}: ${item.quantity} counted`;
+            countList.append(line);
+        }
+    };
+    countToggle?.addEventListener('click',()=>{
+        counting=!counting;counted.clear();showCounts();
+        if(countPanel)countPanel.hidden=!counting;
+        countToggle.textContent=counting?'Stop scan count session':'Start scan count session';
+    });
+    document.querySelector('[data-count-session-reset]')?.addEventListener('click',()=>{counted.clear();showCounts();});
+    document.querySelector('[data-count-session-save]')?.addEventListener('click',async event=>{
+        if(counted.size<1){if(countStatus)countStatus.textContent='Scan at least one product first.';return;}
+        event.currentTarget.disabled=true;
+        try{
+            const {message}=await window.cafeteriaFetch(window.cafeteriaUrl('admin/inventory/count/batch'),{
+                method:'POST',body:JSON.stringify({items:[...counted.values()].map(({id,quantity})=>({product_id:id,counted_quantity:quantity}))}),
+            });
+            if(countStatus)countStatus.textContent=message;
+            counted.clear();showCounts();window.location.reload();
+        }catch(error){if(countStatus)countStatus.textContent=error.message||'Reconciliation failed.';}
+        finally{event.currentTarget.disabled=false;}
+    });
+
     document.querySelectorAll('[data-inventory-barcode-scan]').forEach((input) => input.addEventListener('keydown', async (event) => {
         if (event.key !== 'Enter') return; event.preventDefault(); const code = input.value.trim(); if (!code) return;
         try {
             const { data } = await window.cafeteriaFetch(window.cafeteriaUrl(`api/products/barcode/${encodeURIComponent(code)}`));
+            if(counting){
+                const id=Number(data.id);
+                const previous=counted.get(id)||{id,name:String(data.name),quantity:0};
+                previous.quantity++;counted.set(id,previous);showCounts();
+                if(countStatus)countStatus.textContent=`${data.name}: ${previous.quantity} scanned`;
+                input.value='';return;
+            }
             const selector = input.dataset.target || 'select[name="product_id"]';
             const selects = document.querySelectorAll(selector);
             selects.forEach((select) => { select.value = String(data.id); select.dispatchEvent(new Event('change', { bubbles: true })); });

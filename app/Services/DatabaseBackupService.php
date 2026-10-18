@@ -68,9 +68,9 @@ final class DatabaseBackupService
     }
     public function retention(): void
     {
-        $keepDaily=max(1,(int)env('BACKUP_KEEP_DAILY',7));
-        $keepWeekly=max(0,(int)env('BACKUP_KEEP_WEEKLY',4));
-        $keepMonthly=max(0,(int)env('BACKUP_KEEP_MONTHLY',6));
+        $keepDaily=max(1,(int)$this->setting('backup_keep_daily','7'));
+        $keepWeekly=max(0,(int)$this->setting('backup_keep_weekly','4'));
+        $keepMonthly=max(0,(int)$this->setting('backup_keep_monthly','6'));
         $days=[];$weeks=[];$months=[];
         foreach($this->files() as $file){
             $name=$file['name'];$date=\DateTimeImmutable::createFromFormat('!Ymd-His',substr($name,10,15));
@@ -83,12 +83,17 @@ final class DatabaseBackupService
         $keep=array_merge(array_values($days),array_values($weeks),array_values($months));
         foreach($this->files() as $file)if(!in_array($file['name'],$keep,true)){@unlink(self::DIRECTORY.$file['name']);@unlink(self::DIRECTORY.$file['name'].'.sha256');}
     }
+    private function setting(string $key, string $fallback): string
+    {
+        return (string) (db_connect()->table('settings')->where('setting_key', $key)->get()->getRow('setting_value') ?? $fallback);
+    }
+
     private function uploadS3(string $path): void
     {
-        $bucket=(string)env('BACKUP_S3_BUCKET','');
+        $bucket=(string)env('AWS_S3_BUCKET','');
         if($bucket==='')return;
         if(!class_exists('Aws\S3\S3Client'))throw new \RuntimeException('Install the AWS SDK for offsite backup.');
-        $client=new \Aws\S3\S3Client(['version'=>'latest','region'=>(string)env('AWS_DEFAULT_REGION','ap-southeast-1')]);
+        $client=new \Aws\S3\S3Client(['version'=>'latest','region'=>(string)env('AWS_REGION','ap-southeast-1')]);
         $client->putObject(['Bucket'=>$bucket,'Key'=>'cafeteria-backups/'.basename($path),'Body'=>fopen($path,'rb'),'ServerSideEncryption'=>'AES256']);
     }
 }

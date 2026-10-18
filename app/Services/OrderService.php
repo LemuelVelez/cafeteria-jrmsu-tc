@@ -231,6 +231,9 @@ class OrderService
                 $this->notifications->lowStock($updatedProduct);
             }
 
+            // Optional ingredient ledger shares the order transaction and honours stock locks.
+            (new IngredientInventoryService($this->db))->saleForOrder((int)$orderId,$requestedQuantities,$actorId);
+
             if (! (new PaymentModel())->insert([
                 'order_id' => $orderId,
                 'method' => $paymentMethod->value,
@@ -266,6 +269,7 @@ class OrderService
             if (! $order) {
                 throw new \RuntimeException('The order was created but could not be loaded.');
             }
+            $this->audit->record('order_created','order',(int)$orderId,['channel'=>$actorRole,'total'=>$total,'type'=>$orderType->value],$actorId);
             $this->notifications->orderPlaced($order);
             if (! $this->db->transStatus()) {
                 throw new \RuntimeException('Unable to create the order.');
@@ -394,6 +398,7 @@ class OrderService
                     $updatedProduct = $this->inventory->restockForCancelledOrder((int) $stockRow['product_id'], (int) $stockRow['quantity'], $orderId, (int) ($actor['id'] ?? 0));
                     $this->notifications->lowStock($updatedProduct);
                 }
+                (new IngredientInventoryService($this->db))->restockForCancellation($orderId, (int)($actor['id']??0));
                 if (! $this->db->table('payments')->where('order_id', $orderId)->update(['status' => 'failed', 'paid_at' => null])) {
                     throw new \RuntimeException('Unable to cancel the payment.');
                 }

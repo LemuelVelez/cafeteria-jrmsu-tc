@@ -1,0 +1,13 @@
+@media print {
+  @page {size:A4 landscape; margin:14mm;}
+  .app-sidebar,.app-topbar,.mobile-bottom-nav,.report-controls,.nav-tabs,.toast-container,.btn,.offcanvas {display:none!important;}
+  .app-main,.page-shell {margin:0!important;padding:0!important;width:100%!important;max-width:100%!important;}
+  .surface-card,.stat-card {box-shadow:none!important;border:0!important;}
+  .table {font-size:9pt; width:100%;border-collapse:collapse;}
+  .table th,.table td {padding:4px!important;border:1px solid #aaa!important;}
+  thead {display:table-header-group!important;}
+  tr {break-inside:avoid;page-break-inside:avoid;}
+  body {background:#fff!important;color:#000!important;}
+  header {margin-bottom:18px;break-after:avoid;}
+  footer {border-top:1px solid #ccc;padding-top:20px;page-break-inside:avoid;}
+}

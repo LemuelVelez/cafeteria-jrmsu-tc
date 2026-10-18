@@ -5,6 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\PromoModel;
 use Throwable;
+use App\Services\AuditLogService;
 
 class PromoController extends BaseController
 {
@@ -69,14 +70,21 @@ class PromoController extends BaseController
             'is_active' => $this->request->getPost('is_active') ? 1 : 0,
         ];
 
+        $db=db_connect();$db->transBegin();
         try {
-            $ok = $id !== null ? $model->update($id, $data) : $model->insert($data);
+            $before=$id!==null?$db->query('SELECT * FROM promos WHERE id=? FOR UPDATE',[$id])->getRowArray():[];
+            if($id!==null && !$before)throw new \DomainException('Record not found.');
+            $ok=$id!==null?$model->update($id,$data):$model->insert($data,true);
+            if(!$ok)throw new \DomainException(implode(' ',$model->errors())?:'Invalid record.');
+            $savedId=(int)($id??$ok);
+            $after=$model->find($savedId)?:$data;
+            (new AuditLogService($db))->recordChange('promo_saved','promo',$savedId,$before?:[],$after);
+            if(!$db->transStatus())throw new \RuntimeException('Database transaction failed.');
+            $db->transCommit();
         } catch (Throwable $exception) {
-            log_message('error', 'Promotion save failed: {message}', ['message' => $exception->getMessage()]);
-
-            return redirect()->to('/admin/promos')
-                ->withInput()
-                ->with('error', 'The promotion could not be saved.');
+            $db->transRollback();
+            log_message('error', 'Promo save failed for {id}', ['id'=>(int)($id??0)]);
+            return redirect()->to('/admin/promos')->withInput()->with('error', $exception->getMessage());
         }
 
         return $ok
