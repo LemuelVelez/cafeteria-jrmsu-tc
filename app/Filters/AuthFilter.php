@@ -23,6 +23,17 @@ class AuthFilter implements FilterInterface
             return $this->unauthorized($request, 'Your session is no longer valid. Please sign in again.');
         }
 
+        $requiresTotp = !empty($user['totp_secret']) || ($user['role']==='admin'
+            && (string)(db_connect()->table('settings')->where('setting_key','admin_totp_required')->get()->getRow('setting_value') ?? '0')==='1');
+        if ($requiresTotp && !$session->get('totp_verified')) {
+            $path=trim($request->getUri()->getPath(),'/');
+            $setupAllowed=empty($user['totp_secret']) && in_array($path,['settings','settings/totp/start','settings/totp/confirm'],true);
+            if (!in_array($path,['two-factor','logout'],true) && !$setupAllowed) {
+                if (str_starts_with($path,'api/'))return service('response')->setStatusCode(403)->setJSON(['success'=>false,'message'=>'Two-factor verification required.','data'=>null,'errors'=>null]);
+                return redirect()->to(empty($user['totp_secret'])?'/settings':'/two-factor')->with('error','Verify two-factor authentication to continue.');
+            }
+        }
+
         $config = config('Cafeteria');
         $role = (string) ($user['role'] ?? 'customer');
         $timeout = max(60, (int) ($config->idleTimeouts[$role] ?? 1800));

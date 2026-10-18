@@ -36,6 +36,9 @@ class ProductController extends BaseController
 
         $sku = trim((string) $this->request->getPost('sku')) ?: null;
         $barcode = trim((string) $this->request->getPost('barcode')) ?: null;
+        if ($barcode !== null && !\App\Services\BarcodeService::valid($barcode)) {
+            return redirect()->to('/admin/products')->withInput()->with('error','Invalid EAN-13 / UPC-A check digit.');
+        }
         foreach (['sku' => $sku, 'barcode' => $barcode] as $field => $value) {
             if ($value !== null) {
                 $owner = (new ProductModel())->withDeleted()->where($field, $value)->first();

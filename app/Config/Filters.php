@@ -25,6 +25,7 @@ class Filters extends BaseFilters
         'guest' => GuestFilter::class,
         'role' => RoleFilter::class,
         'active' => ActiveAccountFilter::class,
+        'attendance' => \App\Filters\AttendanceFilter::class,
     ];
 
     public array $required = [

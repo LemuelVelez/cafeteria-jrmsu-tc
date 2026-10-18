@@ -46,6 +46,27 @@ class InventoryService
         return $this->change($productId, $quantityDelta, 'adjustment', null, $userId, null, $reason);
     }
 
+    public function stockOut(int $productId, int $quantity, ?int $userId, string $reason): array
+    {
+        if ($quantity < 1 || ! in_array($reason, ['transfer', 'return to supplier', 'staff meal', 'spoilage'], true)) {
+            throw new \DomainException('Choose a valid stock-out quantity and reason.');
+        }
+        return $this->change($productId, -$quantity, 'stock_out', null, $userId, null, $reason);
+    }
+
+    public function count(int $productId, int $physicalQuantity, ?int $userId, string $reason): array
+    {
+        if ($physicalQuantity < 0 || trim($reason) === '') {
+            throw new \DomainException('A nonnegative physical count and reason are required.');
+        }
+        $db = $this->db();
+        $current = $db->query('SELECT stock FROM products WHERE id=? FOR UPDATE', [$productId])->getRowArray();
+        if (! $current) throw new \DomainException('Product not found.');
+        $difference = $physicalQuantity - (int) $current['stock'];
+        if ($difference === 0) return $db->table('products')->where('id', $productId)->get()->getRowArray() ?: [];
+        return $this->change($productId, $difference, 'adjustment', null, $userId, 'PHYSICAL-COUNT', 'Count reconciliation: ' . $reason);
+    }
+
     public function recordWaste(int $productId, int $quantity, ?int $userId, string $reason): array
     {
         if ($quantity < 1 || trim($reason) === '') {
@@ -112,6 +133,8 @@ class InventoryService
         ])) {
             throw new \RuntimeException('Unable to record inventory movement.');
         }
+        (new AuditLogService($db))->record('inventory_movement', 'product', $productId, ['movement_type' => $type, 'quantity' => $delta, 'stock_before' => $before, 'stock_after' => $after], $userId);
+        $product['previous_stock'] = $before;
         $product['stock'] = $after;
         return $product;
     }

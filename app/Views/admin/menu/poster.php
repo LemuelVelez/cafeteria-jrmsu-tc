@@ -1,0 +1,7 @@
+<?= $this->extend('layouts/main') ?>
+<?= $this->section('content') ?>
+<style media="print">@page{size:<?= esc($paper) ?> portrait;margin:8mm}body{color:#111!important}.report-controls,.navbar,.sidebar{display:none!important}.menu-poster{box-shadow:none!important;border:0!important;width:100%!important;min-height:95vh}</style>
+<div class="report-controls d-flex gap-2 mb-3"><a class="btn btn-outline-primary" href="<?= base_url('admin/menu/poster?size=A4') ?>">A4 poster</a><a class="btn btn-outline-primary" href="<?= base_url('admin/menu/poster?size=A6') ?>">A6 table tent</a><button class="btn btn-primary" type="button" data-print-page>Print / Save PDF</button></div>
+<div class="surface-card menu-poster p-5 text-center mx-auto" style="max-width:<?= $paper==='A6'?'450px':'750px' ?>"><img width="96" height="96" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="Cafeteria logo"><h1 class="h3 mt-3"><?= esc($cafeteriaName) ?></h1><p>Scan to view our current menu, food nutrition and availability.</p><div class="bg-white border rounded d-inline-flex p-4" data-qr-code data-qr-size="260" data-qr-value="<?= esc($url,'attr') ?>"></div><div class="mt-3 fw-bold text-break"><?= esc($url) ?></div></div>
+<?= $this->endSection() ?>
+<?= $this->section('scripts') ?><script src="<?= base_url('assets/vendor/qrcode-generator/qrcode.min.js') ?>"></script><script src="<?= base_url('assets/js/qr.js') ?>"></script><script src="<?= base_url('assets/js/product-labels.js') ?>"></script><?= $this->endSection() ?>

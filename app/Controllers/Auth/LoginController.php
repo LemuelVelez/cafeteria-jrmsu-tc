@@ -35,6 +35,10 @@ class LoginController extends BaseController
         }
 
         $user = session()->get('user');
+        $profile=(new \App\Models\UserModel())->find((int)$user['id']);
+        $required=$user['role']==='admin' && (string)(db_connect()->table('settings')->where('setting_key','admin_totp_required')->get()->getRow('setting_value')??'0')==='1';
+        if(!empty($profile['totp_secret']))return redirect()->to('/two-factor')->with('success','Enter your authenticator code.');
+        if($required)return redirect()->to('/settings')->with('error','Set up two-factor authentication before accessing administration.');
         return redirect()->to(role_home($user['role']))->with('success', 'Welcome back, ' . $user['name'] . '!');
     }
 }

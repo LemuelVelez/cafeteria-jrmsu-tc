@@ -29,6 +29,7 @@ class RegisterController extends BaseController
             'address' => 'permit_empty|max_length[1000]',
             'password' => 'required|strong_password',
             'password_confirm' => 'required|matches[password]',
+            'privacy_consent' => 'required|in_list[1]',
         ];
         if (! $this->validate($rules)) {
             return redirect()->to('/register')->withInput()->with('errors', $this->validator->getErrors());

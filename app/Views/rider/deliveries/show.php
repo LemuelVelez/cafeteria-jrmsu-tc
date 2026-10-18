@@ -1,6 +1,7 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
+<?php if(in_array($order['status'],['ready_for_pickup','out_for_delivery'],true)): ?><form method="post" action="<?= base_url('staff/orders/'.$order['id'].'/verify-handoff') ?>" class="surface-card p-3 mb-3"><?= csrf_field() ?><label class="form-label" for="deliveryToken">Scan customer's signed order QR verification token (or paste token from URL)</label><input class="form-control mb-2" id="deliveryToken" name="token" required><button class="btn btn-outline-primary">Verify <?= $order['status']==='out_for_delivery'?'delivered order':'rider departure' ?></button></form><?php endif; ?>
 <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
     <div>
         <a class="small text-decoration-none" href="<?= base_url('rider/deliveries') ?>">
@@ -81,7 +82,7 @@
     <div class="col-lg-5">
         <div class="surface-card p-4 mb-3">
             <label class="form-label fw-semibold" for="riderOrderQrScan">Scan order QR</label>
-            <input id="riderOrderQrScan" class="form-control" type="text" autocomplete="off" data-order-qr-scan placeholder="Scan verification QR then Enter">
+            <input id="riderOrderQrScan" class="form-control" type="text" autocomplete="off" data-camera-scan data-order-qr-scan placeholder="Scan verification QR then Enter">
             <div class="form-text">Use a USB/Bluetooth scanner to verify the order before hand-off.</div>
         </div>
         <div class="surface-card p-4 cart-sticky">
@@ -93,7 +94,7 @@
                     <button class="btn btn-dark btn-lg" name="status" value="out_for_delivery" data-confirm="Mark this order as out for delivery?" data-confirm-title="Start delivery" data-confirm-label="Start delivery" <?= $order['status'] !== 'ready_for_pickup' ? 'disabled' : '' ?>>
                         <i class="bi bi-bicycle me-1"></i>Out for delivery
                     </button>
-                    <button class="btn btn-success btn-lg" name="status" value="completed" data-confirm="Mark this order as completed?" data-confirm-title="Complete delivery" data-confirm-label="Mark completed" <?= $order['status'] !== 'out_for_delivery' ? 'disabled' : '' ?>>
+                    <button class="btn btn-success btn-lg" name="status" value="delivered" data-confirm="Mark this order as delivered?" data-confirm-title="Complete delivery" data-confirm-label="Mark delivered" <?= $order['status'] !== 'out_for_delivery' ? 'disabled' : '' ?>>
                         <i class="bi bi-check2-circle me-1"></i>Delivered
                     </button>
                 </div>
@@ -102,3 +103,5 @@
     </div>
 </div>
 <?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?><script src="<?= base_url('assets/js/camera-scan.js') ?>"></script><?= $this->endSection() ?>

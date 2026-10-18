@@ -7,7 +7,7 @@ use App\Services\ReportService;
 
 class ReportController extends BaseController
 {
-    private const TYPES = ['sales', 'orders', 'inventory', 'popular', 'deliveries'];
+    private const TYPES = ['sales', 'orders', 'inventory', 'popular', 'deliveries', 'profit', 'lowstock', 'audit'];
 
     public function index(): string
     {
@@ -22,6 +22,9 @@ class ReportController extends BaseController
             'inventoryReport' => $service->inventory($from, $to),
             'popularReport' => $service->popular($from, $to),
             'deliveryReport' => $service->deliveries($from, $to),
+            'profitReport' => $service->profit($from,$to),
+            'lowStockReport' => $service->lowStock($from,$to),
+            'auditReport' => $service->audit($from,$to),
         ]);
     }
 
@@ -36,6 +39,9 @@ class ReportController extends BaseController
             'inventory' => $service->inventory($from, $to)['products'],
             'popular' => $service->popular($from, $to)['top'],
             'deliveries' => $service->deliveries($from, $to)['riders'],
+            'profit' => $service->profit($from,$to)['rows'],
+            'lowstock' => $service->lowStock($from,$to),
+            'audit' => $service->audit($from,$to),
         };
         $stream = fopen('php://temp', 'r+');
         if ($data !== []) {
@@ -53,8 +59,10 @@ class ReportController extends BaseController
 
     private function dateRange(bool $flash = true): array
     {
-        $from = (string) ($this->request->getGet('from') ?: date('Y-m-01'));
-        $to = (string) ($this->request->getGet('to') ?: date('Y-m-d'));
+        $quick=(string)$this->request->getGet('quick');
+        $start=match($quick){'today'=>date('Y-m-d'),'week'=>date('Y-m-d',strtotime('monday this week')),'month'=>date('Y-m-01'),default=>null};
+        $from = (string) ($start ?? $this->request->getGet('from') ?: date('Y-m-01'));
+        $to = (string) ($start !== null ? date('Y-m-d') : ($this->request->getGet('to') ?: date('Y-m-d')));
         if (! $this->isValidDate($from) || ! $this->isValidDate($to) || $from > $to) {
             $from = date('Y-m-01'); $to = date('Y-m-d');
             if ($flash) session()->setFlashdata('error', 'Invalid report date range. The current month is shown instead.');

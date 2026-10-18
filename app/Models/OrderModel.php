@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\OrderType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
+use App\Services\FieldEncryption;
 
 class OrderModel extends BaseModel
 {
@@ -13,7 +14,7 @@ class OrderModel extends BaseModel
     protected $allowedFields = [
         'order_number', 'customer_id', 'cashier_id', 'rider_id', 'order_type', 'status',
         'subtotal', 'discount', 'delivery_fee', 'total', 'payment_method', 'payment_status',
-        'delivery_address', 'notes', 'promo_id', 'request_token',
+        'delivery_address', 'notes', 'promo_id', 'request_token', 'handoff_verified_by', 'handoff_verified_at', 'handoff_method',
     ];
     protected $validationRules = [
         'order_number' => 'required|max_length[40]',
@@ -21,6 +22,29 @@ class OrderModel extends BaseModel
         'request_token' => 'permit_empty|max_length[64]|regex_match[/^[A-Za-z0-9_-]+$/]',
     ];
 
+    protected $beforeInsert=['sealAddress'];
+    protected $beforeUpdate=['sealAddress'];
+    protected $afterFind=['openAddress'];
+    protected function sealAddress(array $event): array
+    {
+        if (array_key_exists('delivery_address',$event['data']))$event['data']['delivery_address']=FieldEncryption::seal($event['data']['delivery_address']);
+        return $event;
+    }
+    protected function openAddress(array $event): array
+    {
+        $decode=static function(array $row): array {
+            if(isset($row['delivery_address'])) $row['delivery_address']=FieldEncryption::open((string)$row['delivery_address']);
+            if(isset($row['customer_phone']))$row['customer_phone']=FieldEncryption::open((string)$row['customer_phone']);
+            return $row;
+        };
+        if(!isset($event['data']))return $event;
+        if (is_array($event['data'])) {
+            $event['data'] = array_is_list($event['data'])
+                ? array_map($decode, $event['data'])
+                : $decode($event['data']);
+        }
+        return $event;
+    }
     protected function initialize(): void
     {
         $this->validationRules['order_type'] = 'required|in_list[' . implode(',', OrderType::values()) . ']';

@@ -37,8 +37,8 @@ $nav = static function (array $items, string $path): string {
     <meta name="app-base-url" content="<?= esc(base_url(), 'attr') ?>">
     <title><?= esc($title ?? 'Dashboard') ?> · <?= esc($cafeteriaName ?? 'JRMSU-TC Cafeteria') ?></title>
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
     <?= $this->renderSection('styles') ?>
 </head>
@@ -145,7 +145,7 @@ $nav = static function (array $items, string $path): string {
     </div>
 </main>
 <div class="toast-container position-fixed bottom-0 end-0 p-3" data-notification-toasts aria-live="polite" aria-atomic="true"></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= base_url('assets/vendor/bootstrap/bootstrap.bundle.min.js') ?>"></script>
 <script src="<?= base_url('assets/js/app.js') ?>"></script>
 <?php if (in_array($role, ['customer', 'cashier'], true)): ?><script src="<?= base_url('assets/js/cart.js') ?>"></script><?php endif; ?>
 <?= $this->renderSection('scripts') ?>

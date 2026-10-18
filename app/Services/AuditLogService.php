@@ -11,13 +11,39 @@ class AuditLogService
     {
     }
 
+    /** Store only changed non-sensitive fields, inside the caller's transaction. */
+    public function recordChange(string $action, string $entity, int $id, array $before, array $after, ?int $userId = null): void
+    {
+        $old = self::scrub($before);
+        $new = self::scrub($after);
+        $diff = [];
+        foreach ($new as $key => $value) {
+            if (! array_key_exists($key, $old) || $old[$key] !== $value) {
+                $diff[$key] = ['before' => $old[$key] ?? null, 'after' => $value];
+            }
+        }
+        if ($diff !== []) {
+            $this->record($action, $entity, $id, ['changes' => $diff], $userId);
+        }
+    }
+
+    /** @param array<string|int, mixed> $details */
+    public static function scrub(array $details): array
+    {
+        foreach ($details as $key => $value) {
+            if (preg_match('/password|passphrase|secret|token|credential|authorization|email|phone|address|otp|totp|recovery|api.?key|ip.?device/i', (string) $key)) {
+                unset($details[$key]);
+            } elseif (is_array($value)) {
+                $details[$key] = self::scrub($value);
+            }
+        }
+        return $details;
+    }
+
     public function record(string $action, ?string $entityType = null, ?int $entityId = null, array $details = [], ?int $userId = null): void
     {
         $request = service('request');
-        $sensitiveKeys = ['password', 'password_hash', 'token', 'email', 'phone', 'address'];
-        foreach ($sensitiveKeys as $key) {
-            unset($details[$key]);
-        }
+        $details = self::scrub($details);
         $actor = session()->get('user');
         $userId ??= is_array($actor) ? (int) ($actor['id'] ?? 0) ?: null : null;
         $row = [

@@ -15,6 +15,7 @@ class OrderApiController extends BaseController
 {
     public function create()
     {
+        if (!service('throttler')->check('create-'.hash('sha256',$this->request->getIPAddress()),12,MINUTE)) return $this->jsonError('Too many requests.',null,429);
         try {
             $payload = $this->request->getJSON(true) ?: $this->request->getPost();
             $actor = session()->get('user');
@@ -54,6 +55,7 @@ class OrderApiController extends BaseController
 
     public function reorder(int $id)
     {
+        if (!service('throttler')->check('reorder-'.hash('sha256',$this->request->getIPAddress()),20,MINUTE)) return $this->jsonError('Too many requests.',null,429);
         $user = session()->get('user');
         $order = (new OrderModel())->where(['id' => $id, 'customer_id' => (int) ($user['id'] ?? 0)])->first();
         if (! $order || ($user['role'] ?? '') !== 'customer') {

@@ -1,0 +1,4 @@
+<?= $this->extend('layouts/public') ?>
+<?= $this->section('content') ?>
+<main class="container py-5"><h1>Privacy notice</h1><p>JRMSU-TC Cafeteria collects your name, email address, optional phone and address, order history, and payment status for account management, orders, and deliveries under Republic Act No. 10173 (Data Privacy Act of 2012). Administrative access is role-restricted and sensitive fields are encrypted at rest.</p><p>We keep transaction totals and anonymized order records for financial accountability. You can download your data and request account deletion from your account settings. Authorized administrators review deletion requests before anonymizing personal identifiers.</p><p>For corrections, access requests, or concerns, contact cafeteria administration using the details on the homepage.</p><p><a href="<?= base_url('register') ?>">Return to registration</a></p></main>
+<?= $this->endSection() ?>

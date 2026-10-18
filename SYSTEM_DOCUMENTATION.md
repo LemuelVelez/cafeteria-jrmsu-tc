@@ -14,7 +14,7 @@ JRMSU-TC Cafeteria is a role-based food ordering, delivery, POS, inventory, noti
 | Product/category management | Full | No | No | Browse only |
 | Barcode labels / product QR | Full | Lookup | No | Product QR destination is public |
 | POS | No | Full | No | No |
-| Inventory | Full stock-in/adjust/waste/reconcile | Read only | No | No |
+| Inventory | Stock-in/out, waste, physical count, reconcile | Read only | No | No |
 | All orders | Full | Preparation/pickup workflow | No | No |
 | Customer order ownership | Admin override | Operational list | Assigned delivery only | Own orders only |
 | Rider assignment | Full | No | Assigned deliveries only | No |
@@ -22,7 +22,10 @@ JRMSU-TC Cafeteria is a role-based food ordering, delivery, POS, inventory, noti
 | Reports | Full | Dashboard summary | No | No |
 | Audit logs | Read-only/filterable | No | No | No |
 | Notifications | Own notifications | Own notifications | Own notifications | Own notifications |
-| Settings | Full | No | No | No |
+| Settings | Full | Own profile/2FA | Own profile/2FA | Own profile/privacy |
+| Recipes/nutrition verification/cost/profit | Full | No | No | Read only nutrition |
+| Backup / deletion approval | Full | No | No | Request own deletion |
+| Attendance (flag-enabled) | Own punch; admin shifts/rates/report | Own punch | Own punch | None |
 
 API/controller ownership rules are checked in addition to route roles: customers can open only their own orders and riders can open/update only deliveries assigned to them.
 
@@ -30,12 +33,15 @@ API/controller ownership rules are checked in addition to route roles: customers
 
 Existing business tables remain in place. The panel corrections add or extend:
 
-- `users`: `failed_login_attempts`, `locked_until`, `session_version`.
-- `products`: `sku`, `barcode`, `reorder_level`, nutrition fields, allergens, and healthy-choice metadata.
-- `orders`: normalized status enum.
+- `users`: `failed_login_attempts`, `locked_until`, `session_version`, `privacy_consent_at`, encrypted `phone`, `address`, `totp_secret`, recovery hashes, notification preferences, deletion requests.
+- `products`: `sku`, `barcode`, `reorder_level`, `max_stock`, `packaging_cost`, serving/yield, calculated nutrition and review status, allergens, and healthy-choice metadata.
+- `orders`: delivered status, signed handoff state and pickup code support.
 - `inventory_movements`: immutable stock movement ledger with before/after balances, order/user links, references, and notes.
 - `notifications`: per-user in-app order/assignment/stock notifications.
-- `audit_logs`: sensitive security/admin activity with actor, entity, JSON details, IP, user agent, and timestamp.
+- `audit_logs`: sensitive security/admin activity with actor, entity, scrubbed JSON diff, IP, user agent, and timestamp.
+- `ingredients`, `ingredient_cost_history`, `product_recipes`: costing and per-serving nutrition basis.
+- `attendance_punches`, `attendance_shifts`, `attendance_pay_rates`: flag-protected attendance and estimated wages.
+- `order_issues`: customer-reported missing/wrong/quality issue records.
 
 All new migrations have reversible `down()` methods and follow the sequence after migration `000016`.
 
@@ -59,7 +65,7 @@ Pickup:
 pending → confirmed → preparing → ready_for_pickup → completed
 
 Delivery:
-pending → confirmed → preparing → ready_for_pickup → out_for_delivery → completed
+pending → confirmed → preparing → ready_for_pickup → out_for_delivery → delivered
 
 Cancellation:
 pending / confirmed / preparing / ready_for_pickup → cancelled
@@ -67,7 +73,7 @@ pending / confirmed / preparing / ready_for_pickup → cancelled
 
 UI labels are exactly **Pending, Confirmed, Preparing, Ready for Pickup, Out for Delivery, Completed**, plus Cancelled. The status migration widens the enum, maps `ready` to `ready_for_pickup` and `delivered` to `completed` in orders/history, then narrows it. Its `down()` reverses the mapping.
 
-Role constraints remain enforced by `OrderService::allowedTransitions()`: pickup completion belongs to cashier/admin workflow; delivery cannot leave Ready for Pickup without an assigned rider; only the assigned rider can move the delivery to Out for Delivery and Completed. Payment becomes paid only at Completed.
+Role constraints remain enforced by `OrderService::allowedTransitions()`: pickup completion belongs to cashier/admin workflow; delivery cannot leave Ready for Pickup without an assigned rider; only the assigned rider can move the delivery to Out for Delivery and Delivered. Payment becomes paid only at Completed.
 
 ## Transaction and inventory rules
 
@@ -81,7 +87,7 @@ Writes involving orders, payments, stock, notifications, assignments, or cancell
 - `adjust()` → `adjustment` and requires a reason
 - `recordWaste()` → `waste`
 
-Existing stock receives an `opening` movement during migration. Product edits do not post or overwrite stock. Initial stock is accepted only when creating a product and is ledgered as opening stock. Low-stock/out-of-stock notifications are created when a balance reaches `reorder_level` or zero.
+Existing stock receives an `opening` movement during migration. Product edits do not post or overwrite stock. Initial stock is accepted only when creating a product and is ledgered as opening stock. Low/out-of-stock notifications are sent to active admins and cashiers only on a downward reorder threshold crossing (or positive stock reaching zero); restocking above the threshold re-arms alerts.
 
 `php spark inventory:reconcile` checks current product stock against the signed ledger total and completed-order units against net sale/cancellation movements.
 
@@ -211,16 +217,53 @@ php spark inventory:reconcile
 
 `cafe db refresh` seeds SKU/barcode, nutrition, reorder levels, opening movements, and sample notifications. Demo accounts use `Cafeteria#2026Demo` and should be changed outside development.
 
-## Panel compliance summary
+## Panel compliance summary (17 corrections)
 
-| # | Panel comment | Primary changed areas | Demonstration |
+| # | Panel correction | Changed areas | Panel demonstration |
 |---|---|---|---|
-| 1 | Stronger security, roles, sessions, customer data | Password rule; AuthService/AuthFilter; security config; AuditLogService; admin/rider/customer controllers/views | Try weak password and 5 failed logins; inspect secure production config; complete a delivery and confirm rider PII masks; reveal admin customer phone and inspect audit log |
-| 2 | Barcode scanning | Product schema/model/controller, staff barcode API, POS, Inventory, printable labels | Scan/type a seeded barcode in POS and Inventory; print selected labels |
-| 3 | QR codes | OrderQrService, public menu controller/view, staff verification, label/order/rider views | Scan product QR to public page; scan order QR as staff; alter token and confirm rejection |
-| 4 | Nutrition facts | Product migration/model/forms/API/menu/public views/seeder | Edit nutrition in Admin and view/filter it from customer/public menu |
-| 5 | Clear order statuses | OrderStatus enum, status migration, OrderService, helper/views/controllers/tests | Move pickup and delivery orders through the exact panel status labels and view tracker |
-| 6 | Customer order history | Customer OrderController/views and reorder API/cart handling | Filter by status/date/type/order number, open details, use Reorder |
-| 7 | Status notifications | Notification migration/model/service/API/layout/app polling/settings | Change order status and observe customer bell/toast within polling interval |
-| 8 | Reports | ReportService, Admin ReportController/view, local chart script, dashboard summaries | Select a date range across all five tabs, compare paid totals, export CSV/print |
-| 9 | Sales reflected in inventory | Inventory migration/service/controller/views, OrderService, reconciliation command | Create/cancel an order and stock-in/adjust/waste; inspect ledger; run reconciliation |
+| 1 | Security/privacy | `PasswordHasher`, `TotpService`, `FieldEncryption`, registration consent, account privacy, admin deletion approval, route filters | Login Admin → Settings, enroll OTP, require OTP, export Customer's data, approve deletion; inspect encrypted raw phone data |
+| 2 | Barcode | `BarcodeService`, POS/Inventory scan inputs, native camera scan JS, staff barcode route | Cashier → POS, enter a seeded barcode; try Scan with camera on a supported browser; reject an invalid EAN |
+| 3 | QR | Public `/menu`, signed QR expiry, KOT/receipt, A4/A6 poster | Admin → Settings → Printable poster, scan with logged-out phone; compare altered/expired token |
+| 4 | Nutrition | Admin recipes, public nutrition details, verification badges and filters | Admin → Costing → edit recipe; Customer → Menu → filter; review nutrition label |
+| 5 | Verified nutrition source | Ingredient `source_reference`, recipe computations, review reset | Admin → Costing → change an ingredient quantity, confirm Estimated; review source text and verify |
+| 6 | Automated inventory | `InventoryService`, ledger reconciliation, stock-out, stock cards | Admin → Inventory → physical count/stock-out; select product stock history; run reconcile |
+| 7 | Threshold stock alerts | `NotificationService::lowStock`, `max_stock`, reorder quantities | Sell below reorder level, check admin/cashier bells; sell again, check no repeated crossing alert |
+| 8 | Food costing/profit | Recipes, cost history, `CostingService`, snapshot `order_items.unit_cost`, profit report | Admin → Costing → edit cost, review margin; Admin → Reports → Profit, verify sale-time snapshots |
+| 9 | Delivered status | `OrderStatus`, reversible delivered migration, service/notifications/reports/rider UI | Rider → Deliveries → QR handoff → Delivered; verify paid status and Admin report |
+| 10 | Order history/receipts | Customer receipt, QR/pickup code, issue form | Customer → Orders → Receipt → Print; review payment and order issue |
+| 11 | Notifications | Restored notification APIs/owner scope, email preferences, status alerts | Customer → Settings → Notification preferences; follow a status change and bell |
+| 12 | Printed reports | Report tabs, date ranges, CSV, print signature footer, profit/audit/lowstock | Admin → Reports → select quick range, CSV export, print or Save PDF |
+| 13 | Sale stock deduction | Order transaction, inventory ledger, idempotent cancellation restock | Cashier → POS → create order; cancel from admin; inspect Inventory movement ledger |
+| 14 | Database backup | `DatabaseBackupService`, CLI commands, admin backup management | Admin → Backups → Create / Download; shell `cafe db backup`, verify checksum and restore in test DB |
+| 15 | Audit activity | Recursive PII scrubbing, `recordChange`, operational logs | Admin → Products / Costing → modify a price/recipe; Admin → Audit logs |
+| 16 | Preparation/verification | Ticket, persisted line preparation, QR/code handoff, issue report | Admin → Orders → mark every line prepared → Ready → Verify QR/code → fulfillment |
+| 17 | Attendance (conditional) | `AttendanceService`, flag filter, admin schedules/rates, staff clock, wage estimate | Admin → Settings → Enable flag, login Cashier → Attendance → Clock in/out; Admin → Attendance report |
+
+## Migration and safety notes
+
+The corrections introduce reversible migrations `000023`–`000028`. The original migrations are retained without edits. The delivery-specific `delivered` status is terminal and fulfilled; pickup remains `completed`. Historical completed delivery orders and matching status history are remapped to `delivered`. A fresh installation must run all migrations and seeds; upgrade installation must back up the database **before** migrating, especially because customer PII is encrypted with `encryption.key`. Changing that key without decrypting/re-encrypting makes data unreadable.
+
+`products.stock` is reserved at **order creation**, in the same transaction as line items and ledger movements, independently of when payment is received. Cancellation returns stock once. Profit uses the `unit_cost` saved on each sold line, rather than the latest ingredient cost. Nutrition source is `manual`, `computed`, or `imported`; review is `estimated` until admin verifies. Changing a recipe or ingredient resets computed nutrition to Estimated.
+
+Staff roles require `auth`, `active`, and role filters, with separate ownership checks. Admin routes are admin-only, cashier pages are cashier-only, rider delivery pages require rider ownership, customer pages require customer ownership. Shared staff routes accept admin/cashier/rider with per-action validation. Attendance routes also require `attendance_enabled=1`; this defaults to zero.
+
+Nutrition data entered manually and values derived from it are **estimates** unless independently verified; seed values must not be presented as source-certified. Amounts labeled as wages are estimates; actual Philippine tax, SSS, PhilHealth, and Pag-IBIG deductions are outside scope. PDF output uses browser Print → Save as PDF; no server-side PDF package was installed in this change set.
+
+**Remaining limitations requiring development or external resources:** ZXing camera decoder fallback on browsers without native BarcodeDetector; ingredient-stock transaction ledger; comprehensive PhilFCT or USDA ingredient seeding, validated online FDC API lookup/cache; Web Push subscriptions and VAPID sender; daily low-stock email digest and notification retention job; comprehensive audit coverage in every legacy CRUD action; full audit viewer diff/CSV controls; report date enforcement on low-stock snapshot; and report time attendance integration. These are not represented as completed acceptance criteria.
+
+## Backup operations and scheduling
+
+- Linux cron: `15 1 * * * cd /var/www/Cafeteria && php spark db:backup` and `30 2 * * * cd /var/www/Cafeteria && php spark inventory:reconcile`. Provide locked-down DB credentials through `.env` and an encrypted offsite storage account.
+- Windows Task Scheduler: run `php.exe C:\\xampp\\htdocs\\Cafeteria\\spark db:backup` daily from the project directory. Add a second task with `inventory:reconcile`.
+- Backups use `mysqldump --single-transaction --routines --triggers` with temp credential file, gzip, SHA-256, configurable 7/4/6 day/week/month retention, and optional S3 server-side AES-256. The portable PHP fallback exports tables only; it **does not** preserve stored procedures or triggers. Verify a restore on a separate test database periodically. Restoring overwrites existing data and takes a pre-restore backup; only CLI can restore.
+- Offsite credentials: `AWS_*` environment config; never put secrets in code or logs. Backup files belong under non-public `writable/backups/`.
+
+## Environment settings introduced
+
+`FDC_API_KEY` (reserved for future source search), `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (reserved for future Web Push), `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY`, `BACKUP_KEEP_MONTHLY`, `BACKUP_S3_BUCKET`, `AWS_DEFAULT_REGION`, `ATTENDANCE_OVERTIME_PREMIUM`, `ATTENDANCE_NIGHT_DIFFERENTIAL`, `encryption.key`; settings keys `admin_totp_required`, `attendance_enabled`, `target_food_cost_percent`, `cost_overhead_percent`. Do not enable features merely by setting unimplemented integration credentials.
+
+## Verification and final change report
+
+Restored missing role-protected routes, corrected the locally vendored chart script, cleaned runtime files (excluded by ignore rules), fixed threshold stock alerts, and extended delivered status, public menu, print QR and receipts, admin costing, privacy, attendance, order preparation and reporting. Added isolated pure-function unit tests for TOTP, hashing, barcode checksums, audit scrub, units, backup checksums, Delivered and attendance wage computations, plus source-route checks.
+
+**Execution limitation:** PHP syntax lint and `npm run check` can be run in the provided sandbox; Composer vendor files, a MySQL server, `php spark migrate`/seed, database-backed PHPUnit tests, full rollback/refresh, and restore into a fresh MySQL schema are unavailable here. Full integration success has not been asserted. Before panel demonstration, install dependencies and configure a test MySQL database, run `cafe db refresh`, `cafe test`, `cafe lint`, `npm run check`, `php spark inventory:reconcile`, migration rollback/reapply, and a backup/restore drill. Some panel criteria are only partially implemented as detailed above.

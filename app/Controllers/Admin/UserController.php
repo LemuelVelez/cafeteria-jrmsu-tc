@@ -34,7 +34,7 @@ class UserController extends BaseController
                 'name' => trim((string) $this->request->getPost('name')),
                 'email' => $email,
                 'phone' => trim((string) $this->request->getPost('phone')),
-                'password_hash' => password_hash((string) $this->request->getPost('password'), PASSWORD_DEFAULT),
+                'password_hash' => \App\Services\PasswordHasher::hash((string) $this->request->getPost('password')),
                 'role' => 'admin', 'status' => 'active', 'session_version' => 1,
             ], true);
             if ($created) {

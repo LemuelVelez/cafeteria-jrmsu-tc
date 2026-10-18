@@ -36,8 +36,8 @@ $authImages = [
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
     <link rel="preconnect" href="https://images.pexels.com" crossorigin>
     <link rel="dns-prefetch" href="https://images.pexels.com">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
 </head>
 <body class="auth-page">
@@ -67,7 +67,7 @@ $authImages = [
         </div>
     </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= base_url('assets/vendor/bootstrap/bootstrap.bundle.min.js') ?>"></script>
 <script src="<?= base_url('assets/js/app.js') ?>"></script>
 </body>
 </html>

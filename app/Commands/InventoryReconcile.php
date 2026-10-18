@@ -26,7 +26,7 @@ class InventoryReconcile extends BaseCommand
             }
 
             $completedSold = (int) ($db->query(
-                "SELECT COALESCE(SUM(oi.quantity),0) qty FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE oi.product_id=? AND o.status='completed'",
+                "SELECT COALESCE(SUM(oi.quantity),0) qty FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE oi.product_id=? AND o.status IN ('completed','delivered')",
                 [$productId],
             )->getRow('qty') ?? 0);
             $ledgerNetSold = abs((int) ($db->query(

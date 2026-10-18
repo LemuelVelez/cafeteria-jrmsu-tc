@@ -10,8 +10,8 @@
     <title><?= esc($title ?? $cafeteriaName ?? 'JRMSU-TC Cafeteria') ?></title>
     <?= $this->renderSection('head') ?>
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
 </head>
 <body>
@@ -48,7 +48,7 @@ $isLoginPage = $publicPath === 'login';
         <span>Food ordering · POS · Delivery</span>
     </div>
 </footer>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= base_url('assets/vendor/bootstrap/bootstrap.bundle.min.js') ?>"></script>
 <script src="<?= base_url('assets/js/public-nav.js') ?>"></script>
 <script src="<?= base_url('assets/js/app.js') ?>"></script>
 <?= $this->renderSection('scripts') ?>

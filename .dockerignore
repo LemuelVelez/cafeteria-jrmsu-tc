@@ -20,3 +20,6 @@ writable/debugbar/*
 writable/logs/*
 writable/session/*
 writable/uploads/*
+
+writable/backups/*
+!writable/backups/.gitkeep

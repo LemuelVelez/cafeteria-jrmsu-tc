@@ -27,6 +27,7 @@ class ProductApiController extends BaseController
 
     public function barcode(string $barcode)
     {
+        if (!service('throttler')->check('barcode-'.hash('sha256',$this->request->getIPAddress()),120,MINUTE)) return $this->jsonError('Too many barcode lookups.',null,429);
         $product = (new ProductModel())->where('barcode', $barcode)->first();
         if (! $product) {
             return $this->jsonError('Product not found.', null, 404);
@@ -52,6 +53,9 @@ class ProductApiController extends BaseController
 
         $sku = trim((string) ($payload['sku'] ?? '')) ?: null;
         $barcode = trim((string) ($payload['barcode'] ?? '')) ?: null;
+        if ($barcode !== null && !\App\Services\BarcodeService::valid($barcode)) {
+            return $this->jsonError('Invalid EAN-13 / UPC-A check digit.');
+        }
         foreach (['sku' => $sku, 'barcode' => $barcode] as $field => $value) {
             if ($value !== null) {
                 $owner = (new ProductModel())->withDeleted()->where($field, $value)->first();
@@ -70,6 +74,7 @@ class ProductApiController extends BaseController
             'description' => trim((string) ($payload['description'] ?? '')),
             'price' => $payload['price'] ?? '',
             'reorder_level' => $payload['reorder_level'] ?? 5,
+            'max_stock' => $payload['max_stock'] ?? 50,
             'serving_size' => $this->nullable($payload['serving_size'] ?? null),
             'calories' => $this->nullable($payload['calories'] ?? null),
             'protein_g' => $this->nullable($payload['protein_g'] ?? null),
@@ -110,7 +115,7 @@ class ProductApiController extends BaseController
                 (new InventoryService($db))->opening($productId, (int) $initialStock, (int) (session()->get('user')['id'] ?? 0));
             }
             $saved = $model->find($productId);
-            (new AuditLogService($db))->record($id ? 'product_updated' : 'product_created', 'product', $productId, ['old_price' => $existing['price'] ?? null, 'new_price' => $saved['price'] ?? null]);
+            (new AuditLogService($db))->recordChange($id ? 'product_updated' : 'product_created', 'product', $productId, $existing ?? [], $saved ?? []);
             if (! $db->transStatus()) {
                 throw new \RuntimeException('Unable to save product.');
             }

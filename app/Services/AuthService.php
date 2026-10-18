@@ -70,6 +70,9 @@ class AuthService
                 return false;
             }
 
+            if (PasswordHasher::needsRehash((string)$user['password_hash'])) {
+                $database->table('users')->where('id',(int)$user['id'])->update(['password_hash'=>PasswordHasher::hash($password)]);
+            }
             $database->table('users')->where('id', (int) $user['id'])->update([
                 'failed_login_attempts' => 0,
                 'locked_until' => null,
@@ -83,6 +86,7 @@ class AuthService
             $database->transCommit();
 
             session()->regenerate(true);
+            session()->set('totp_verified', false);
             session()->set('user', [
                 'id' => (int) $user['id'],
                 'name' => $user['name'],
@@ -116,12 +120,13 @@ class AuthService
                 'phone' => trim($data['phone'] ?? ''),
                 'address' => trim($data['address'] ?? ''),
                 'avatar' => $data['avatar'] ?? null,
-                'password_hash' => password_hash($data['password'], PASSWORD_DEFAULT),
+                'password_hash' => \App\Services\PasswordHasher::hash($data['password']),
                 'role' => 'customer',
                 'status' => 'active',
                 'requires_email_verification' => 1,
                 'email_verified_at' => null,
                 'session_version' => 1,
+                'privacy_consent_at' => date('Y-m-d H:i:s'),
             ], true);
             if (! $userId) {
                 throw new \RuntimeException('Unable to create the customer account.');
@@ -196,7 +201,7 @@ class AuthService
                 return false;
             }
             $updated = $this->users->update($userId, [
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'password_hash' => \App\Services\PasswordHasher::hash($password),
                 'failed_login_attempts' => 0,
                 'locked_until' => null,
                 'session_version' => (int) ($user['session_version'] ?? 1) + 1,

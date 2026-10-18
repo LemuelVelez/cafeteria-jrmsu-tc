@@ -15,9 +15,11 @@ class OrderVerifyController extends BaseController
         if (! $order) {
             throw PageNotFoundException::forPageNotFound('Invalid or tampered order verification code.');
         }
+        $order['delivery_address']=\App\Services\FieldEncryption::open($order['delivery_address']??null);
         return $this->render('staff/orders/verify', [
             'title' => 'Verify order',
             'order' => $order,
+            'token' => $token,
             'items' => (new OrderItemModel())->where('order_id', $order['id'])->findAll(),
         ]);
     }

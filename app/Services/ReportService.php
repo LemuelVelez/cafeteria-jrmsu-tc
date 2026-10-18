@@ -10,6 +10,19 @@ class ReportService
     {
     }
 
+    public function profit(string $from,string $to): array
+    {
+        $rows=$this->db()->query("SELECT oi.product_id,oi.product_name,c.name category,COALESCE(SUM(oi.line_total),0) revenue,COALESCE(SUM(oi.quantity*oi.unit_cost),0) cost,COALESCE(SUM(oi.line_total-oi.quantity*oi.unit_cost),0) gross_profit FROM order_items oi JOIN orders o ON o.id=oi.order_id LEFT JOIN products p ON p.id=oi.product_id LEFT JOIN categories c ON c.id=p.category_id WHERE o.payment_status='paid' AND DATE(o.created_at)>=? AND DATE(o.created_at)<=? GROUP BY oi.product_id,oi.product_name,c.name ORDER BY gross_profit DESC",[$from,$to])->getResultArray();
+        return ['rows'=>$rows,'revenue'=>array_sum(array_column($rows,'revenue')),'cost'=>array_sum(array_column($rows,'cost')),'profit'=>array_sum(array_column($rows,'gross_profit'))];
+    }
+    public function lowStock(string $from,string $to): array
+    {
+        return $this->db()->query('SELECT id,name,sku,stock,reorder_level,max_stock,GREATEST(0,max_stock-stock) suggested_reorder FROM products WHERE deleted_at IS NULL AND stock<=reorder_level ORDER BY stock,name')->getResultArray();
+    }
+    public function audit(string $from,string $to): array
+    {
+        return $this->db()->query('SELECT a.id,a.created_at,a.action,a.entity_type,a.entity_id,a.details_json,u.name user_name FROM audit_logs a LEFT JOIN users u ON a.user_id=u.id WHERE DATE(a.created_at)>=? AND DATE(a.created_at)<=? ORDER BY a.created_at DESC',[$from,$to])->getResultArray();
+    }
     public function sales(string $from, string $to): array
     {
         $db = $this->db();
@@ -41,7 +54,8 @@ class ReportService
             "SELECT AVG(TIMESTAMPDIFF(MINUTE, c.created_at, r.created_at)) avg_minutes FROM order_status_history c JOIN order_status_history r ON r.order_id=c.order_id AND r.to_status='ready_for_pickup' WHERE c.to_status='confirmed' AND DATE(c.created_at) >= ? AND DATE(c.created_at) <= ?",
             [$from, $to],
         )->getRowArray();
-        return ['rows' => $rows, 'byStatus' => $status, 'byType' => $type, 'byChannel' => $channel, 'cancellationRate' => $total ? ($cancelled / $total) * 100 : 0, 'averagePreparationMinutes' => (float) ($prep['avg_minutes'] ?? 0)];
+        $issues=(int)($db->query('SELECT COUNT(*) n FROM order_issues i JOIN orders o ON o.id=i.order_id WHERE DATE(o.created_at)>=? AND DATE(o.created_at)<=?',[$from,$to])->getRow('n')??0);
+        return ['issueRate' => $total?round($issues/$total*100,2):0, 'rows' => $rows, 'byStatus' => $status, 'byType' => $type, 'byChannel' => $channel, 'cancellationRate' => $total ? ($cancelled / $total) * 100 : 0, 'averagePreparationMinutes' => (float) ($prep['avg_minutes'] ?? 0)];
     }
 
     public function inventory(string $from, string $to): array
@@ -82,7 +96,7 @@ class ReportService
         $db = $this->db();
         $base = "FROM order_items JOIN orders ON orders.id=order_items.order_id WHERE DATE(orders.created_at)>=? AND DATE(orders.created_at)<=? AND orders.payment_status='paid'";
         $top = $db->query("SELECT product_name, SUM(quantity) quantity, SUM(line_total) revenue {$base} GROUP BY product_name ORDER BY quantity DESC LIMIT 10", [$from, $to])->getResultArray();
-        $slow = $db->query("SELECT product_name, SUM(quantity) quantity, SUM(line_total) revenue {$base} GROUP BY product_name ORDER BY quantity ASC LIMIT 10", [$from, $to])->getResultArray();
+        $slow = $db->query("SELECT products.name product_name, COALESCE(SUM(CASE WHEN orders.payment_status='paid' AND DATE(orders.created_at)>=? AND DATE(orders.created_at)<=? THEN order_items.quantity ELSE 0 END),0) quantity, COALESCE(SUM(CASE WHEN orders.payment_status='paid' AND DATE(orders.created_at)>=? AND DATE(orders.created_at)<=? THEN order_items.line_total ELSE 0 END),0) revenue FROM products LEFT JOIN order_items ON order_items.product_id=products.id LEFT JOIN orders ON orders.id=order_items.order_id WHERE products.deleted_at IS NULL GROUP BY products.id,products.name ORDER BY quantity ASC,products.name LIMIT 10", [$from, $to, $from, $to])->getResultArray();
         $categories = $db->query("SELECT categories.name category, SUM(order_items.quantity) quantity, SUM(order_items.line_total) revenue FROM order_items JOIN orders ON orders.id=order_items.order_id JOIN products ON products.id=order_items.product_id JOIN categories ON categories.id=products.category_id WHERE DATE(orders.created_at)>=? AND DATE(orders.created_at)<=? AND orders.payment_status='paid' GROUP BY categories.id, categories.name ORDER BY revenue DESC", [$from, $to])->getResultArray();
 
         // Add-ons are stored as the immutable order-time JSON snapshot. Aggregate in PHP so the report works consistently across supported MySQL setups.
@@ -109,11 +123,11 @@ class ReportService
     {
         $db = $this->db();
         $riders = $db->query(
-            "SELECT COALESCE(users.name,'Unassigned') rider, COUNT(*) total, SUM(orders.status='completed') completed, SUM(orders.status='cancelled') cancelled, COALESCE(SUM(CASE WHEN orders.payment_status='paid' THEN orders.delivery_fee ELSE 0 END),0) delivery_fees, COALESCE(SUM(CASE WHEN orders.payment_status='paid' AND orders.payment_method='cash_on_delivery' THEN orders.total ELSE 0 END),0) cod_collected FROM orders LEFT JOIN users ON users.id=orders.rider_id WHERE orders.order_type='delivery' AND DATE(orders.created_at)>=? AND DATE(orders.created_at)<=? GROUP BY orders.rider_id, users.name ORDER BY completed DESC",
+            "SELECT COALESCE(users.name,'Unassigned') rider, COUNT(*) total, SUM(orders.status='delivered') completed, SUM(orders.status='cancelled') cancelled, COALESCE(SUM(CASE WHEN orders.payment_status='paid' THEN orders.delivery_fee ELSE 0 END),0) delivery_fees, COALESCE(SUM(CASE WHEN orders.payment_status='paid' AND orders.payment_method='cash_on_delivery' THEN orders.total ELSE 0 END),0) cod_collected FROM orders LEFT JOIN users ON users.id=orders.rider_id WHERE orders.order_type='delivery' AND DATE(orders.created_at)>=? AND DATE(orders.created_at)<=? GROUP BY orders.rider_id, users.name ORDER BY completed DESC",
             [$from, $to],
         )->getResultArray();
         $avg = $db->query(
-            "SELECT AVG(TIMESTAMPDIFF(MINUTE, o.created_at, c.created_at)) avg_minutes FROM order_status_history o JOIN order_status_history c ON c.order_id=o.order_id AND c.to_status='completed' WHERE o.to_status='out_for_delivery' AND DATE(o.created_at)>=? AND DATE(o.created_at)<=?",
+            "SELECT AVG(TIMESTAMPDIFF(MINUTE, o.created_at, c.created_at)) avg_minutes FROM order_status_history o JOIN order_status_history c ON c.order_id=o.order_id AND c.to_status='delivered' WHERE o.to_status='out_for_delivery' AND DATE(o.created_at)>=? AND DATE(o.created_at)<=?",
             [$from, $to],
         )->getRowArray();
         return ['riders' => $riders, 'averageDeliveryMinutes' => (float) ($avg['avg_minutes'] ?? 0)];

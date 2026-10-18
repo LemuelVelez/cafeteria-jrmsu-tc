@@ -23,7 +23,9 @@ class InventoryController extends BaseController
                 ->join('users', 'users.id=inventory_movements.user_id', 'left')
                 ->where('product_id', $productId)->orderBy('created_at', 'DESC')->findAll(100);
         }
-        return $this->render('admin/inventory/index', [
+        $balances = db_connect()->query("SELECT product_id, COALESCE(SUM(quantity),0) ledger_balance FROM inventory_movements GROUP BY product_id")->getResultArray();
+        $balancesById = array_column($balances, 'ledger_balance', 'product_id');
+        return $this->render('admin/inventory/index', ['balancesById' => $balancesById,
             'title' => 'Inventory',
             'products' => (new ProductModel())->withCategory(),
             'movements' => $movements,
@@ -40,6 +42,16 @@ class InventoryController extends BaseController
     public function adjust()
     {
         return $this->mutate('adjustment');
+    }
+
+    public function stockOut()
+    {
+        return $this->mutate('stock_out');
+    }
+
+    public function count()
+    {
+        return $this->mutate('count');
     }
 
     public function waste()
@@ -76,6 +88,8 @@ class InventoryController extends BaseController
             $product = match ($type) {
                 'stock_in' => $inventory->stockIn((int) $productId, (int) $quantity, $actorId, $reference ?: null, $note ?: null),
                 'adjustment' => $inventory->adjust((int) $productId, (int) $quantity, $actorId, $note),
+                'stock_out' => $inventory->stockOut((int) $productId, (int) $quantity, $actorId, $note),
+                'count' => $inventory->count((int) $productId, (int) $quantity, $actorId, $note),
                 'waste' => $inventory->recordWaste((int) $productId, abs((int) $quantity), $actorId, $note),
                 default => throw new \DomainException('Invalid inventory operation.'),
             };

@@ -211,6 +211,7 @@ class OrderService
                     'product_name' => $product['name'],
                     'quantity' => $line['quantity'],
                     'unit_price' => $product['price'],
+                    'unit_cost' => (new CostingService($this->db))->calculate((int)$product['id'])['unit_cost'],
                     'addon_total' => $line['addon_total'],
                     'line_total' => $line['line_total'],
                     'addons_json' => $line['addons_json'],
@@ -303,7 +304,7 @@ class OrderService
 
         if ($role === 'admin') {
             return array_values(array_filter($candidates, static function (string $status) use ($isDelivery): bool {
-                if ($isDelivery && in_array($status, [OrderStatus::OutForDelivery->value, OrderStatus::Completed->value], true)) {
+                if ($isDelivery && in_array($status, [OrderStatus::OutForDelivery->value, OrderStatus::Delivered->value], true)) {
                     return false;
                 }
                 if (! $isDelivery && $status === OrderStatus::OutForDelivery->value) {
@@ -328,8 +329,8 @@ class OrderService
             if ($current === OrderStatus::ReadyForPickup && in_array(OrderStatus::OutForDelivery->value, $candidates, true)) {
                 return [OrderStatus::OutForDelivery->value];
             }
-            if ($current === OrderStatus::OutForDelivery && in_array(OrderStatus::Completed->value, $candidates, true)) {
-                return [OrderStatus::Completed->value];
+            if ($current === OrderStatus::OutForDelivery && in_array(OrderStatus::Delivered->value, $candidates, true)) {
+                return [OrderStatus::Delivered->value];
             }
         }
         return [];
@@ -354,21 +355,36 @@ class OrderService
             if ($nextStatus === OrderStatus::OutForDelivery->value && ((string) $order['order_type'] !== OrderType::Delivery->value || empty($order['rider_id']))) {
                 throw new \DomainException('A rider must be assigned before delivery starts.');
             }
+            if (in_array($nextStatus, [OrderStatus::Completed->value, OrderStatus::Delivered->value], true) && empty($order['handoff_verified_at'])) {
+                throw new \DomainException('Verify the hand-off with the order QR or pickup code before completing.');
+            }
+            if ($nextStatus === OrderStatus::Delivered->value && $order['handoff_method'] !== 'delivery_confirmation') {
+                throw new \DomainException('The rider must confirm the delivery before marking it Delivered.');
+            }
+            if ($nextStatus === OrderStatus::OutForDelivery->value && empty($order['handoff_verified_at'])) {
+                throw new \DomainException('Scan and verify the order QR before rider departure.');
+            }
             if (! in_array($nextStatus, self::allowedTransitions($order, $actor), true)) {
                 throw new \DomainException('Invalid order status transition.');
             }
 
             $orderUpdates = ['status' => $nextStatus];
-            if ($nextStatus === OrderStatus::Completed->value) {
+            if (OrderStatus::from($nextStatus)->isFulfilled()) {
                 $orderUpdates['payment_status'] = 'paid';
             } elseif ($nextStatus === OrderStatus::Cancelled->value) {
                 $orderUpdates['payment_status'] = 'failed';
+            }
+            if ($nextStatus === OrderStatus::ReadyForPickup->value) {
+                $unchecked = $this->db->table('order_items')->where('order_id', $orderId)->where('prepared_at', null)->countAllResults();
+                if ($unchecked > 0) {
+                    throw new \DomainException('Every order item must be checked as prepared first.');
+                }
             }
             if (! $this->orders->update($orderId, $orderUpdates)) {
                 throw new \RuntimeException('Unable to update the order status.');
             }
 
-            if ($nextStatus === OrderStatus::Completed->value) {
+            if (OrderStatus::from($nextStatus)->isFulfilled()) {
                 if (! $this->db->table('payments')->where('order_id', $orderId)->update(['status' => 'paid', 'paid_at' => date('Y-m-d H:i:s')])) {
                     throw new \RuntimeException('Unable to update the payment status.');
                 }
@@ -409,6 +425,7 @@ class OrderService
             if (! $updatedOrder) {
                 throw new \RuntimeException('The updated order could not be loaded.');
             }
+            $this->audit->recordChange('order_status_changed', 'order', $orderId, ['status' => $order['status'], 'payment_status' => $order['payment_status']], ['status' => $nextStatus, 'payment_status' => $updatedOrder['payment_status']], (int) ($actor['id'] ?? 0));
             $this->notifications->statusChanged($updatedOrder, $nextStatus, $note);
             if (! $this->db->transStatus()) {
                 throw new \RuntimeException('Unable to update the order status.');
@@ -432,7 +449,7 @@ class OrderService
             if (! $order || $order['order_type'] !== OrderType::Delivery->value) {
                 throw new \DomainException('Delivery order not found.');
             }
-            if (in_array($order['status'], [OrderStatus::OutForDelivery->value, OrderStatus::Completed->value, OrderStatus::Cancelled->value], true)) {
+            if (in_array($order['status'], [OrderStatus::OutForDelivery->value, OrderStatus::Delivered->value, OrderStatus::Cancelled->value], true)) {
                 throw new \DomainException('The rider cannot be changed at this order stage.');
             }
             $rider = (new UserModel())->where(['id' => $riderId, 'role' => 'rider', 'status' => 'active'])->first();

@@ -15,7 +15,9 @@ class MenuController extends BaseController
         $search = trim((string) $this->request->getGet('q')) ?: null;
         $under500 = $this->request->getGet('under_500') === '1';
         $excludeAllergen = trim((string) $this->request->getGet('exclude_allergen')) ?: null;
-        $products = (new ProductModel())->menu($categoryId, $search, $under500 ? 500 : null, $excludeAllergen);
+        $filters=[];
+        foreach(['high_protein','low_sodium','healthy_choice','vegetarian'] as $key) $filters[$key]=$this->request->getGet($key)==='1';
+        $products = (new ProductModel())->menu($categoryId, $search, $under500 ? 500 : null, $excludeAllergen, $filters);
         $addons = [];
         if ($products) {
             $ids = array_column($products, 'id');
@@ -30,6 +32,7 @@ class MenuController extends BaseController
             'selectedCategory' => $categoryId,
             'search' => $search,
             'under500' => $under500,
+            'filters' => $filters,
             'excludeAllergen' => $excludeAllergen,
         ]);
     }

@@ -11,6 +11,7 @@ class PromoApiController extends BaseController
 {
     public function apply()
     {
+        if (!service('throttler')->check('apply-'.hash('sha256',$this->request->getIPAddress()),30,MINUTE)) return $this->jsonError('Too many requests.',null,429);
         $payload = $this->request->getJSON(true) ?: $this->request->getPost();
         try {
             return $this->jsonSuccess('Promo applied.', (new PromoService())->calculate((string) ($payload['code'] ?? ''), (float) ($payload['subtotal'] ?? 0)));

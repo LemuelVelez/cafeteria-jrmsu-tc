@@ -7,9 +7,9 @@ class ProductModel extends BaseModel
     protected $table = 'products';
     protected $primaryKey = 'id';
     protected $allowedFields = [
-        'category_id', 'name', 'slug', 'sku', 'barcode', 'description', 'price', 'stock', 'reorder_level', 'image',
+        'category_id', 'name', 'slug', 'sku', 'barcode', 'description', 'price', 'stock', 'reorder_level', 'max_stock', 'image',
         'is_available', 'is_featured', 'serving_size', 'calories', 'protein_g', 'carbohydrates_g', 'fat_g',
-        'sugar_g', 'fiber_g', 'sodium_mg', 'allergens', 'is_healthy_choice',
+        'sugar_g', 'fiber_g', 'sodium_mg', 'allergens', 'is_healthy_choice', 'is_vegetarian', 'packaging_cost', 'recipe_servings', 'cooking_yield', 'nutrition_source', 'nutrition_status', 'nutrition_verified_by', 'nutrition_verified_at',
     ];
     protected $useSoftDeletes = true;
     protected $deletedField = 'deleted_at';
@@ -22,6 +22,7 @@ class ProductModel extends BaseModel
         'price' => 'required|decimal|greater_than_equal_to[0]',
         'stock' => 'permit_empty|integer|greater_than_equal_to[0]',
         'reorder_level' => 'permit_empty|integer|greater_than_equal_to[0]',
+        'max_stock' => 'permit_empty|integer|greater_than_equal_to[0]',
         'serving_size' => 'permit_empty|max_length[50]',
         'calories' => 'permit_empty|integer|greater_than_equal_to[0]',
         'protein_g' => 'permit_empty|decimal|greater_than_equal_to[0]',
@@ -36,7 +37,7 @@ class ProductModel extends BaseModel
         'is_featured' => 'permit_empty|in_list[0,1]',
     ];
 
-    public function menu(?int $categoryId = null, ?string $search = null, ?int $maxCalories = null, ?string $excludeAllergen = null): array
+    public function menu(?int $categoryId = null, ?string $search = null, ?int $maxCalories = null, ?string $excludeAllergen = null, array $filters = []): array
     {
         $builder = $this->select('products.*, categories.name AS category_name')
             ->join('categories', 'categories.id = products.category_id')
@@ -56,6 +57,10 @@ class ProductModel extends BaseModel
         if ($excludeAllergen) {
             $builder->groupStart()->where('products.allergens', null)->orNotLike('products.allergens', $excludeAllergen)->groupEnd();
         }
+        if (!empty($filters['high_protein'])) $builder->where('products.protein_g >=', 20);
+        if (!empty($filters['low_sodium'])) $builder->where('products.sodium_mg <=', 140);
+        if (!empty($filters['healthy_choice'])) $builder->where('products.is_healthy_choice', 1);
+        if (!empty($filters['vegetarian'])) $builder->where('products.is_vegetarian', 1);
         return $builder->orderBy('products.is_featured', 'DESC')->orderBy('products.name')->findAll();
     }
 

@@ -17,6 +17,8 @@ class SettingController extends BaseController
         'pickup_enabled',
         'delivery_enabled',
         'email_order_notifications',
+        'admin_totp_required',
+        'attendance_enabled',
     ];
 
     public function index(): string
@@ -36,6 +38,8 @@ class SettingController extends BaseController
             'pickup_enabled' => 'required|in_list[0,1]',
             'delivery_enabled' => 'required|in_list[0,1]',
             'email_order_notifications' => 'required|in_list[0,1]',
+            'admin_totp_required' => 'required|in_list[0,1]',
+            'attendance_enabled' => 'required|in_list[0,1]',
         ])) {
             return redirect()->to('/admin/settings')
                 ->withInput()

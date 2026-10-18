@@ -10,6 +10,7 @@ enum OrderStatus: string
     case ReadyForPickup = 'ready_for_pickup';
     case OutForDelivery = 'out_for_delivery';
     case Completed = 'completed';
+    case Delivered = 'delivered';
     case Cancelled = 'cancelled';
 
     public function label(): string
@@ -21,6 +22,7 @@ enum OrderStatus: string
             self::ReadyForPickup => 'Ready for Pickup',
             self::OutForDelivery => 'Out for Delivery',
             self::Completed => 'Completed',
+            self::Delivered => 'Delivered',
             self::Cancelled => 'Cancelled',
         };
     }
@@ -34,6 +36,7 @@ enum OrderStatus: string
             self::ReadyForPickup => 'bi-bag-check',
             self::OutForDelivery => 'bi-bicycle',
             self::Completed => 'bi-check2-circle',
+            self::Delivered => 'bi-check2-all',
             self::Cancelled => 'bi-x-circle',
         };
     }
@@ -47,6 +50,7 @@ enum OrderStatus: string
             self::ReadyForPickup => 'ready-for-pickup',
             self::OutForDelivery => 'out-for-delivery',
             self::Completed => 'completed',
+            self::Delivered => 'delivered',
             self::Cancelled => 'cancelled',
         };
     }
@@ -59,14 +63,20 @@ enum OrderStatus: string
             self::Preparing => 'Your meal is being prepared.',
             self::ReadyForPickup => 'Your order is ready. Please proceed to the counter.',
             self::OutForDelivery => 'Your order is on the way.',
-            self::Completed => 'Your order has been completed. Thank you!',
+            self::Completed => 'Your order has been picked up. Thank you!',
+            self::Delivered => 'Your order has been delivered. Thank you!',
             self::Cancelled => 'This order was cancelled.',
         };
     }
 
     public function isTerminal(): bool
     {
-        return in_array($this, [self::Completed, self::Cancelled], true);
+        return in_array($this, [self::Completed, self::Delivered, self::Cancelled], true);
+    }
+
+    public function isFulfilled(): bool
+    {
+        return in_array($this, [self::Completed, self::Delivered], true);
     }
 
     /** @return list<string> */
@@ -77,8 +87,8 @@ enum OrderStatus: string
             self::Confirmed => [self::Preparing->value, self::Cancelled->value],
             self::Preparing => [self::ReadyForPickup->value, self::Cancelled->value],
             self::ReadyForPickup => [self::OutForDelivery->value, self::Completed->value, self::Cancelled->value],
-            self::OutForDelivery => [self::Completed->value],
-            self::Completed, self::Cancelled => [],
+            self::OutForDelivery => [self::Delivered->value],
+            self::Completed, self::Delivered, self::Cancelled => [],
         };
     }
 

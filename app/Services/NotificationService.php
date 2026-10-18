@@ -62,23 +62,32 @@ class NotificationService
     {
         $stock = (int) ($product['stock'] ?? 0);
         $level = (int) ($product['reorder_level'] ?? 5);
-        if ($stock > $level) {
-            return;
-        }
-        foreach ($this->staffIds(['admin']) as $userId) {
-            $type = $stock === 0 ? 'out_of_stock' : 'low_stock';
-            $this->insert($userId, null, $type, $stock === 0 ? 'Out of stock' : 'Low stock', ($product['name'] ?? 'Product') . ' has ' . $stock . ' unit(s) remaining.', '/admin/inventory');
+        $previous = $product['previous_stock'] ?? null;
+        // Alert only for a movement across the reorder boundary or the distinct zero-stock event.
+        // A restock above reorder automatically re-arms the next crossing.
+        if ($previous === null) return;
+        $was = (int) $previous;
+        $becameZero = $was > 0 && $stock === 0;
+        $crossed = $was > $level && $stock <= $level;
+        if (! $becameZero && ! $crossed) return;
+        $type = $becameZero ? 'out_of_stock' : 'low_stock';
+        foreach ($this->staffUsers(['admin', 'cashier']) as $staff) {
+            $link = $staff['role'] === 'cashier' ? '/cashier/inventory' : '/admin/inventory';
+            $this->insert((int) $staff['id'], null, $type, $becameZero ? 'Out of stock' : 'Low stock', ($product['name'] ?? 'Product') . ' has ' . $stock . ' unit(s) remaining.', $link);
         }
     }
 
     private function emailOrderStatusIfEnabled(array $order, OrderStatus $status, string $message): void
     {
-        if (! in_array($status, [OrderStatus::ReadyForPickup, OrderStatus::OutForDelivery, OrderStatus::Completed, OrderStatus::Cancelled], true)) return;
+        if (! in_array($status, [OrderStatus::ReadyForPickup, OrderStatus::OutForDelivery, OrderStatus::Completed, OrderStatus::Delivered, OrderStatus::Cancelled], true)) return;
         try {
             $enabled = $this->db()->table('settings')->where('setting_key', 'email_order_notifications')->get()->getRow('setting_value');
             if ((string) ($enabled ?? '1') !== '1') return;
             $user = $this->db()->table('users')->select('id,name,email')->where('id', (int) ($order['customer_id'] ?? 0))->get()->getRowArray();
             if (! $user || empty($user['email'])) return;
+            $prefRow=$this->db()->table('users')->select('notification_email_prefs')->where('id',$user['id'])->get()->getRowArray();
+            $prefs=json_decode((string)($prefRow['notification_email_prefs']??'null'),true);
+            if(is_array($prefs) && empty($prefs[$status->value]))return;
             (new AccountEmailService())->sendOrderStatus($user, $order, $status->label(), $message);
         } catch (\Throwable $exception) {
             log_message('error', 'Order status email failed for order {orderId}: {message}', ['orderId' => (int) ($order['id'] ?? 0), 'message' => $exception->getMessage()]);

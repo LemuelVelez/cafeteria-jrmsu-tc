@@ -30,6 +30,8 @@ Usage:
   cafe db migrate            Run and verify all migrations
   cafe db seed               Run and verify all registered seeders
   cafe db refresh            Rebuild and reseed the database
+  cafe db backup             Create a verified gzip database backup
+  cafe db restore FILE       Restore an existing verified backup
   cafe test                  Run PHPUnit tests
   cafe lint                  Run PHP and JavaScript syntax checks
   cafe install-command       Install cafe into ~/.local/bin
@@ -205,6 +207,15 @@ case "$command_name:$subcommand" in
         ensure_php_dependencies
         php spark migrate:refresh --all
         php spark seed
+        ;;
+    db:backup)
+        ensure_php_dependencies
+        php spark db:backup
+        ;;
+    db:restore)
+        ensure_php_dependencies
+        if [ -z "${3:-}" ]; then printf 'Usage: cafe db restore FILE\n' >&2; exit 2; fi
+        php spark db:restore "$3"
         ;;
     test:)
         ensure_php_dependencies

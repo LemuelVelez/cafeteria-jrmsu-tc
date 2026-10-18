@@ -43,7 +43,7 @@ class OrderController extends BaseController
 
         $db = db_connect();
         $summary = $db->query(
-            "SELECT COUNT(*) total_orders, SUM(status='completed') completed_orders, COALESCE(SUM(CASE WHEN status='completed' AND payment_status='paid' THEN total ELSE 0 END),0) total_spent, SUM(status NOT IN ('completed','cancelled')) active_orders FROM orders WHERE customer_id=?",
+            "SELECT COUNT(*) total_orders, SUM(status IN ('completed','delivered')) completed_orders, COALESCE(SUM(CASE WHEN status IN ('completed','delivered') AND payment_status='paid' THEN total ELSE 0 END),0) total_spent, SUM(status NOT IN ('completed','delivered','cancelled')) active_orders FROM orders WHERE customer_id=?",
             [$userId],
         )->getRowArray() ?? [];
 

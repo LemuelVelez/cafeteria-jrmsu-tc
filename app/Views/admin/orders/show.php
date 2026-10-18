@@ -1,5 +1,6 @@
 <?= $this->extend('layouts/main') ?>
 <?= $this->section('content') ?>
+<a class="btn btn-sm btn-outline-primary mb-3" href="<?= base_url('staff/orders/'.$order['id'].'/ticket') ?>">Print kitchen ticket</a>
 <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
     <div>
         <a class="small text-decoration-none" href="<?= base_url('admin/orders') ?>"><i class="bi bi-arrow-left"></i> All orders</a>
@@ -24,6 +25,13 @@
                             <tr>
                                 <td>
                                     <div class="fw-semibold"><?= esc($item['product_name']) ?></div>
+                                    <?php if (in_array($order['status'], ['confirmed','preparing'], true)): ?>
+                                        <form method="post" action="<?= base_url('staff/orders/'.$order['id'].'/prepared/'.$item['id']) ?>" class="my-2">
+                                            <?= csrf_field() ?>
+                                            <?php if (!empty($item['prepared_at'])): ?><span class="text-success small">✓ Prepared</span>
+                                            <?php else: ?><button type="submit" class="btn btn-outline-primary btn-sm">Mark prepared</button><?php endif; ?>
+                                        </form>
+                                    <?php endif; ?>
                                     <?php if ($item['addons_json']): ?>
                                         <small class="text-secondary">
                                             <?= esc(implode(', ', array_column(json_decode($item['addons_json'], true) ?: [], 'name'))) ?>
@@ -76,6 +84,21 @@
             <?php endif; ?>
         </div>
 
+        <?php if (in_array($order['status'], ['ready_for_pickup','out_for_delivery'], true)): ?>
+        <div class="surface-card p-4 mb-4">
+            <h2 class="h5 fw-bold">Verify hand-off</h2>
+            <form method="post" action="<?= base_url('staff/orders/'.$order['id'].'/verify-handoff') ?>">
+                <?= csrf_field() ?>
+                <label class="form-label" for="orderHandoffToken">Scanned order QR token or verification URL</label>
+                <input class="form-control mb-2" id="orderHandoffToken" name="token" autocomplete="off" data-camera-scan>
+                <?php if ($order['order_type'] === 'pickup'): ?>
+                <label class="form-label" for="orderPickupCode">Or 4-digit pickup code</label>
+                <input class="form-control mb-2" id="orderPickupCode" name="code" inputmode="numeric" pattern="[0-9]{4}" maxlength="4">
+                <?php endif; ?>
+                <button class="btn btn-outline-primary">Verify order</button>
+            </form>
+        </div>
+        <?php endif; ?>
         <?php if ($order['order_type'] === 'delivery'): ?>
             <div class="surface-card p-4">
                 <h2 class="h5 section-title fw-bold">Assign rider</h2>
@@ -102,3 +125,5 @@
     </div>
 </div>
 <?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?><script src="<?= base_url('assets/js/camera-scan.js') ?>"></script><?= $this->endSection() ?>

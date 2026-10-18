@@ -33,6 +33,7 @@
             <input class="form-control" id="password_confirm" name="password_confirm" type="password" minlength="10" placeholder="Re-enter your password" autocomplete="new-password" required>
         </div>
     </div>
+    <div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="privacy_consent" id="privacyConsent" value="1" required><label class="form-check-label" for="privacyConsent">I have read and agree to the <a href="<?= base_url('privacy') ?>" target="_blank" rel="noopener">privacy notice</a>.</label></div>
     <button class="btn btn-primary btn-lg w-100 mt-4" type="submit">Create account</button>
 </form>
 <p class="text-center text-secondary mt-4 mb-0">Already registered? <a class="fw-semibold" href="<?= base_url('login') ?>">Sign in</a></p>

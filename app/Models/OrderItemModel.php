@@ -6,7 +6,7 @@ class OrderItemModel extends BaseModel
 {
     protected $table = 'order_items';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['order_id', 'product_id', 'product_name', 'quantity', 'unit_price', 'addon_total', 'line_total', 'addons_json', 'notes'];
+    protected $allowedFields = ['order_id', 'product_id', 'product_name', 'quantity', 'unit_price', 'unit_cost', 'prepared_at', 'prepared_by', 'addon_total', 'line_total', 'addons_json', 'notes'];
     protected $validationRules = [
         'order_id' => 'required|is_natural_no_zero',
         'product_id' => 'required|is_natural_no_zero',

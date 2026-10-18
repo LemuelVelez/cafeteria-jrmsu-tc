@@ -133,6 +133,33 @@ class SettingController extends BaseController
         return redirect()->to('/settings')->with('success', 'Profile settings updated.');
     }
 
+    public function notificationPreferences()
+    {
+        $id=(int)$this->session->get('user')['id'];
+        $prefs=[];
+        foreach(['ready_for_pickup','out_for_delivery','completed','delivered','cancelled'] as $key)$prefs[$key]=$this->request->getPost($key)==='1';
+        $db=db_connect();$db->transBegin();
+        try{
+            $db->table('users')->where('id',$id)->update(['notification_email_prefs'=>json_encode($prefs)]);
+            (new AuditLogService($db))->record('notification_preferences_change','user',$id,['event_types'=>array_keys($prefs)]);
+            $db->transCommit();return redirect()->to('/settings')->with('success','Email preferences saved.');
+        }catch(Throwable $e){$db->transRollback();return redirect()->to('/settings')->with('error','Unable to save preferences.');}
+    }
+    public function logoutOthers()
+    {
+        $id=(int)$this->session->get('user')['id'];
+        $db=db_connect();$db->transBegin();
+        try {
+            $user=$db->query('SELECT session_version FROM users WHERE id=? FOR UPDATE',[$id])->getRowArray();
+            if (!$user)throw new \DomainException('Account not found.');
+            $version=(int)$user['session_version']+1;
+            $db->table('users')->where('id',$id)->update(['session_version'=>$version]);
+            (new AuditLogService($db))->record('other_sessions_revoked','user',$id);
+            $db->transCommit();$this->session->regenerate(true);
+            $current=$this->session->get('user');$current['session_version']=$version;$this->session->set('user',$current);
+            return redirect()->to('/settings')->with('success','Other sessions logged out.');
+        }catch(Throwable $e){$db->transRollback();return redirect()->to('/settings')->with('error','Unable to revoke sessions.');}
+    }
     public function removeAvatar()
     {
         $user = $this->currentUser();
@@ -185,7 +212,7 @@ class SettingController extends BaseController
             $newVersion = (int) ($locked['session_version'] ?? 1) + 1;
             $model = new UserModel();
             if (! $model->update((int) $user['id'], [
-                'password_hash' => password_hash($data['password'], PASSWORD_DEFAULT),
+                'password_hash' => \App\Services\PasswordHasher::hash($data['password']),
                 'failed_login_attempts' => 0,
                 'locked_until' => null,
                 'session_version' => $newVersion,

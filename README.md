@@ -52,6 +52,8 @@ php spark seed
 cafe db migrate
 cafe db seed
 cafe db refresh
+cafe db backup
+cafe db restore writable/backups/<verified-file>.sql.gz
 cafe test
 cafe lint
 php spark inventory:reconcile
@@ -64,9 +66,9 @@ cafe help
 | Order type | Enforced payment mode | Workflow |
 |---|---|---|
 | Pickup | Cash on Pickup | Pending → Confirmed → Preparing → Ready for Pickup → Completed |
-| Delivery | Cash on Delivery | Pending → Confirmed → Preparing → Ready for Pickup → Out for Delivery → Completed |
+| Delivery | Cash on Delivery | Pending → Confirmed → Preparing → Ready for Pickup → Out for Delivery → Delivered |
 
-Cancellation is allowed from Pending, Confirmed, Preparing, or Ready for Pickup. Payment is marked `paid` only when an order reaches `completed`; cancellation marks the payment failed where applicable. Prices, add-ons, promotions, stock, totals, and allowed transitions are always recalculated or validated on the server.
+Cancellation is allowed from Pending, Confirmed, Preparing, or Ready for Pickup. Payment is marked `paid` when pickup reaches `completed` or delivery reaches `delivered`; cancellation marks the payment failed where applicable. Prices, add-ons, promotions, stock, totals, and allowed transitions are always recalculated or validated on the server.
 
 ## Inventory
 
@@ -125,3 +127,20 @@ CAFETERIA_DELIVERY_FEE = 40.00
 ```
 
 Keep the web root pointed to `public/`, use HTTPS, replace demo credentials, and keep `.env` outside version control.
+
+
+## Panel correction upgrade (migration 000023–000028)
+
+On an existing installation, **back up the database** and configure a sufficiently strong `encryption.key` before migrating. New reversible migrations add delivery fulfillment, `max_stock` and stock-out, ingredients/recipes/cost snapshots and preparation checks, encrypted PII/optional TOTP, attendance tables, and order issues/preferences. Do not edit already-applied migrations.
+
+- Admin → **Inventory**: scan barcode, move stock in/out, record waste, reconcile physical count, and inspect stock cards. Only `InventoryService` mutates stock. Low-stock notifications are threshold-crossing events (administrators and cashiers). Stock is reserved when the order is placed—not when cash is received.
+- Admin → **Costing**: ingredient purchase units/cost history, recipes, cost and gross margin, calculated nutrition per serving, and manual verification. Product nutrition is set back to *Estimated* on ingredient/recipe changes. Seeded manual values are not independently laboratory-verified.
+- **Menu** at `/menu` is publicly accessible. Admin → Settings → Printable poster opens A4/A6 QR poster. Receipts show QR and a 4-digit pickup code. Staff mark all lines prepared before **Ready for Pickup**, and verify an order QR/code before hand-off.
+- Admin → **Reports**: sales, orders, inventory, popular/slow products, deliveries, profit (historical item cost snapshots), low stock, and audit. Print from the browser or choose **Print → Save as PDF**; the application does not bundle a server-side PDF library.
+- Account Settings: enrollment in local RFC 6238 TOTP, notification email preferences, log out other sessions, customer data export and deletion request. Admin Settings can require admin TOTP. Approve customer deletion at `/admin/privacy/deletion-requests` (financial orders retained and contact data anonymized).
+- `php spark db:backup` and `cafe db backup` create checksum-protected gzip backups under `writable/backups/`; `php spark db:restore FILENAME` and `cafe db restore FILENAME` verify checksum, require confirmation, and create a pre-restore backup. Never serve this directory publicly.
+- Staff attendance exists at `/attendance` and is **disabled** unless Admin → Settings enables `attendance_enabled` after panel approval. Admin `/admin/attendance` manages shifts/rates and print/CSV estimated wages.
+
+**Operational verification:** Install Composer dependencies and configure MySQL before running `cafe db refresh`, `cafe test`, `cafe lint`, `npm run check`, and `php spark inventory:reconcile`; then test migration rollback/reapply and a restore drill against a disposable database. This archive was prepared without Composer vendor packages or a running MySQL server, so full database integration tests, fresh-seed success and rollback could not be executed here. Do not deploy to production without those checks.
+
+**Not included in this change set:** locally vendored ZXing-js camera fallback where `BarcodeDetector` is absent; automatic ingredient stock ledger; authoritative PhilFCT/USDA ingredient ingestion and FDC lookup; Web Push VAPID sender and service worker; configurable notification pruning / daily low-stock email digest; and a server-generated PDF engine. These require further development or library/source acquisition, so treat those specific requirements as **not verified/completed**. Camera scanning uses the browser's native BarcodeDetector when supported; barcode fields still support hardware scanners and manual entry.

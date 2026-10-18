@@ -16,3 +16,6 @@
 !/public/uploads/products/.gitkeep
 
 /public/uploads/avatars/*
+
+/writable/backups/*
+!/writable/backups/.gitkeep
