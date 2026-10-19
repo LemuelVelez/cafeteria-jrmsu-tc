@@ -33,8 +33,8 @@ class OrderModel extends BaseModel
     protected function openAddress(array $event): array
     {
         $decode=static function(array $row): array {
-            if(isset($row['delivery_address'])) $row['delivery_address']=FieldEncryption::open((string)$row['delivery_address']);
-            if(isset($row['customer_phone']))$row['customer_phone']=FieldEncryption::open((string)$row['customer_phone']);
+            if(isset($row['delivery_address'])) $row['delivery_address']=FieldEncryption::openForDisplay((string)$row['delivery_address']);
+            if(isset($row['customer_phone']))$row['customer_phone']=FieldEncryption::openForDisplay((string)$row['customer_phone']);
             return $row;
         };
         if(!isset($event['data']))return $event;

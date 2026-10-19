@@ -35,7 +35,11 @@ class UserModel extends BaseModel
         if (!isset($event['data']))return $event;
         $decode=static function(array $row): array {
             foreach(['phone','address','totp_secret'] as $field) {
-                if (isset($row[$field]))$row[$field]=FieldEncryption::open((string)$row[$field]);
+                if (isset($row[$field])) {
+                    $row[$field] = $field === 'totp_secret'
+                        ? FieldEncryption::openTotp((string) $row[$field])
+                        : FieldEncryption::openForDisplay((string) $row[$field]);
+                }
             }
             return $row;
         };

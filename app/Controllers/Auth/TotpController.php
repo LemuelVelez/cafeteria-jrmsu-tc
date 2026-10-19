@@ -15,9 +15,15 @@ class TotpController extends BaseController
         $user=(new UserModel())->find($id);
         if (!$user)return redirect()->to('/login');
         $code=trim((string)$this->request->getPost('code'));
-        $valid=($user['totp_secret']??'')!=='' && TotpService::verify((string)$user['totp_secret'],$code);
-        if (!$valid && strlen($code)>=10)$valid=TotpService::consumeRecovery($id,$code);
-        if (!$valid)return redirect()->to('/two-factor')->with('error','Incorrect verification code.');
+        $secret=(string)($user['totp_secret']??'');
+        $unreadable=$secret===FieldEncryption::UNREADABLE_TOTP_SECRET;
+        $valid=$secret!=='' && !$unreadable && TotpService::verify($secret,$code);
+        // Recovery codes are stored as one-way hashes and remain usable even if
+        // the encrypted TOTP secret cannot be decrypted with the current key.
+        if (!$valid && $secret!=='' && strlen($code)>=10)$valid=TotpService::consumeRecovery($id,$code);
+        if (!$valid)return redirect()->to('/two-factor')->with('error', $unreadable
+            ? 'Authenticator secret is unavailable. Restore the original encryption key or enter a recovery code.'
+            : 'Incorrect verification code.');
         session()->regenerate(true);session()->set('totp_verified',true);
         (new AuditLogService())->record('two_factor_success','user',$id);
         return redirect()->to(role_home($user['role']))->with('success','Verification successful.');

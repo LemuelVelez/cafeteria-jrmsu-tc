@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\UserModel;
 use App\Services\AccountEmailService;
 use App\Services\AuditLogService;
+use App\Services\FieldEncryption;
 use App\Services\AuthService;
 use App\Services\MediaStorageService;
 use CodeIgniter\Exceptions\PageNotFoundException;
@@ -89,6 +90,15 @@ class SettingController extends BaseController
             $locked = $db->query('SELECT * FROM users WHERE id=? FOR UPDATE', [(int) $user['id']])->getRowArray();
             if (! $locked) {
                 throw new \DomainException('Account not found.');
+            }
+            // Missing keys make encrypted fields appear blank in the form.
+            // Saving a name/avatar must not erase those original DB values.
+            foreach (['phone', 'address'] as $field) {
+                $stored = $locked[$field] ?? null;
+                if ($data[$field] === '' && FieldEncryption::isSealed($stored)
+                    && FieldEncryption::openForDisplay($stored) === null) {
+                    unset($data[$field]);
+                }
             }
             if (! $model->update((int) $user['id'], $data)) {
                 throw new \DomainException(implode(' ', $model->errors()) ?: 'Unable to update profile.');
