@@ -130,7 +130,9 @@ CAFETERIA_IDLE_TIMEOUT_CUSTOMER = 7200
 CAFETERIA_DELIVERY_FEE = 40.00
 ```
 
-Keep the web root pointed to `public/`, use HTTPS, replace demo credentials, and keep `.env` outside version control.
+Keep the web root pointed to `public/`, use HTTPS, replace demo credentials, and keep `.env` outside version control. On the **deployed server**, set `CI_ENVIRONMENT = production` in the active `.env` (the example file is for local development) and restart PHP/the web server; otherwise CodeIgniter may show detailed exception pages. The debug toolbar is disabled for the application's strict CSP, including during local development.
+
+Backup troubleshooting: Admin → Backups works without `mysqldump` by using the bundled PHP table exporter, but this fallback does not include stored procedures or triggers. Ensure PHP `zlib` and MySQL connectivity are enabled and the PHP/web-server user can write to `writable/backups/`. Check `writable/logs/` for details on errors and verify/restore a newly created archive on a separate database before relying on it.
 
 
 ## Panel correction upgrade (migrations 000023–000033)

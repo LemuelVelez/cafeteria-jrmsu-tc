@@ -35,9 +35,9 @@ class Filters extends BaseFilters
 
     public array $globals = [
         'before' => ['csrf'],
-        'after' => [
-            'toolbar' => ['except' => ['api/*']],
-        ],
+        // The debug toolbar injects JavaScript that violates the site's strict
+        // script-src 'self' CSP. Never inject it into served pages.
+        'after' => [],
     ];
 
     public array $methods = [];

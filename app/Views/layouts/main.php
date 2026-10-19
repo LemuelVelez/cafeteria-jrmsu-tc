@@ -40,12 +40,12 @@ $nav = static function (array $items, string $path): string {
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
     <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/css/app.css') . '?v=20261020' ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/css/app.css') . '?v=20261020a' ?>" rel="stylesheet">
     <?= $this->renderSection('styles') ?>
 </head>
 <?php $cartOwnerId = (int) ($currentUser['id'] ?? 0); ?>
-<body data-cart-key="<?= esc(($role === 'cashier' ? 'jrmsu-pos-cart-' : 'jrmsu-cafeteria-cart-') . $cartOwnerId, 'attr') ?>">
-<aside class="app-sidebar p-3 d-none d-lg-flex flex-column">
+<body data-sidebar-role="<?= esc($role, 'attr') ?>" data-cart-key="<?= esc(($role === 'cashier' ? 'jrmsu-pos-cart-' : 'jrmsu-cafeteria-cart-') . $cartOwnerId, 'attr') ?>">
+<aside class="app-sidebar p-3 d-none d-lg-flex flex-column" data-persistent-sidebar>
     <a class="d-flex align-items-center gap-3 text-white text-decoration-none p-2 mb-4" href="<?= base_url(role_home($role)) ?>">
         <img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="Logo">
         <div><div class="fw-bold">JRMSU-TC</div><small class="text-white-50">Cafeteria</small></div>
@@ -61,7 +61,7 @@ $nav = static function (array $items, string $path): string {
 </aside>
 <div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
     <div class="offcanvas-header border-bottom border-secondary"><div class="d-flex align-items-center gap-2"><img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="Logo"><h5 class="offcanvas-title" id="mobileSidebarLabel">JRMSU-TC Cafeteria</h5></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
-    <div class="offcanvas-body d-flex flex-column">
+    <div class="offcanvas-body d-flex flex-column" data-mobile-sidebar-scroll>
         <nav aria-label="Mobile navigation" class="app-sidebar position-static d-flex flex-column p-0 w-100" style="min-height:auto;background:transparent;"><?= $nav($items, $path) ?></nav>
         <div class="d-flex align-items-center gap-3 mt-auto pt-4 mb-3 border-top border-secondary-subtle">
             <img class="sidebar-user-avatar" src="<?= esc(user_avatar_url($user['avatar'] ?? null), 'attr') ?>" alt="<?= esc($user['name'] ?? 'User', 'attr') ?> avatar">
@@ -150,6 +150,7 @@ $nav = static function (array $items, string $path): string {
 <script src="<?= base_url('assets/js/image-fallback.js') ?>"></script>
 <script src="<?= base_url('assets/js/queue-sound.js') ?>"></script>
 <script src="<?= base_url('assets/js/app.js') ?>"></script>
+<script src="<?= base_url('assets/js/sidebar-scroll.js') ?>"></script>
 <?php if (in_array($role, ['customer', 'cashier'], true)): ?><script src="<?= base_url('assets/js/cart.js') ?>"></script><?php endif; ?>
 <?= $this->renderSection('scripts') ?>
 </body>

@@ -1854,3 +1854,84 @@ body { min-width: 0; overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) {
     .app-sidebar .nav-link, .app-sidebar .sidebar-nav-icon { transition: none; }
 }
+
+/* Keep navigation steady, icons aligned and dense administrative pages usable
+   on narrow screens without clipping content or widening the document. */
+.app-sidebar[data-persistent-sidebar] {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+}
+.app-sidebar .nav-link {
+    min-width: 0;
+    align-items: center;
+    transform: none !important;
+}
+.app-sidebar .nav-link > span:not(.sidebar-nav-icon):not(.badge) {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow-wrap: anywhere;
+}
+.app-sidebar .sidebar-nav-icon {
+    flex-shrink: 0;
+    display: inline-grid;
+    place-items: center;
+}
+.app-sidebar .sidebar-nav-icon .bi {
+    width: 1.4rem;
+    height: 1.4rem;
+    display: inline-grid;
+    place-items: center;
+    line-height: 1;
+}
+.app-sidebar .nav-link .badge { flex: 0 0 auto; }
+#mobileSidebar { width: min(340px, 92vw); max-width: 100%; }
+#mobileSidebar .offcanvas-body { min-height: 0; overscroll-behavior: contain; }
+#mobileSidebar .app-sidebar { min-width: 0; }
+
+.app-main {
+    width: calc(100% - var(--sidebar-width));
+    min-width: 0;
+}
+.page-shell, .page-shell > *, .app-topbar, .topbar-heading,
+.topbar-actions, .surface-card, .table-card, .dashboard-page,
+.page-shell .card, .page-shell .row > * { min-width: 0; }
+.page-shell, .app-topbar, .surface-card, .table-card { max-width: 100%; }
+.page-shell :is(img, video, canvas, svg) { max-width: 100%; }
+.page-shell .table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+.page-shell td, .page-shell th, .page-shell .card,
+.page-shell .alert, .page-shell .list-group-item,
+.page-shell .notification-dropdown { overflow-wrap: anywhere; }
+.page-shell pre, .page-shell code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.page-shell .form-control, .page-shell .form-select,
+.page-shell .field-icon { max-width: 100%; min-width: 0; }
+.page-shell .btn .bi, .app-topbar .bi,
+.page-shell .form-label .bi { vertical-align: -.1em; }
+.page-shell .btn { max-width: 100%; white-space: normal; }
+.page-shell .pagination { flex-wrap: wrap; gap: .25rem; }
+
+@media (max-width: 991.98px) {
+    .app-main { width: 100%; margin-left: 0; }
+    .page-shell { max-width: 100%; }
+    .mobile-topbar { gap: .5rem; }
+    .mobile-topbar > .fw-bold { min-width: 0; flex: 1 1 auto; }
+    .mobile-topbar > .d-flex { flex: 0 0 auto; }
+}
+@media (max-width: 575.98px) {
+    .page-shell { padding: .85rem; }
+    .page-shell h1, .page-shell .h1 { overflow-wrap: anywhere; }
+    .page-shell .d-flex.justify-content-between:not(.order-status-badge) {
+        flex-wrap: wrap;
+        row-gap: .65rem;
+    }
+    .page-shell .table-responsive { border-radius: .75rem; }
+    .page-shell .pagination .page-link { padding: .4rem .65rem; }
+    .app-topbar .topbar-icon-button { width: 42px; height: 42px; flex-basis: 42px; }
+}
