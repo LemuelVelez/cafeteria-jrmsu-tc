@@ -2,34 +2,118 @@
 
 namespace App\Commands;
 
+use App\Database\Seeds\DatabaseSeeder;
 use App\Services\DemoProductNutritionCatalog;
 use App\Services\NutritionLookupService;
 use App\Services\NutritionPopulateService;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 
-/** Collects real kitchen measurements and writes all three source CSV files. */
-final class Populate extends BaseCommand
+/** One-command demo setup; signed nutrition measurements are always optional. */
+class Populate extends BaseCommand
 {
     protected $group = 'Cafeteria';
     protected $name = 'populate';
-    protected $description = 'Interactively populate sourced ingredients, recipes, and approved kitchen worksheet CSVs.';
-    protected $usage = 'populate [product-slug]';
+    protected $description = 'Seed all available cafeteria demo data without questions; use guided mode for real recipes.';
+    protected $usage = 'populate [guided [product-slug]|product-slug]';
 
     public function run(array $params): int
     {
+        // No arguments means: run the existing migration-aware, registry-based
+        // seeding command. This does NOT fabricate kitchen measurements or write
+        // unapproved recipe CSV rows.
+        if ($params === []) {
+            return $this->seedDemo();
+        }
+
+        // Keep the older per-product invocation working. The operator must
+        // explicitly opt into interactive kitchen-data entry.
+        if ($params[0] === 'guided') {
+            array_shift($params);
+        }
         if (count($params) > 1 || ($params !== []
             && ! in_array($params[0], DemoProductNutritionCatalog::SEEDERS, true))) {
             CLI::error('Usage: php spark ' . $this->usage);
             return EXIT_ERROR;
         }
-        if (! defined('STDIN') || ! self::hasInteractiveInput()) {
-            CLI::error('This command needs real kitchen answers from an interactive terminal. No CSVs changed.');
+
+        return $this->guided($params);
+    }
+
+    /** Runs the normal seed command with its migration and registry checks. */
+    protected function seedDemo(): int
+    {
+        CLI::write('Populating all available demo data (no questions)...', 'cyan');
+        try {
+            $result = $this->runSeedCommand();
+            if (is_int($result) && $result !== EXIT_SUCCESS) {
+                CLI::error('Demo seeding failed. See the seed command error above.');
+                return $result;
+            }
+
+            if (! $this->coreSeedIsReady()) {
+                CLI::error('Demo seeding is incomplete. Check the registered core seeders.');
+                return EXIT_ERROR;
+            }
+
+            $ready = $this->readyNutritionCount();
+
+            CLI::write('Demo menu and opening stock: 8/8 products ready.', 'green');
+            if ($ready < count(DemoProductNutritionCatalog::SEEDERS)) {
+                CLI::write('Nutrition recipes: ' . $ready . '/8 approved source catalogs. Missing recipes remain DEFERRED, not fabricated.', 'yellow');
+                CLI::write('No measurements or kitchen approvals were invented or edited.', 'yellow');
+            } else {
+                CLI::write('Approved source catalogs: 8/8. See seed output for database verification.', 'green');
+            }
+            return EXIT_SUCCESS;
+        } catch (\Throwable $error) {
+            CLI::error('Demo population failed: ' . $error->getMessage());
             return EXIT_ERROR;
         }
-        CLI::write('This command NEVER invents recipe measurements, food sources, or kitchen approval.', 'yellow');
-        CLI::write('A verified USDA FDC record and measured recipe quantities are required.', 'yellow');
-        CLI::write('Three CSVs are saved together only when one product passes source/recipe validation.', 'yellow');
+    }
+
+    /** Run the registered CLI seed command; overridable for unit tests. */
+    protected function runSeedCommand(): mixed
+    {
+        return $this->call('seed');
+    }
+
+    /** Verify the actual demo data, not merely a zero exit code. */
+    protected function coreSeedIsReady(): bool
+    {
+        $db = db_connect();
+        foreach (DatabaseSeeder::SEEDERS as $seeder) {
+            if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)
+                || DemoProductNutritionCatalog::slugForSeeder($seeder) !== null) {
+                continue; // Unapproved nutritional measurements are not demo data.
+            }
+            if (! DatabaseSeeder::isSatisfied($seeder, $db)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    protected function readyNutritionCount(): int
+    {
+        $ready = 0;
+        foreach (DemoProductNutritionCatalog::SEEDERS as $slug) {
+            if (DemoProductNutritionCatalog::status($slug)['ready']) {
+                $ready++;
+            }
+        }
+        return $ready;
+    }
+
+    /** An explicit, optional workflow for authentic measured recipe data. */
+    protected function guided(array $params): int
+    {
+        if (! defined('STDIN') || ! self::hasInteractiveInput()) {
+            CLI::error('Guided entry requires a terminal. Run php spark populate for demo seeding without prompts.');
+            return EXIT_ERROR;
+        }
+        CLI::write('Guided recipe entry requires actual kitchen measurements and approval.', 'yellow');
+        CLI::write('Three CSVs are saved only for a complete, sourced recipe.', 'yellow');
         $lookup = new NutritionLookupService();
         $ask = static function (string $question): string {
             CLI::write($question, 'cyan');
@@ -53,16 +137,16 @@ final class Populate extends BaseCommand
                     CLI::write('Saved sourced ingredients, recipe, and signed worksheet for ' . $slug, 'green');
                 } else {
                     $skipped++;
-                    CLI::write($slug . ': ' . $result . ' (existing data left unchanged).', 'yellow');
+                    CLI::write($slug . ': ' . $result . ' (existing data unchanged).', 'yellow');
                 }
             } catch (\Throwable $error) {
                 CLI::error($slug . ': ' . $error->getMessage());
-                CLI::write('No partial data was saved for this product. Already completed products are retained.', 'yellow');
+                CLI::write('No partial data saved for this product.', 'yellow');
                 return EXIT_ERROR;
             }
         }
-        CLI::write('Done: ' . $saved . ' product(s) populated, ' . $skipped . ' skipped.', 'green');
-        CLI::write('Next: php spark seed; php spark nutrition:catalog-audit', 'cyan');
+        CLI::write('Done: ' . $saved . ' recipe(s) populated, ' . $skipped . ' skipped.', 'green');
+        CLI::write('Run php spark populate to seed any newly approved recipes.', 'cyan');
         return EXIT_SUCCESS;
     }
 
