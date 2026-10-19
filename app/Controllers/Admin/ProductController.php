@@ -9,6 +9,7 @@ use App\Models\ProductModel;
 use App\Services\AuditLogService;
 use App\Services\InventoryService;
 use App\Services\MediaStorageService;
+use App\Services\NutritionEditPolicy;
 use Throwable;
 
 class ProductController extends BaseController
@@ -109,6 +110,8 @@ class ProductController extends BaseController
                 if (! $locked) {
                     throw new \DomainException('Product not found.');
                 }
+                $hasRecipe = $db->table('product_recipes')->where('product_id', $id)->countAllResults() > 0;
+                $data = NutritionEditPolicy::apply($locked, $data, $hasRecipe);
                 $ok = $model->update($id, $data);
                 $productId = $id;
             } else {

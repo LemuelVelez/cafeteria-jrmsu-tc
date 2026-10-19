@@ -41,7 +41,12 @@ final class AllergenService
         }
         foreach ($products as &$product) {
             $product['nutrition_verifier_name'] = $verifiers[(int) ($product['nutrition_verified_by'] ?? 0)] ?? null;
-            $product['nutrition_sources'] = array_values($sources[(int)$product['id']] ?? []);
+            // A manually edited estimate must not claim the ingredients' USDA/PhilFCT
+            // sources as evidence for those manually entered totals.
+            $recipeDerived = in_array((string) ($product['nutrition_source'] ?? ''),
+                ['recipe_sourced', 'recipe_unverified'], true);
+            $product['nutrition_sources'] = $recipeDerived
+                ? array_values($sources[(int)$product['id']] ?? []) : [];
             $product['structured_allergens'] = $byProduct[(int) $product['id']] ?? [];
             $product['allergen_names'] = array_column($product['structured_allergens'], 'name');
             $product['allergen_ids'] = array_map('intval', array_column($product['structured_allergens'], 'id'));

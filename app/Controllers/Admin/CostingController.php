@@ -27,8 +27,18 @@ class CostingController extends BaseController
         try {
             $name=trim((string)$this->request->getPost('name'));
             $prior=$db->table('ingredients')->where('name',$name)->get()->getRowArray();
-            $density=filter_var($this->request->getPost('density_g_per_ml')??1,FILTER_VALIDATE_FLOAT);
-            if($density===false || $density<=0 || $density>25)throw new \DomainException('Enter a valid liquid density (0 to 25 g/mL).');
+            $densityRaw=trim((string) $this->request->getPost('density_g_per_ml'));
+            // Never assume water-like density for an ingredient without a
+            // measurement. Zero means unknown and forbids volume conversion.
+            $density=$densityRaw === '' ? 0.0 : filter_var($densityRaw, FILTER_VALIDATE_FLOAT);
+            if ($density === false || ! is_finite((float) $density) || $density < 0 || $density > 25) {
+                throw new \DomainException('Liquid density must be measured (greater than zero, at most 25 g/mL), or left blank.');
+            }
+            $basis=(string) ($this->request->getPost('nutrient_basis') ?: '100g');
+            $purchaseUnit=(string) $this->request->getPost('purchase_unit');
+            if (in_array($purchaseUnit, ['ml','l'], true) && $basis === '100g' && $density <= 0) {
+                throw new \DomainException('Measured liquid density is required for volume-purchased ingredients with a 100g nutrient basis.');
+            }
             $gramsValue = $this->request->getPost('grams_per_piece');
             $gramsPerPiece = $gramsValue === null || $gramsValue === '' ? null : filter_var($gramsValue, FILTER_VALIDATE_FLOAT);
             if ($gramsPerPiece === false || ($gramsPerPiece !== null && ($gramsPerPiece <= 0 || $gramsPerPiece > 100000))) {
@@ -36,7 +46,7 @@ class CostingController extends BaseController
             }
             $fields=['grams_per_piece'=>$gramsPerPiece,'name'=>$name,'cost_per_unit'=>(float)$this->request->getPost('cost_per_unit'),'purchase_unit'=>$this->request->getPost('purchase_unit'),
                 'density_g_per_ml'=>(float)$density,
-                'nutrient_basis'=>(string)($this->request->getPost('nutrient_basis') ?: '100g'),
+                'nutrient_basis'=>$basis,
                 'supplier'=>trim((string)$this->request->getPost('supplier')),'source_reference'=>trim((string)$this->request->getPost('source_reference'))];
             if (! in_array($fields['nutrient_basis'], ['100g', 'unit'], true)) {
                 throw new \DomainException('Nutrient basis must be 100g or unit.');
@@ -45,9 +55,19 @@ class CostingController extends BaseController
                 && $gramsPerPiece === null) {
                 throw new \DomainException('A measured grams-per-piece value is required for 100g-based piece nutrition.');
             }
+            if (! \App\Services\SourcedRecipeCatalog::validReference($fields['source_reference'])) {
+                throw new \DomainException('Provide an actual PhilFCT food ID or USDA FDC ID before saving nutrient values.');
+            }
             foreach (['calories','protein_g','carbohydrates_g','fat_g','sugar_g','fiber_g','sodium_mg'] as $field) {
-                $num=filter_var($this->request->getPost($field)??0,FILTER_VALIDATE_FLOAT);
-                if ($num === false || $num < 0) throw new \DomainException('Invalid nutrient quantity.');
+                // Blank means unknown, never silently turn it into an invented zero.
+                $raw = $this->request->getPost($field);
+                if ($raw === null || trim((string) $raw) === '') {
+                    throw new \DomainException('Enter a source-backed value for ' . $field . ' (zero only if the source reports zero).');
+                }
+                $num=filter_var($raw,FILTER_VALIDATE_FLOAT);
+                if ($num === false || ! is_finite((float) $num) || $num < 0) {
+                    throw new \DomainException('Invalid sourced nutrient quantity for ' . $field . '.');
+                }
                 $fields[$field]=$num;
             }
             if ($prior) $db->table('ingredients')->where('id',$prior['id'])->update($fields);
@@ -118,10 +138,24 @@ class CostingController extends BaseController
                     throw new \DomainException('Source reference required before verifying nutrition for: ' . $ingredient['name']);
                 }
             }
-            // This remains an explicit human sign-off; automatic recipe calculation
-            // never changes nutrition_status to verified.
-            $db->table('products')->where('id',$productId)->update(['nutrition_status'=>'verified','nutrition_verified_by'=>(int)session()->get('user')['id'],'nutrition_verified_at'=>date('Y-m-d H:i:s')]);
+            if ($row['nutrition_status'] === 'verified') {
+                // A repeated POST is not a second human verification event.
+                $db->transRollback();
+                return redirect()->to('/admin/costing')->with('success','Nutrition was already verified.');
+            }
+            // Sign off the actual recipe calculation, not a potentially stale
+            // manually entered product value that predates the recipe.
+            (new CostingService($db))->refreshNutrition($productId);
+            $verified = [
+                'nutrition_status' => 'verified',
+                'nutrition_verified_by' => (int) session()->get('user')['id'],
+                'nutrition_verified_at' => date('Y-m-d H:i:s'),
+            ];
+            if (! $db->table('products')->where('id',$productId)->update($verified)) {
+                throw new \RuntimeException('Unable to save nutrition verification.');
+            }
             (new AuditLogService($db))->record('nutrition_verified','product',$productId,['source'=>'recipe']);
+            if (! $db->transStatus()) throw new \RuntimeException('Nutrition verification transaction failed.');
             $db->transCommit();return redirect()->to('/admin/costing')->with('success','Nutrition verified.');
         } catch (\Throwable $e){$db->transRollback();return redirect()->to('/admin/costing')->with('error',$e->getMessage());}
     }

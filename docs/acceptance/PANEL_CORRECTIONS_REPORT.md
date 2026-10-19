@@ -119,3 +119,10 @@ Provide authentic ingredient-level nutrient references (edition/food ID, measure
 - `NutritionCatalogAudit` / `php spark nutrition:catalog-audit`: source-name/recipe-coverage/measurement preflight for all eight demos. Missing ingredients and contradictory quantities are reported, with no simulated nutrient values. The existing CSVs remain empty, so correction #5 stays **Partial / blocked on team source data**. `NutritionCatalogAuditTest` contains synthetic test fixtures only.
 - `NotificationApiController`: atomic individual and bulk read acknowledgments; documented low-risk audit exemption. `AuditLogService` drops additional PII-prone unstructured details and `AuditPrivacyTest` has expanded assertions. Correction #15 stays **Partial** until all routes have real-DB proof.
 - Runtime checks: see final packaging note; MySQL-backed PHPUnit, migrations and hardware acceptance are **not Verified** here. No new settings keys, `.env` variables or migrations.
+
+## Continuation v12 — nutrition verification integrity (code implemented, not MySQL verified)
+
+- Shared `NutritionEditPolicy` protects human sign-off for both the admin product form and product API. Non-nutrition changes preserve verification; actual edits to manual nutrients reset it, and recipe-derived totals must be changed through Food Costing. Omitted API nutrient fields no longer erase previous estimates.
+- The Nutrition Facts source display no longer lists recipe food IDs for manually edited nutrient totals. Ingredient form no longer suggests that unknown density is 1 g/mL or silently fills missing nutrients with zero; source reference is required.
+- Costing verification recomputes the stored recipe before a human sign-off, records the audit in the same transaction, and refuses duplicate verification events.
+- Added `NutritionEditPolicyTest` using synthetic test values. PHP lint, JavaScript barcode checks and direct policy smoke tests passed. Database-backed controller and sign-off behavior remain **Implemented–untested** because MySQLi and Composer are not installed in this environment. The ingredient and recipe source CSVs are still empty; correction #5 remains **Partial**.

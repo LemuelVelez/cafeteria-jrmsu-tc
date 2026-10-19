@@ -9,6 +9,7 @@ use App\Models\ProductModel;
 use App\Services\AuditLogService;
 use App\Services\InventoryService;
 use App\Services\MediaStorageService;
+use App\Services\NutritionEditPolicy;
 use Throwable;
 
 class ProductApiController extends BaseController
@@ -89,6 +90,15 @@ class ProductApiController extends BaseController
             'is_available' => ! empty($payload['is_available']) ? 1 : 0,
             'is_featured' => ! empty($payload['is_featured']) ? 1 : 0,
         ];
+        // PUT requests often omit nutrition fields; omission must not erase
+        // an existing estimate (or revoke a valid human sign-off).
+        if ($existing) {
+            foreach (NutritionEditPolicy::FIELDS as $field) {
+                if (! array_key_exists($field, $payload)) {
+                    $data[$field] = $existing[$field] ?? null;
+                }
+            }
+        }
         $initialStock = null;
         if (! $id) {
             $initialStock = filter_var($payload['stock'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
@@ -102,7 +112,10 @@ class ProductApiController extends BaseController
         $db->transBegin();
         try {
             if ($id) {
-                $db->query('SELECT id FROM products WHERE id=? FOR UPDATE', [$id]);
+                $locked = $db->query('SELECT * FROM products WHERE id=? FOR UPDATE', [$id])->getRowArray();
+                if (! $locked) throw new \DomainException('Product not found.');
+                $hasRecipe = $db->table('product_recipes')->where('product_id', $id)->countAllResults() > 0;
+                $data = NutritionEditPolicy::apply($locked, $data, $hasRecipe);
                 $ok = $model->update($id, $data);
                 $productId = $id;
             } else {
