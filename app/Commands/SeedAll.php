@@ -6,6 +6,7 @@ use App\Database\Seeds\DatabaseSeeder;
 use App\Database\Seeds\IngredientSeeder;
 use App\Database\Seeds\RecipeSeeder;
 use App\Services\NutritionCatalogAudit;
+use App\Services\NutritionSeedingPolicy;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\Database\BaseConnection;
@@ -18,11 +19,18 @@ class SeedAll extends BaseCommand
     protected $group = 'Database';
     protected $name = 'seed';
     protected $description = 'Runs pending application seeders once and skips seeders already recorded or already satisfied.';
-    protected $usage = 'seed';
+    protected $usage = 'seed [strict]';
 
     public function run(array $params): int
     {
         try {
+            // `seed` sets up the usable application. `seed strict` is for
+            // acceptance checks and refuses any deferred nutrition seeder.
+            if (array_diff($params, ['strict']) !== []) {
+                CLI::error('Usage: php spark ' . $this->usage);
+                return EXIT_ERROR;
+            }
+            $strict = in_array('strict', $params, true);
             $this->banner('🌱 DATABASE SEEDING');
 
             $this->step('🧭', 'Pre-flight: checking for pending migrations first...', 'cyan');
@@ -54,7 +62,7 @@ class SeedAll extends BaseCommand
 
             $this->step('🔎', sprintf('Checking %d registered seeder(s)...', count($seeders)), 'cyan');
             $pending = [];
-            $blockedSources = [];
+            $deferredNutrition = [];
             // Nutrition seeders must be released together. Importing a partial
             // ingredient catalog would record an irreversible registry marker
             // before the team finishes the other product recipes.
@@ -68,14 +76,19 @@ class SeedAll extends BaseCommand
                     throw new RuntimeException('Registered seeder file is missing: ' . $seeder . '.php');
                 }
 
-                if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true) && ! $catalog['ready']) {
-                    $blockedSources[] = $seeder;
-                    CLI::write(sprintf('   ⛔ [%d/%d] %s — BLOCKED (nutrition catalog incomplete)',
-                        $position, count($seeders), $seeder), 'red');
+                $record = $this->seederRun($db, $seeder);
+                $decision = NutritionSeedingPolicy::disposition($seeder, $catalog['ready'], $record !== null);
+                if ($decision === 'invalid_record') {
+                    throw new RuntimeException($seeder . ' has a seeder_runs marker but its source catalog is incomplete. '
+                        . 'Apply an append-only source-data migration; do not delete or replay the registry marker.');
+                }
+                if ($decision === 'deferred') {
+                    $deferredNutrition[] = $seeder;
+                    CLI::write(sprintf('   ⏸️  [%d/%d] %s — DEFERRED (sourced nutrition catalog incomplete)',
+                        $position, count($seeders), $seeder), 'yellow');
                     continue;
                 }
 
-                $record = $this->seederRun($db, $seeder);
                 if ($record !== null) {
                     // An old release could have recorded a placeholder as seeded.
                     // Registry markers cannot be replayed or overwritten: require
@@ -117,29 +130,12 @@ class SeedAll extends BaseCommand
             }
 
             CLI::newLine();
-            if ($pending === [] && $blockedSources !== []) {
-                CLI::error('Nutrition seeding is BLOCKED: ' . implode(', ', $blockedSources)
-                    . ' require a complete, sourced eight-product catalog. No placeholder seeder was recorded.');
-                foreach (array_slice($catalog['errors'], 0, 12) as $issue) {
-                    CLI::write('  - ' . $issue, 'yellow');
-                }
-                if (count($catalog['errors']) > 12) {
-                    CLI::write('  ...and ' . (count($catalog['errors']) - 12) . ' more issues.', 'yellow');
-                }
-                CLI::write('Run php spark nutrition:catalog-audit to see missing demo products.', 'yellow');
-                CLI::write('Use nutrition:ingredient-import and nutrition:recipe-add with team-verified source IDs and measurements.', 'yellow');
-                return EXIT_ERROR;
+            if ($pending !== []) {
+                $this->step('🚀', sprintf('Running %d pending seeder(s); %d existing seeder(s) will remain skipped.', count($pending), $skipped), 'yellow');
+                CLI::newLine();
+            } else {
+                CLI::write('No runnable seeders remain.', 'green');
             }
-            if ($pending === []) {
-                $this->success(sprintf(
-                    '🎉 No pending seeders — %d existing seeder(s) skipped. Database seed state is current.',
-                    $skipped,
-                ));
-                return EXIT_SUCCESS;
-            }
-
-            $this->step('🚀', sprintf('Running %d pending seeder(s); %d existing seeder(s) will remain skipped.', count($pending), $skipped), 'yellow');
-            CLI::newLine();
 
             $seederRunner = Database::seeder();
             $seederRunner->setSilent(true);
@@ -167,9 +163,13 @@ class SeedAll extends BaseCommand
             }
 
             CLI::newLine();
-            $this->step('🔐', 'Final verification: checking that every registered seeder is recorded...', 'cyan');
+            $this->step('🔐', 'Final verification: checking all non-deferred seeders...', 'cyan');
             $missing = [];
             foreach ($seeders as $seeder) {
+                if (in_array($seeder, $deferredNutrition, true)) {
+                    CLI::write('   ⏸️  Deferred, not recorded: ' . $seeder, 'yellow');
+                    continue;
+                }
                 if ($this->seederRun($db, $seeder) === null) {
                     $missing[] = $seeder;
                     CLI::write('   ❌ Pending: ' . $seeder, 'red');
@@ -179,8 +179,28 @@ class SeedAll extends BaseCommand
             }
 
             if ($missing !== []) {
-                CLI::error(sprintf('❌ Seeder verification incomplete: %d seeder(s) remain unverified (including empty-source blocks).', count($missing)));
+                CLI::error(sprintf('❌ Seeder verification failed: %d required seeder(s) are unrecorded.', count($missing)));
                 return EXIT_ERROR;
+            }
+
+            if ($deferredNutrition !== []) {
+                CLI::newLine();
+                CLI::write(sprintf('⚠️  Core database seeding completed; %d nutrition seeder(s) remain DEFERRED and UNVERIFIED.',
+                    count($deferredNutrition)), 'yellow');
+                CLI::write(sprintf('   Sourced demo recipe coverage: %d/%d.', $catalog['covered'], $catalog['required']), 'yellow');
+                foreach (array_slice($catalog['errors'], 0, 12) as $issue) {
+                    CLI::write('   - ' . $issue, 'yellow');
+                }
+                if (count($catalog['errors']) > 12) {
+                    CLI::write('   ...and ' . (count($catalog['errors']) - 12) . ' more issues.', 'yellow');
+                }
+                CLI::write('   Run php spark nutrition:catalog-audit; import actual sources and measured recipes before claiming nutrition is complete.', 'yellow');
+                if (! NutritionSeedingPolicy::completed(0, count($deferredNutrition), $strict)) {
+                    CLI::error('Strict seeding requires all registered seeders to be verified. Nutrition is still pending.');
+                    return EXIT_ERROR;
+                }
+                CLI::write('✅ Core seeding successful; nutrition seeding remains pending (not recorded).', 'green');
+                return EXIT_SUCCESS;
             }
 
             CLI::newLine();

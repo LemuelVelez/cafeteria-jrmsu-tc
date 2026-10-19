@@ -24,7 +24,7 @@ cafe db migrate
 cafe db seed
 ```
 
-`php spark migrate` is project-wrapped to run CodeIgniter migrations with `--all`; migrations already present in CodeIgniter's migration history are shown as **SKIPPED**, and only pending migrations are applied. `php spark seed` first verifies migrations, then checks the `seeder_runs` registry. Already-recorded seeders are **SKIPPED**; on an upgraded database, existing seed data is detected once and adopted into the registry without rerunning that seeder. Only pending seeders execute. Both commands use colored/emoji progress and finish with explicit **No pending migrations** / **No pending seeders** results.
+`php spark migrate` is project-wrapped to run CodeIgniter migrations with `--all`; migrations already present in CodeIgniter's migration history are shown as **SKIPPED**, and only pending migrations are applied. `php spark seed` first verifies migrations, then checks the `seeder_runs` registry. Already-recorded seeders are **SKIPPED**; on an upgraded database, existing seed data is detected once and adopted into the registry without rerunning that seeder. Only pending seeders execute. Both commands use colored/emoji progress. When the sourced nutrition catalog is unavailable, normal `php spark seed` completes the other seeders and explicitly marks `IngredientSeeder` and `RecipeSeeder` **DEFERRED / UNVERIFIED** without inserting their registry markers. `php spark seed strict` requires every seeder to be complete and returns a nonzero status until the full sourced eight-product catalog is supplied.
 
 For a complete demo reset:
 
@@ -49,6 +49,7 @@ cafe run backend
 cafe run frontend
 php spark migrate
 php spark seed
+php spark seed strict
 cafe db migrate
 cafe db seed
 cafe db refresh
@@ -228,13 +229,13 @@ for `/api/...` paths, including when requests lack AJAX headers.
 
 Run `php spark nutrition:catalog-audit` to validate coverage of all eight demo recipes and sourced ingredient names, measurement conversions, and batch settings before seeding. This command **does not fabricate or certify nutrition data**: the team must cross-check the named PhilFCT/USDA records, measured weights, supplier receipts, and human verification. The distributed `ingredients.csv` and `recipes.csv` intentionally have headers only, pending real source material.
 
-`php spark seed` now **fails with an explicit blocked result** when those source CSVs are empty instead of recording empty nutrition seeders as successful. It still executes other pending seeders. If an older installation has already recorded one of these placeholder seeders in `seeder_runs`, do not delete/replay the record: bring newly obtained source data in through a new append-only migration. Once the real CSVs are supplied on a fresh installation, registered seeders validate and load the data idempotently.
+`php spark seed` now **completes core/demo seeding** even when the nutrition CSVs are empty; it reports both nutrition seeders as **DEFERRED / UNVERIFIED** and does not record them in `seeder_runs`. This is not full panel acceptance. `php spark seed strict` returns an error for any deferred nutrition seeder and is the command to use for final acceptance. If an older installation has already recorded one of these placeholder seeders in `seeder_runs`, do not delete/replay the record: bring newly obtained source data in through a new append-only migration. Once the real CSVs are supplied on a fresh installation, registered seeders validate and load the data idempotently.
 
 Authentication verification-email and password-reset resends atomically invalidate earlier tokens and write a `token_issue` audit event that records only the token purpose, not the token or account contact information. Notification-read acknowledgments are committed atomically and intentionally do not create an audit event.
 
 ### Populate blocked nutrition seeders with real data
 
-If `php spark seed` reports `IngredientSeeder` and `RecipeSeeder` as **BLOCKED**, the migrations have succeeded; the two source CSV files intentionally contain only column headers. Their seed registry entries must not be forged. Use `php spark nutrition:catalog-audit` to identify the eight missing recipes.
+If `php spark seed` reports `IngredientSeeder` and `RecipeSeeder` as **DEFERRED**, the migrations have succeeded; the two source CSV files intentionally contain only column headers. Their seed registry entries must not be forged. Use `php spark nutrition:catalog-audit` to identify the eight missing recipes.
 
 With MySQL available for the existing USDA response cache, the following commands allow importing **actual Foundation or SR Legacy FoodData Central nutrient records** while explicitly requiring measured conversion and business inputs. The commands accept shell positional arguments; quote ingredient names containing spaces.
 
