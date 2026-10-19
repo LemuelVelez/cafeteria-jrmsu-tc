@@ -50,6 +50,8 @@ cafe run frontend
 php spark migrate
 php spark seed
 php spark seed strict
+php spark populate
+php spark populate hot-americano
 cafe db migrate
 cafe db seed
 cafe db refresh
@@ -262,3 +264,24 @@ See [`docs/nutrition/EIGHT_PRODUCT_SOURCE_STATUS.md`](docs/nutrition/EIGHT_PRODU
 Eight new registry-tracked classes run independently, in order: `ChickenAdoboRiceSeeder`, `PorkSisigRiceSeeder`, `FriedChickenMealSeeder`, `CheeseBurgerSeeder`, `CrispyFriesSeeder`, `IcedSpanishLatteSeeder`, `HotAmericanoSeeder`, and `CalamansiJuiceSeeder`. Use `php spark seed` to apply each **ready** seeder; it registers and runs only products with matching sourced entries in `ingredients.csv`, recipe quantities in `recipes.csv`, and an individually signed measurement worksheet. An unfinished product is shown as DEFERRED and is **not recorded as complete**. The legacy `IngredientSeeder` and `RecipeSeeder` remain registered to preserve migration history, but are never replayed as a substitute for the new per-product import process. `php spark seed strict` continues to fail until the complete sourced catalog passes acceptance.
 
 Every new seeder imports only the missing ingredients required for its one product, records ingredient opening stock through `IngredientInventoryService`, and writes the recipe, cost refresh and audit records in one database transaction. An existing recipe is never overwritten. Re-running a satisfied seeder inserts nothing. Actual product nutrition remains **estimated** until authorized human verification. The included worksheet still lacks approved recipe quantities; all eight custom seeders are initially deferred, and no nutrition values have been invented. For corrections to data that was **previously seeded**, use a new append-only reversible migration rather than deleting or replaying old `seeder_runs` entries.
+
+### Populate the eight sourced nutrition CSVs
+
+Run `php spark populate` from an interactive terminal, or `php spark populate hot-americano`
+for one product. This asks a kitchen representative to confirm which candidate foods
+are **actually** used, their real batch amounts and units, waste, servings, cooking
+yield, packaging cost, the approver's name/date, and ingredient purchase costs,
+opening stock, and conversions where needed. Each USDA FoodData Central record is
+retrieved through the existing cached lookup service. The operator must explicitly
+confirm the match; unverified reference candidates are never copied as fact.
+
+When a product passes validation and the operator explicitly confirms the final
+write, the command updates `ingredients.csv`, `recipes.csv`, and
+`recipe_measurement_workbook.csv` together. Existing finished recipes are skipped;
+no database records or `seeder_runs` markers are modified. If a USDA source cannot
+be fetched, a food is not listed, or a needed kitchen measurement is unknown, the
+product remains incomplete rather than receiving invented numbers. Do not approve
+an ingredient list that omits water, seasonings, oil absorption, or other actual
+components. Once prepared, run `php spark seed`, `php spark nutrition:references`,
+and `php spark nutrition:catalog-audit`. Existing historical seed records still
+require the append-only migration strategy for corrections.

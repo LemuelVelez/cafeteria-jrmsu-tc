@@ -125,10 +125,16 @@ final class NutritionCatalogImport
         if (! is_file($path) || ! is_writable($path)) {
             throw new \RuntimeException('Catalog CSV is missing or not writable: ' . basename($path));
         }
-        $lock = fopen($path . '.lock', 'c');
-        if ($lock === false) throw new \RuntimeException('Cannot create catalog import lock.');
+        // Coordinate individual CSV import commands with `php spark populate`,
+        // which commits ingredients, recipes, and the approval worksheet as a unit.
+        $globalLock = fopen(dirname($path) . '/.populate.lock', 'c');
+        if ($globalLock === false) throw new \RuntimeException('Cannot create shared nutrition catalog lock.');
         try {
-            if (! flock($lock, LOCK_EX)) throw new \RuntimeException('Cannot lock catalog CSV.');
+            if (! flock($globalLock, LOCK_EX)) throw new \RuntimeException('Cannot lock shared nutrition catalog.');
+            $lock = fopen($path . '.lock', 'c');
+            if ($lock === false) throw new \RuntimeException('Cannot create catalog import lock.');
+            try {
+                if (! flock($lock, LOCK_EX)) throw new \RuntimeException('Cannot lock catalog CSV.');
             $rows = SourcedRecipeCatalog::read($path, $columns);
             $validate($rows);
             $rows[] = array_combine($columns, array_map(
@@ -154,9 +160,13 @@ final class NutritionCatalogImport
             } finally {
                 if (is_file($temp)) unlink($temp);
             }
+            } finally {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
         } finally {
-            flock($lock, LOCK_UN);
-            fclose($lock);
+            flock($globalLock, LOCK_UN);
+            fclose($globalLock);
         }
     }
 }

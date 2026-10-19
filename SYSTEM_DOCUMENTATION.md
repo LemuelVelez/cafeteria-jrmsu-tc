@@ -394,3 +394,17 @@ The Spark seed preflight and direct `DatabaseSeeder::run()` both withhold **both
 ### Independent product nutrition imports
 
 `DemoProductNutritionCatalog` gates each of eight product seeders separately against `ingredients.csv`, `recipes.csv` and `recipe_measurement_workbook.csv`: it checks exact source IDs, consistent batch settings, unit conversions, and kitchen approval name/date. `DemoProductRecipeSeedService` performs the isolated import in a transaction using only the product's recipe lines, ledgered ingredient opening balances, `CostingService::refreshNutrition`, and same-connection audit events. `DatabaseSeeder::SEEDERS` lists each custom class and `isSatisfied()` compares the actual DB recipe quantities/units/source references with the source CSV. `SeedAll` marks unapproved products deferred rather than consuming registry markers; legacy global ingredient/recipe seeders remain in the registry for backward compatibility without being replayed for partial catalogs. `DatabaseSeeder::run()` honors the same per-product readiness. Neither the 20 candidate USDA source IDs nor a completed worksheet alone is a substitute for actual nutrient source validation and authorized nutrition verification.
+
+### Interactive nutrition catalog preparation (`php spark populate`)
+
+`App\Commands\Populate` delegates to `NutritionPopulateService` to collect an
+actual kitchen recipe, validate each ingredient via an FDC detail response and
+`NutritionCatalogImport::ingredientFromUsda`, and check the product with
+`DemoProductNutritionCatalog::assess` before changing the three CSVs. The
+operator must explicitly confirm recipe inclusion, source identity, signed kitchen
+measurements, and final write. Missing/unknown values fail closed. Products can
+be populated independently; preexisting signed recipes are never overwritten.
+The command updates **source CSV files only**, not the application database.
+It requires an interactive terminal, functioning USDA lookup/cache, and human
+recipe measurements and approval. Afterwards `php spark seed` uses the separate
+registered product seeders.
