@@ -53,6 +53,18 @@ final class NutritionCatalogAuditTest extends TestCase
         self::assertContains('Invalid measured unit conversion: chicken-adobo-rice / Synthetic ingredient', $result['errors']);
     }
 
+    public function testPartiallyPreparedCatalogMustNotBeSeeded(): void
+    {
+        // One complete ingredient record does not authorize recording a one-time
+        // seed marker while seven of the eight product recipes are still absent.
+        $result = NutritionCatalogAudit::assess([$this->ingredient()], [
+            $this->recipe('chicken-adobo-rice'),
+        ]);
+        self::assertFalse($result['ready']);
+        self::assertSame(1, $result['covered']);
+        self::assertCount(7, $result['errors']);
+    }
+
     public function testCurrentEmptyCatalogDoesNotPretendToHaveNutrition(): void
     {
         $rows = NutritionCatalogAudit::assess([], []);

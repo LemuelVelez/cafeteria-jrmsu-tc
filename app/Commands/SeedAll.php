@@ -3,6 +3,9 @@
 namespace App\Commands;
 
 use App\Database\Seeds\DatabaseSeeder;
+use App\Database\Seeds\IngredientSeeder;
+use App\Database\Seeds\RecipeSeeder;
+use App\Services\NutritionCatalogAudit;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\Database\BaseConnection;
@@ -52,6 +55,10 @@ class SeedAll extends BaseCommand
             $this->step('🔎', sprintf('Checking %d registered seeder(s)...', count($seeders)), 'cyan');
             $pending = [];
             $blockedSources = [];
+            // Nutrition seeders must be released together. Importing a partial
+            // ingredient catalog would record an irreversible registry marker
+            // before the team finishes the other product recipes.
+            $catalog = NutritionCatalogAudit::assess(IngredientSeeder::rows(), RecipeSeeder::rows());
             $skipped = 0;
 
             foreach ($seeders as $index => $seeder) {
@@ -61,18 +68,11 @@ class SeedAll extends BaseCommand
                     throw new RuntimeException('Registered seeder file is missing: ' . $seeder . '.php');
                 }
 
-                // Empty nutrition source files are placeholders, NOT successful
-                // seeding. Do not write a seeder_runs marker for either of them.
-                // This also detects incorrect markers written by older releases.
-                if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)) {
-                    $class = 'App\\Database\\Seeds\\' . $seeder;
-                    $sourceRows = $class::rows();
-                    if ($sourceRows === []) {
-                        $blockedSources[] = $seeder;
-                        CLI::write(sprintf('   ⛔ [%d/%d] %s — BLOCKED (source CSV has no verified rows)',
-                            $position, count($seeders), $seeder), 'red');
-                        continue;
-                    }
+                if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true) && ! $catalog['ready']) {
+                    $blockedSources[] = $seeder;
+                    CLI::write(sprintf('   ⛔ [%d/%d] %s — BLOCKED (nutrition catalog incomplete)',
+                        $position, count($seeders), $seeder), 'red');
+                    continue;
                 }
 
                 $record = $this->seederRun($db, $seeder);
@@ -119,7 +119,15 @@ class SeedAll extends BaseCommand
             CLI::newLine();
             if ($pending === [] && $blockedSources !== []) {
                 CLI::error('Nutrition seeding is BLOCKED: ' . implode(', ', $blockedSources)
-                    . ' require real, sourced CSV records. No placeholder seeder was recorded.');
+                    . ' require a complete, sourced eight-product catalog. No placeholder seeder was recorded.');
+                foreach (array_slice($catalog['errors'], 0, 12) as $issue) {
+                    CLI::write('  - ' . $issue, 'yellow');
+                }
+                if (count($catalog['errors']) > 12) {
+                    CLI::write('  ...and ' . (count($catalog['errors']) - 12) . ' more issues.', 'yellow');
+                }
+                CLI::write('Run php spark nutrition:catalog-audit to see missing demo products.', 'yellow');
+                CLI::write('Use nutrition:ingredient-import and nutrition:recipe-add with team-verified source IDs and measurements.', 'yellow');
                 return EXIT_ERROR;
             }
             if ($pending === []) {

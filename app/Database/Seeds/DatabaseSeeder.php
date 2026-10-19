@@ -2,6 +2,7 @@
 
 namespace App\Database\Seeds;
 
+use App\Services\NutritionCatalogAudit;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Database\Seeder;
 
@@ -73,7 +74,13 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
+        // The test framework may call DatabaseSeeder directly, bypassing the
+        // tracked Spark seed command. Never apply half a recipe catalog there.
+        $catalog = NutritionCatalogAudit::assess(IngredientSeeder::rows(), RecipeSeeder::rows());
         foreach (self::SEEDERS as $seeder) {
+            if (! $catalog['ready'] && in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)) {
+                continue;
+            }
             $this->call($seeder);
         }
     }
@@ -146,6 +153,7 @@ class DatabaseSeeder extends Seeder
 
     private static function ingredientSeedIsSatisfied(BaseConnection $db): bool
     {
+        if (! NutritionCatalogAudit::assess(IngredientSeeder::rows(), RecipeSeeder::rows())['ready']) return false;
         if (! $db->tableExists('ingredients') || ! $db->tableExists('ingredient_movements')) return false;
         $rows = IngredientSeeder::rows();
         // An empty source catalog is not a successfully applied seeder. The team
@@ -162,6 +170,7 @@ class DatabaseSeeder extends Seeder
 
     private static function recipeSeedIsSatisfied(BaseConnection $db): bool
     {
+        if (! NutritionCatalogAudit::assess(IngredientSeeder::rows(), RecipeSeeder::rows())['ready']) return false;
         if (! $db->tableExists('product_recipes')) return false;
         $rows = RecipeSeeder::rows();
         if ($rows === []) return false;

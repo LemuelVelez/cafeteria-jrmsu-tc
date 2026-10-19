@@ -231,3 +231,18 @@ Run `php spark nutrition:catalog-audit` to validate coverage of all eight demo r
 `php spark seed` now **fails with an explicit blocked result** when those source CSVs are empty instead of recording empty nutrition seeders as successful. It still executes other pending seeders. If an older installation has already recorded one of these placeholder seeders in `seeder_runs`, do not delete/replay the record: bring newly obtained source data in through a new append-only migration. Once the real CSVs are supplied on a fresh installation, registered seeders validate and load the data idempotently.
 
 Authentication verification-email and password-reset resends atomically invalidate earlier tokens and write a `token_issue` audit event that records only the token purpose, not the token or account contact information. Notification-read acknowledgments are committed atomically and intentionally do not create an audit event.
+
+### Populate blocked nutrition seeders with real data
+
+If `php spark seed` reports `IngredientSeeder` and `RecipeSeeder` as **BLOCKED**, the migrations have succeeded; the two source CSV files intentionally contain only column headers. Their seed registry entries must not be forged. Use `php spark nutrition:catalog-audit` to identify the eight missing recipes.
+
+With MySQL available for the existing USDA response cache, the following commands allow importing **actual Foundation or SR Legacy FoodData Central nutrient records** while explicitly requiring measured conversion and business inputs. The commands accept shell positional arguments; quote ingredient names containing spaces.
+
+```sh
+php spark nutrition:ingredient-import <FDC_ID> "<INGREDIENT_NAME>" <PURCHASE_UNIT> <COST_PER_UNIT> <MEASURED_DENSITY_G_PER_ML> <MEASURED_GRAMS_PER_PIECE_OR_DASH> <REORDER_LEVEL> <OPENING_STOCK>
+php spark nutrition:recipe-add <PRODUCT_SLUG> "<INGREDIENT_NAME>" <MEASURED_QUANTITY> <RECIPE_UNIT> <WASTAGE_PERCENT> <RECIPE_SERVINGS> <COOKING_YIELD> <PACKAGING_COST>
+php spark nutrition:catalog-audit
+php spark seed
+```
+
+For the grams-per-piece argument use `-` only when pieces are not used. Supply a measured density rather than a guessed conversion. USDA data is labelled `USDA FDC #… (Foundation/SR Legacy)` and is not misrepresented as PhilFCT. Incomplete nutrient records, repeat ingredients, unsupported data types, and duplicate or inconsistent recipes are rejected without truncating the existing CSV. A valid FDC food ID does **not** establish that the selected food matches your actual cooked ingredient; the team must confirm the match and receipts. The public USDA `DEMO_KEY` has network/rate limits. Products remain *Estimated* until human nutrition verification. **Both nutrition seeders are blocked as a unit until all eight recipes pass the catalog audit; a partial ingredient import cannot consume the one-time seeder registry slot.** For databases where these seeders have already been recorded, apply new source data with an append-only migration or administrative entry, not registry deletion or seeder replay.
