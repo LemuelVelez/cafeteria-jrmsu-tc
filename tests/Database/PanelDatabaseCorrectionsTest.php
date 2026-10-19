@@ -67,6 +67,15 @@ final class PanelDatabaseCorrectionsTest extends DatabaseTestCase
         $today = date('Y-m-d');
         $card = (new StockCardService($db))->get('product', $id, $today, $today, '', 1, 25);
         self::assertCount(25, $card['rows']);
+        $pageTwo = (new StockCardService($db))->get('product', $id, $today, $today, '', 2, 25);
+        $pageThree = (new StockCardService($db))->get('product', $id, $today, $today, '', 3, 25);
+        self::assertCount(25, $pageTwo['rows']);
+        self::assertNotEmpty($pageThree['rows']);
+        self::assertSame([], array_intersect(
+            array_column($card['rows'], 'id'), array_column($pageTwo['rows'], 'id'),
+        ));
+        self::assertSame($card['opening'], $pageTwo['opening']);
+        self::assertSame($card['closing'], $pageTwo['closing']);
         self::assertGreaterThanOrEqual(60, $card['total']);
         self::assertEqualsWithDelta((int) $product['stock'] + 60, (float) $card['closing'], 0.001);
         self::assertEqualsWithDelta((float) $card['closing'], (float) $db->table('products')

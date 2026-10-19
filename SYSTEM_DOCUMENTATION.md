@@ -313,3 +313,21 @@ Behavior tests `OrderSecurityPolicyTest`, `OrderTransitionMatrixTest`, and `Deli
 `Account\PrivacyController::export()` delegates to `CustomerDataExportService`. Every query is filtered by the session customer ID, uses an explicit field allowlist, and the data access is recorded through `AuditLogService` within the same transaction. Included sections are profile, orders, items, payments and reviews. Internal request tokens, pickup/delivery code hashes, payment transaction references, security fields and historical cost snapshots are excluded. The response is JSON with cache prevention.
 
 `Admin\PrivacyController::approve()` delegates to `CustomerDataDeletionService`, which locks the pending customer row and performs anonymization in one database transaction. Personal contact fields and unstructured notes/reviews/notifications/device subscriptions/auth tokens are cleared; financial order and payment records are retained. Account status becomes inactive and the session version increments. Audit action: `personal_data_deletion_approved`. The avatar file/object is deleted after commit through the existing media storage service. No new settings, environment variables, or migrations are required. MySQL acceptance still pending.
+
+
+### Signed order QR verification (October 2026)
+
+Kitchen/dispatch (`o2`) and customer delivery (`d2`) QR tokens now use distinct,
+HMAC-authenticated scopes, with their issue timestamp signed and a fixed **48-hour**
+validity period. A 60-second clock-skew allowance applies; delivery QR is additionally
+restricted to orders currently **Out for Delivery**. Verification fails closed when
+`encryption.key` is absent. Legacy unsigned-timestamp QR tokens are not accepted:
+**reprint older kitchen tickets and customer receipts** if they need verification.
+The stable four-digit pickup and delivery confirmation codes remain available under
+existing order-stage and rate-limit rules. Printed/digital code scans require real-device
+acceptance testing.
+
+The inventory stock card uses 25 rows/page and preserves ledger, date and movement
+type filters. Report CSV files include order, profit and delivery summary metrics to
+reconcile with on-screen totals. All database-backed acceptance and browser print
+verification remain pending on a MySQL-enabled environment.

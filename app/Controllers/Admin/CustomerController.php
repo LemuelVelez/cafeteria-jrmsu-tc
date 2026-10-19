@@ -49,7 +49,21 @@ class CustomerController extends BaseController
         if (! $customer) {
             return $this->jsonError('Customer not found.', null, 404);
         }
-        (new AuditLogService())->record('pii_reveal', 'user', $id, ['field' => 'phone']);
-        return $this->jsonSuccess('Phone revealed.', ['phone' => $customer['phone'] ?: '—']);
+        // Treat a PII read as an audited operation: do not reveal the value if
+        // the audit transaction cannot be committed.
+        $db = db_connect();
+        $db->transBegin();
+        try {
+            (new AuditLogService($db))->record('pii_reveal', 'user', $id, ['field' => 'phone']);
+            if (! $db->transStatus()) {
+                throw new \RuntimeException('Unable to audit phone access.');
+            }
+            $db->transCommit();
+        } catch (Throwable $exception) {
+            $db->transRollback();
+            return $this->jsonError('Phone access could not be audited.', null, 503);
+        }
+        return $this->jsonSuccess('Phone revealed.', ['phone' => $customer['phone'] ?: '—'])
+            ->setHeader('Cache-Control', 'private, no-store');
     }
 }

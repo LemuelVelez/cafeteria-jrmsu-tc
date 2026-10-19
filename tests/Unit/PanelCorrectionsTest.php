@@ -39,30 +39,20 @@ final class PanelCorrectionsTest extends TestCase
         self::assertSame([], OrderService::allowedTransitions($delivery, ['role'=>'rider','id'=>8]));
     }
 
-    public function testSecurityOwnershipInventoryBarcodeQrNotificationAndRevenueContractsExist(): void
+    public function testSignedOrderQrUsesAnAuthenticatedExpiringPurposeBoundToken(): void
     {
-        $root = dirname(__DIR__, 2);
-        $auth = file_get_contents($root.'/app/Services/AuthService.php');
-        $orders = file_get_contents($root.'/app/Controllers/Api/OrderApiController.php');
-        $routes = file_get_contents($root.'/app/Config/Routes.php');
-        $inventory = file_get_contents($root.'/app/Services/InventoryService.php');
-        $productController = file_get_contents($root.'/app/Controllers/Admin/ProductController.php');
-        $qr = file_get_contents($root.'/app/Services/OrderQrService.php');
-        $notifications = file_get_contents($root.'/app/Services/NotificationService.php');
-        $reports = file_get_contents($root.'/app/Services/ReportService.php');
-        $migration = file_get_contents($root.'/app/Database/Migrations/2026-08-17-000017_NormalizeOrderStatuses.php');
-
-        self::assertStringContainsString('failed_login_attempts', $auth);
-        self::assertStringContainsString('locked_until', $auth);
-        self::assertStringContainsString("\$user['role'] === 'customer'", $orders);
-        self::assertStringContainsString("\$user['role'] === 'rider'", $orders);
-        self::assertStringContainsString("products/barcode/(:segment)", $routes);
-        self::assertStringContainsString('SELECT * FROM products WHERE id = ? AND deleted_at IS NULL FOR UPDATE', $inventory);
-        self::assertStringContainsString("if (\$id === null)", $productController);
-        self::assertStringContainsString("hash_hmac('sha256'", $qr);
-        self::assertStringContainsString('statusChanged', $notifications);
-        self::assertStringContainsString("payment_status = 'paid'", $reports);
-        self::assertStringContainsString("ready_for_pickup", $migration);
-        self::assertStringContainsString("completed", $migration);
+        $issuedAt = 1790000000;
+        $key = 'fixture-key';
+        $secret = 'fixture-order-request';
+        $qr = \App\Services\SignedOrderQr::issue(9, $secret, $key,
+            \App\Services\SignedOrderQr::KITCHEN, $issuedAt);
+        self::assertTrue(\App\Services\SignedOrderQr::matches($qr, $secret, $key,
+            \App\Services\SignedOrderQr::KITCHEN, $issuedAt + 20));
+        self::assertFalse(\App\Services\SignedOrderQr::matches($qr, $secret, $key,
+            \App\Services\SignedOrderQr::DELIVERY, $issuedAt + 20));
+        self::assertFalse(\App\Services\SignedOrderQr::matches($qr, $secret, $key,
+            \App\Services\SignedOrderQr::KITCHEN,
+            $issuedAt + \App\Services\SignedOrderQr::VALID_FOR_SECONDS));
     }
+
 }

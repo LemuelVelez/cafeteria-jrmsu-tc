@@ -169,3 +169,21 @@ Stock threshold alerts are once per crossing from above to at/below the reorder 
 Authenticated customers can download their own data via **Settings → Export data**. The JSON includes only whitelisted profile fields, order history, order items, payments (without merchant transaction references), and reviews. Internal token/code hashes, audit records, delivery verification evidence, and cost snapshots are never exported. Exports are audited and use no-store HTTP headers.
 
 When an admin approves a customer deletion request, a single transaction anonymizes account details, clears optional order/line-item/status/issue notes and review comments, removes push subscriptions, notifications and login/reset tokens, and invalidates old sessions. Historical financial orders and payments remain for reconciliation. Stored avatar media is deleted after the database commit. The relevant tests are `tests/Unit/CustomerPrivacyProjectionTest.php` and `tests/Database/CustomerPrivacyDatabaseTest.php` (requires the configured isolated MySQL test database).
+
+
+### Signed order QR verification (October 2026)
+
+Kitchen/dispatch (`o2`) and customer delivery (`d2`) QR tokens now use distinct,
+HMAC-authenticated scopes, with their issue timestamp signed and a fixed **48-hour**
+validity period. A 60-second clock-skew allowance applies; delivery QR is additionally
+restricted to orders currently **Out for Delivery**. Verification fails closed when
+`encryption.key` is absent. Legacy unsigned-timestamp QR tokens are not accepted:
+**reprint older kitchen tickets and customer receipts** if they need verification.
+The stable four-digit pickup and delivery confirmation codes remain available under
+existing order-stage and rate-limit rules. Printed/digital code scans require real-device
+acceptance testing.
+
+The inventory stock card uses 25 rows/page and preserves ledger, date and movement
+type filters. Report CSV files include order, profit and delivery summary metrics to
+reconcile with on-screen totals. All database-backed acceptance and browser print
+verification remain pending on a MySQL-enabled environment.

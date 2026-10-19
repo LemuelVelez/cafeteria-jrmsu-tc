@@ -55,7 +55,7 @@ class InventoryController extends BaseController
         $items=$card['ledger']==='ingredient'
             ? $db->table('ingredients')->select('id,name')->orderBy('name')->get()->getResultArray()
             : $db->table('products')->select('id,name')->where('deleted_at',null)->orderBy('name')->get()->getResultArray();
-        $pageLinks=service('pager')->makeLinks($card['page'],$card['total'],25,'default_full');
+        $pageLinks=service('pager')->makeLinks($card['page'],$card['perPage'],$card['total'],'default_full');
         return $this->render('admin/inventory/stock_card',[
             'title'=>'Stock card','card'=>$card,'items'=>$items,'pagerLinks'=>$pageLinks,
             'canEdit'=>(session()->get('user')['role']??'')==='admin',

@@ -29,7 +29,7 @@ exactly one appropriate audit record and `AuditLogService::scrub()` PII removal.
 | POST | `/admin/inventory/adjust` | inventory_movement | **Not run (MySQL unavailable)** |
 | POST | `/admin/inventory/waste` | inventory_movement | **Not run (MySQL unavailable)** |
 | POST | `/admin/inventory/reconcile` | Read-only reconciliation; no state change | **Not run (MySQL unavailable)** |
-| POST | `/admin/customers/(:num)/reveal-phone` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
+| POST | `/admin/customers/(:num)/reveal-phone` | pii_reveal (read audited transactionally; no phone in audit) | **Not run (MySQL unavailable)** |
 | POST | `/admin/costing/nutrition-import` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
 | POST | `/admin/costing/ingredient` | ingredient_saved | **Not run (MySQL unavailable)** |
 | POST | `/admin/costing/recipe` | recipe_changed | **Not run (MySQL unavailable)** |

@@ -12,7 +12,7 @@ class OrderVerifyController extends BaseController
     public function show(string $token): string
     {
         $qr = new OrderQrService();
-        $order = str_starts_with($token, 'd.') ? $qr->verifyDeliveryToken($token) : $qr->verify($token);
+        $order = str_starts_with($token, 'd2.') ? $qr->verifyDeliveryToken($token) : $qr->verify($token);
         $actor = session()->get('user');
         if (! $order || ! in_array($actor['role'] ?? '', ['admin','cashier','rider'], true)) {
             throw PageNotFoundException::forPageNotFound('Invalid or tampered order verification code.');

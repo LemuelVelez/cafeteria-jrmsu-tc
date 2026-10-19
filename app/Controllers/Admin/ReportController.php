@@ -47,6 +47,7 @@ class ReportController extends BaseController
         if (! in_array($type, self::TYPES, true) || ($type==='attendance' && !$this->isAttendanceEnabled())) return redirect()->to('/admin/reports')->with('error', 'Invalid report type.');
         [$from, $to] = $this->dateRange(false);
         $service = new ReportService();
+        $summary = [];
         $data = match ($type) {
             'sales' => (static function () use ($service, $from, $to): array {
                 $sales = $service->sales($from, $to);
@@ -58,9 +59,19 @@ class ReportController extends BaseController
                 }
                 return $rows;
             })(),
-            'orders' => array_map(static fn (array $row): array => array_intersect_key($row, array_flip([
-                'order_number','created_at','order_type','status','payment_method','payment_status','subtotal','discount','delivery_fee','total',
-            ])), $service->orders($from,$to)['rows']),
+            'orders' => (static function () use ($service, $from, $to, &$summary): array {
+                $report = $service->orders($from, $to);
+                $summary = [
+                    'orders' => count($report['rows']),
+                    'cancellation_rate_percent' => $report['cancellationRate'],
+                    'issue_rate_percent' => $report['issueRate'],
+                    'average_preparation_minutes' => $report['averagePreparationMinutes'],
+                ];
+                return array_map(static fn (array $row): array => array_intersect_key($row, array_flip([
+                    'order_number','created_at','order_type','status','payment_method','payment_status',
+                    'subtotal','discount','delivery_fee','total',
+                ])), $report['rows']);
+            })(),
             'inventory' => (static function () use ($service,$from,$to): array {
                 $report = $service->inventory($from,$to);
                 return array_map(static function (array $p) use ($report): array {
@@ -78,8 +89,28 @@ class ReportController extends BaseController
                 return array_merge(array_map(static fn($x)=>['group'=>'top']+$x,$p['top']),
                     array_map(static fn($x)=>['group'=>'slow']+$x,$p['slow']));
             })(),
-            'deliveries' => $service->deliveries($from, $to)['riders'],
-            'profit' => $service->profit($from,$to)['rows'],
+            'deliveries' => (static function () use ($service, $from, $to, &$summary): array {
+                $report = $service->deliveries($from, $to);
+                $summary = ['average_delivery_minutes' => $report['averageDeliveryMinutes']];
+                return $report['riders'];
+            })(),
+            'profit' => (static function () use ($service, $from, $to, &$summary): array {
+                $report = $service->profit($from, $to);
+                // Export exactly the on-screen totals, including uncosted sales.
+                $summary = [
+                    'gross_item_revenue' => $report['revenue'],
+                    'order_discounts' => $report['discounts'],
+                    'delivery_fees' => $report['deliveryFees'],
+                    'paid_net_sales' => $report['netSales'],
+                    'costed_item_cogs' => $report['cost'],
+                    'costed_item_gross_profit' => $report['profit'],
+                    'uncosted_item_net_revenue' => $report['uncostedRevenue'],
+                    'costed_food_cost_percent' => $report['foodCostPercent'] ?? 'N/A',
+                    'costed_margin_percent' => $report['marginPercent'] ?? 'N/A',
+                    'target_food_cost_percent' => $report['targetFoodCostPercent'],
+                ];
+                return $report['rows'];
+            })(),
             'lowstock' => $service->lowStock($from,$to),
             'audit' => $service->audit($from,$to),
             'attendance' => $service->attendance($from,$to),
@@ -96,6 +127,13 @@ class ReportController extends BaseController
             foreach ($data as $row) self::putCsv($stream, array_values($row));
         } else {
             self::putCsv($stream, ['No records for selected period']);
+        }
+        if ($summary !== []) {
+            self::putCsv($stream, []);
+            self::putCsv($stream, ['Summary metric', 'Value']);
+            foreach ($summary as $name => $value) {
+                self::putCsv($stream, [$name, $value]);
+            }
         }
         rewind($stream); $csv = stream_get_contents($stream) ?: ''; fclose($stream);
         return $this->response

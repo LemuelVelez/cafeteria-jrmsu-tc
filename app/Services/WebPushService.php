@@ -78,6 +78,7 @@ final class WebPushService
         try{
             $db->table('push_subscriptions')->where(['user_id'=>$userId,'endpoint_hash'=>hash('sha256',$endpoint)])->delete();
             (new AuditLogService($db))->record('push_unsubscribed','user',$userId);
+            if (! $db->transStatus()) throw new \RuntimeException('Unable to remove push subscription.');
             $db->transCommit();
         }catch(\Throwable $e){$db->transRollback();throw $e;}
     }
