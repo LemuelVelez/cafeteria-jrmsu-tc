@@ -1,4 +1,4 @@
-/* Public board: pure alert diff; first successful response is silent. */
+/* Public pickup queue. First successful feed seeds alerts without replaying old calls. */
 (function (root) {
     'use strict';
     function computeNewlyReady(previousKeys, readyList) {
@@ -8,6 +8,7 @@
     }
     if (typeof module !== 'undefined' && module.exports) module.exports = { computeNewlyReady };
     if (!root.document) return;
+
     const document = root.document;
     const board = document.querySelector('[data-queue-board]');
     if (!board) return;
@@ -16,21 +17,29 @@
     const ready = board.querySelector('[data-queue-ready]');
     const calling = board.querySelector('[data-queue-calling]');
     const connection = board.querySelector('[data-queue-connection]');
+    const connectionText = board.querySelector('[data-queue-status]');
+    const retry = board.querySelector('[data-queue-retry]');
     const live = board.querySelector('[data-queue-announcement]');
     const enable = board.querySelector('[data-queue-unlock]');
     const fullscreen = board.querySelector('[data-queue-fullscreen]');
     const clock = board.querySelector('[data-queue-clock]');
+    const POLL_INTERVAL = 6000;
+    const MAX_RETRY = 60000;
     let known = null;
     let timer = null;
-    let backoff = 4000;
+    let activeRequest = null;
+    let backoff = POLL_INTERVAL;
     let audioEnabled = false;
-    const renderNumbers = (target, values) => {
+    let pendingImmediateRetry = false;
+
+    function renderNumbers(target, values) {
         target.replaceChildren();
-        if (values.length === 0) {
+        if (!values.length) {
             const placeholder = document.createElement('p');
             placeholder.className = 'queue-empty';
             placeholder.textContent = 'No orders yet';
             target.append(placeholder);
+            return;
         }
         values.forEach((value) => {
             const tile = document.createElement('span');
@@ -38,41 +47,116 @@
             tile.textContent = String(value);
             target.append(tile);
         });
-    };
-    function schedule(ms) { clearTimeout(timer); if (!document.hidden) timer = setTimeout(poll, ms); }
+    }
+
+    function schedule(ms) {
+        root.clearTimeout(timer);
+        timer = null;
+        if (!document.hidden) timer = root.setTimeout(poll, ms);
+    }
+
+    function setConnection(message) {
+        connectionText.textContent = message;
+        connection.hidden = !message;
+    }
+
     async function poll() {
-        if (document.hidden) return;
+        if (document.hidden || activeRequest) return;
+        if (root.navigator?.onLine === false) {
+            setConnection('Offline — waiting for network');
+            schedule(Math.min(backoff, 15000));
+            return;
+        }
+        const controller = new AbortController();
+        activeRequest = controller;
+        const timeout = root.setTimeout(() => controller.abort(), 10000);
+        retry.disabled = true;
         try {
-            const response = await fetch(feedUrl, { cache: 'no-store', credentials: 'same-origin' });
-            if (!response.ok) throw new Error('Unable to refresh queue');
+            const response = await root.fetch(feedUrl, {
+                cache: 'no-store', credentials: 'same-origin',
+                headers: { Accept: 'application/json' }, signal: controller.signal,
+            });
+            if (!response.ok) {
+                const error = new Error('Queue feed unavailable');
+                error.status = response.status;
+                const retryAfter = Number.parseInt(response.headers.get('Retry-After'), 10);
+                error.retryAfter = Number.isFinite(retryAfter) ? retryAfter * 1000 : 0;
+                throw error;
+            }
             const data = await response.json();
+            if (!Array.isArray(data.preparing) || !Array.isArray(data.ready) ||
+                !data.ready.every((r) => r && typeof r.number === 'string' && Number.isFinite(Number(r.calls)))) {
+                throw new Error('Invalid queue feed');
+            }
+
             const fresh = computeNewlyReady(known || new Set(data.ready.map((r) => `${r.number}:${r.calls}`)), data.ready);
             const newlyReady = known === null ? [] : fresh.newlyReady;
             known = fresh.keys;
             renderNumbers(preparing, data.preparing);
             renderNumbers(ready, data.ready.map((r) => r.number));
-            if (data.ready.length) calling.textContent = data.ready[0].number;
-            else calling.textContent = '—';
+            calling.textContent = data.ready.length ? data.ready[0].number : '—';
+
             if (newlyReady.length) {
-                const newest = data.ready[0];
+                // The feed sorts by the most recent call; don't announce every stale call after an outage.
+                const newest = newlyReady[0];
                 calling.textContent = newest.number;
                 calling.classList.remove('queue-flash');
                 void calling.offsetWidth;
                 calling.classList.add('queue-flash');
-                live.textContent = newlyReady.map((r) => `Order number ${r.number}, ready for pickup.`).join(' ');
-                for (const entry of newlyReady) {
-                    if (audioEnabled && data.sound) root.CafeteriaChime?.play();
-                    if (audioEnabled && data.voice) root.setTimeout(() => root.CafeteriaChime?.announce(`Order number ${Number.parseInt(entry.number.match(/\d+$/)?.[0] || entry.number, 10) || entry.number}, ready for pickup.`), data.sound ? 900 : 0);
+                live.textContent = `Order number ${newest.number}, ready for pickup.`;
+                if (audioEnabled && data.sound) root.CafeteriaChime?.play();
+                if (audioEnabled && data.voice) {
+                    const spokenNumber = Number.parseInt(newest.number.match(/\d+$/)?.[0] || '', 10);
+                    root.setTimeout(() => root.CafeteriaChime?.announce(
+                        `Order number ${Number.isFinite(spokenNumber) ? spokenNumber : newest.number}, ready for pickup.`
+                    ), data.sound ? 900 : 0);
                 }
             }
-            backoff = 4000;
-            connection.hidden = true;
-        } catch (_) {
-            connection.hidden = false;
-            backoff = Math.min(30000, backoff * 2);
+            backoff = POLL_INTERVAL;
+            setConnection('');
+        } catch (error) {
+            if (controller.signal.aborted && document.hidden) return;
+            const limited = error.status === 429;
+            backoff = limited ? Math.max(30000, error.retryAfter || 0) : Math.min(MAX_RETRY, Math.max(POLL_INTERVAL * 2, backoff * 2));
+            backoff = Math.min(MAX_RETRY, backoff);
+            setConnection(limited ? 'Updates limited — retrying soon' :
+                root.navigator?.onLine === false ? 'Offline — waiting for network' :
+                    error.status === 404 ? 'Queue feed unavailable — retrying' : 'Reconnecting to queue…');
+        } finally {
+            root.clearTimeout(timeout);
+            if (activeRequest === controller) activeRequest = null;
+            retry.disabled = false;
+            if (pendingImmediateRetry && !document.hidden) {
+                pendingImmediateRetry = false;
+                schedule(0);
+            } else schedule(backoff);
         }
-        schedule(backoff);
     }
+
+    function refreshNow() {
+        root.clearTimeout(timer);
+        timer = null;
+        if (activeRequest) {
+            activeRequest.abort();
+            // Do not overlap polls: run again when the cancelled request settles.
+            pendingImmediateRetry = true;
+            return;
+        }
+        poll();
+    }
+
+    retry?.addEventListener('click', refreshNow);
+    root.addEventListener('online', refreshNow);
+    root.addEventListener('offline', () => {
+        setConnection('Offline — waiting for network');
+        if (activeRequest) activeRequest.abort();
+    });
+    document.addEventListener('visibilitychange', () => {
+        root.clearTimeout(timer);
+        timer = null;
+        if (document.hidden) activeRequest?.abort();
+        else refreshNow();
+    });
     enable?.addEventListener('click', async () => {
         audioEnabled = await root.CafeteriaChime?.unlock() === true;
         if (audioEnabled) { enable.hidden = true; root.CafeteriaChime.play(); }
@@ -82,12 +166,12 @@
         if (document.fullscreenElement) document.exitFullscreen?.();
         else document.documentElement.requestFullscreen?.();
     });
-    const updateClock = () => { clock.textContent = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).format(new Date()); };
+    function updateClock() {
+        clock.textContent = new Intl.DateTimeFormat('en-PH', {
+            timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+        }).format(new Date());
+    }
     updateClock();
-    setInterval(updateClock, 1000);
-    document.addEventListener('visibilitychange', () => {
-        clearTimeout(timer);
-        if (!document.hidden) poll();
-    });
+    root.setInterval(updateClock, 1000);
     poll();
 })(typeof window === 'undefined' ? {} : window);

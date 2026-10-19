@@ -1,5 +1,6 @@
 <?= $this->extend('layouts/main') ?>
 <?= $this->section('content') ?>
+<div class="riders-page">
 <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
     <div>
         <h1 class="h3 section-title fw-bold">Riders</h1>
@@ -7,9 +8,9 @@
     </div>
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#riderModal" type="button"><i class="bi bi-plus-lg me-1"></i>New rider</button>
 </div>
-<div class="surface-card table-card overflow-hidden">
-    <div class="table-responsive">
-        <table class="table responsive-table">
+<div class="surface-card table-card rider-table-card">
+    <div class="table-responsive" tabindex="0" aria-label="Riders table, scroll horizontally to see all columns">
+        <table class="table responsive-table rider-table">
             <thead>
                 <tr>
                     <th>Rider</th>
@@ -33,23 +34,27 @@
                         </td>
                         <td data-label="Phone"><?= esc($user['phone'] ?: '—') ?></td>
                         <td data-label="Status"><span class="badge <?= $user['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?> text-capitalize"><?= esc($user['status']) ?></span></td>
-                        <td data-label="Last login"><?= time_ago($user['last_login_at']) ?></td>
-                        <td data-label="Update" class="text-end">
-                            <form class="d-inline-flex gap-2" action="<?= base_url('admin/riders/' . $user['id'] . '/status') ?>" method="post" data-confirm="Update this rider account status?" data-confirm-title="Update rider" data-confirm-label="Update">
+                        <td data-label="Last login"><?= esc(time_ago($user['last_login_at'])) ?></td>
+                        <td data-label="Update" class="text-end rider-update-cell">
+                            <form class="rider-update-form" action="<?= esc(base_url('admin/riders/' . $user['id'] . '/status'), 'attr') ?>" method="post" data-confirm="Update this rider account status?" data-confirm-title="Update rider" data-confirm-label="Update">
                                 <?= csrf_field() ?>
-                                <select class="form-select form-select-sm" name="status">
+                                <select class="form-select form-select-sm rider-status-select" name="status" aria-label="Status for <?= esc($user['name'], 'attr') ?>">
                                     <option value="active" <?= $user['status'] === 'active' ? 'selected' : '' ?>>Active</option>
                                     <option value="inactive" <?= $user['status'] === 'inactive' ? 'selected' : '' ?>>Inactive</option>
                                     <option value="banned" <?= $user['status'] === 'banned' ? 'selected' : '' ?>>Banned</option>
                                 </select>
-                                <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
+                                <button class="btn btn-sm btn-outline-primary rider-save-button" data-no-icon type="submit">Save</button>
                             </form>
                         </td>
                     </tr>
                 <?php endforeach; ?>
+                <?php if (empty($users)): ?>
+                    <tr><td colspan="5"><div class="empty-state py-4"><i class="bi bi-bicycle" aria-hidden="true"></i><p class="mb-0">No riders have been added yet.</p></div></td></tr>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>
+</div>
 </div>
 <div class="modal fade" id="riderModal" tabindex="-1" aria-labelledby="riderModalLabel" aria-hidden="true">
     <div class="modal-dialog">

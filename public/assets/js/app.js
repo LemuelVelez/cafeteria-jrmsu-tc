@@ -48,7 +48,7 @@
         document.querySelectorAll(selector).forEach((field) => {
             if (
                 field.closest('.input-group, .field-icon')
-                || field.matches('select, [type="hidden"], [type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="date"], [type="time"], [type="datetime-local"], .form-control-sm, .form-select-sm, [data-no-icon], [data-quantity], [data-cart-qty], [data-pos-qty]')
+                || field.matches('select, [type="hidden"], [type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="date"], [type="time"], [type="datetime-local"], .form-control-sm, .form-select-sm, [data-no-icon], [data-camera-scan], [data-quantity], [data-cart-qty], [data-pos-qty]')
             ) return;
 
             const wrapper = document.createElement('div');
@@ -394,7 +394,9 @@
                 if (iconClass) button.setAttribute('aria-label', accessibleLabels[iconClass]);
             }
 
-            if (existingIcon || button.matches('.btn-close, [data-no-icon], [aria-label]:not([data-auto-icon])')) return;
+            // Compact table actions must not silently grow wider after layout.
+            if (existingIcon || button.matches('.btn-close, .btn-sm, [data-no-icon], [aria-label]:not([data-auto-icon])')
+                || button.closest('table, .input-group, .scan-actions')) return;
             const iconName = buttonIcon(button.textContent.trim());
             if (!iconName) return;
 

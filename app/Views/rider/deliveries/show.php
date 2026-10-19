@@ -106,4 +106,4 @@
 </div>
 <?= $this->endSection() ?>
 
-<?= $this->section('scripts') ?><script src="<?= base_url('assets/js/camera-scan.js') ?>"></script><?= $this->endSection() ?>
+<?= $this->section('scripts') ?><script src="<?= base_url('assets/js/camera-scan.js') . '?v=20261020c' ?>"></script><?= $this->endSection() ?>

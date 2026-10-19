@@ -7,8 +7,10 @@
 <?php if ($canEdit): ?>
 <div class="surface-card p-4 mb-4">
     <div class="row g-3 align-items-end">
-        <div class="col-lg-4"><label class="form-label" for="inventoryBarcode">Scan barcode</label><input id="inventoryBarcode" class="form-control" type="text" autocomplete="off" data-inventory-barcode-scan data-camera-scan data-target="[data-inventory-product]" placeholder="Scan or type barcode then Enter"><div class="form-text" data-inventory-scan-feedback>Scanning selects the matching product.</div>
-<button type="button" class="btn btn-sm btn-outline-primary mt-2" data-count-session-toggle>Start scan count session</button></div>
+        <div class="col-lg-4"><label class="form-label" for="inventoryBarcode">Scan barcode</label>
+            <input id="inventoryBarcode" class="form-control" type="text" autocomplete="off" data-no-icon data-inventory-barcode-scan data-camera-scan data-target="[data-inventory-product]" placeholder="Scan or type barcode then Enter">
+            <div class="scan-actions mt-2" data-scan-actions><button type="button" class="btn btn-outline-primary" data-no-icon data-count-session-toggle>Start scan count session</button></div>
+            <div class="form-text mt-2" data-inventory-scan-feedback role="status">Scanning selects the matching product.</div></div>
         <div class="col-lg-8"><div class="small text-secondary">Use Stock-In, Stock Out, Waste, or a physical Count reconciliation. Each change is recorded. Every change is ledgered.</div></div>
     </div>
 </div>
@@ -31,4 +33,4 @@
 <p class="small text-secondary mt-3"><a href="<?= base_url(($canEdit?'admin':'cashier').'/inventory/stock-card?product_id='.($selectedProductId ?: (int)($products[0]['id']??0))) ?>">View full paginated stock card with CSV export and print layout</a></p>
 <?= $this->endSection() ?>
 
-<?= $this->section('scripts') ?><script src="<?= base_url('assets/js/camera-scan.js') ?>"></script><?= $this->endSection() ?>
+<?= $this->section('scripts') ?><script src="<?= base_url('assets/js/camera-scan.js') . '?v=20261020c' ?>"></script><?= $this->endSection() ?>

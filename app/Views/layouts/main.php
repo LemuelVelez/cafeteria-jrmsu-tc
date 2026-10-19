@@ -40,7 +40,7 @@ $nav = static function (array $items, string $path): string {
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
     <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/css/app.css') . '?v=20261020b' ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/css/app.css') . '?v=20261020c' ?>" rel="stylesheet">
     <?= $this->renderSection('styles') ?>
 </head>
 <?php $cartOwnerId = (int) ($currentUser['id'] ?? 0); ?>
@@ -149,7 +149,7 @@ $nav = static function (array $items, string $path): string {
 <script src="<?= base_url('assets/vendor/bootstrap/bootstrap.bundle.min.js') ?>"></script>
 <script src="<?= base_url('assets/js/image-fallback.js') ?>"></script>
 <script src="<?= base_url('assets/js/queue-sound.js') ?>"></script>
-<script src="<?= base_url('assets/js/app.js') ?>"></script>
+<script src="<?= base_url('assets/js/app.js') . '?v=20261020c' ?>"></script>
 <script src="<?= base_url('assets/js/sidebar-scroll.js') ?>"></script>
 <?php if (in_array($role, ['customer', 'cashier'], true)): ?><script src="<?= base_url('assets/js/cart.js') ?>"></script><?php endif; ?>
 <?= $this->renderSection('scripts') ?>

@@ -1,73 +1,108 @@
-html, body { min-height:100%; background:#081524; color:#f7fbff; font-family:system-ui,-apple-system,sans-serif; }
-.queue-board { min-height:100vh; padding:1.6rem 2.3rem; max-width:1900px; margin:auto; }
-.queue-header { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; border-bottom:2px solid #496b83; padding-bottom:1rem; }
-.queue-brand { display:flex; align-items:center; gap:1rem; }
-.queue-brand img { width:72px; height:72px; object-fit:contain; }
-.queue-brand h1 { font-weight:800; font-size:clamp(1.25rem,2.7vw,2.6rem); margin:0; }
-.queue-clock { font-weight:800; font-size:clamp(1.3rem,2.8vw,2.6rem); font-variant-numeric:tabular-nums; }
-.queue-calling { background:#f2c650; color:#142339; padding:1.3rem 2rem; margin:1.5rem 0; border-radius:1.2rem; text-align:center; }
-.queue-calling .queue-kicker { font-size:clamp(1.2rem,2.5vw,2.5rem); text-transform:uppercase; font-weight:800; letter-spacing:.08em; }
-.queue-calling-number { display:block; font-size:clamp(5rem,16vw,17rem); line-height:1; font-weight:900; font-variant-numeric:tabular-nums; }
-.queue-flash { animation:queue-flash .85s ease-in-out 2; }
-@keyframes queue-flash { from {opacity:.35;transform:scale(.97)} to {opacity:1;transform:scale(1)} }
-.queue-columns { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
-.queue-panel { border:2px solid #416784; border-radius:1rem; padding:1.6rem; background:#12273a; min-height:30vh; }
-.queue-panel h2 { font-size:clamp(1.4rem,3vw,3rem); font-weight:800; border-bottom:2px solid #416784; padding-bottom:.8rem; }
-.queue-grid { display:flex; flex-wrap:wrap; gap:1rem; }
-.queue-number { display:inline-block; min-width:3.8ch; padding:.2em .3em; background:#25465e; border-radius:.25em; text-align:center; font-size:clamp(2.5rem,5vw,6rem); font-weight:800; font-variant-numeric:tabular-nums; }
-.queue-ready .queue-number { color:#baffb2; background:#194b37; }
-.queue-empty { font-size:clamp(1rem,2vw,1.8rem); color:#b7cddd; }
-.queue-controls {display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
-.queue-connection { color:#ffd68d; font-weight:700; }
-.queue-unlock { position:fixed;bottom:1.2rem;right:1.2rem;z-index:10;font-weight:700;box-shadow:0 0 0 6px #0a203a; }
-@media(max-width:760px) { .queue-board {padding:1rem} .queue-columns{grid-template-columns:1fr} .queue-panel{min-height:12vh} }
-@media(prefers-reduced-motion:reduce) { .queue-flash{animation:none} }
-
-/* Dark, high-contrast imagery covers the TV display without reducing legibility. */
-html, body { width:100%; max-width:100%; overflow-x:clip; }
+/* Public pickup board; self-hosted backgrounds allow a reliable offline display. */
+html, body {
+    min-height: 100%;
+    max-width: 100%;
+    margin: 0;
+    background: #081524;
+    color: #f7fbff;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 body {
-    background-color: #091b2b;
-    background-image: linear-gradient(135deg,rgba(5,19,32,.91),rgba(10,35,49,.91)),
-        url("https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=75"),
+    background-image: linear-gradient(135deg, rgba(5, 19, 32, .94), rgba(10, 35, 49, .93)),
         url("../img/backgrounds/night-pattern.svg");
-    background-size:cover;
-    background-position:center;
-    background-attachment:fixed;
+    background-position: center;
+    background-size: cover;
+    background-attachment: fixed;
 }
+.queue-board { min-height: 100vh; padding: 1.6rem 2.3rem; width: 100%; max-width: 1900px; margin: auto; }
 .queue-board, .queue-header, .queue-controls, .queue-columns, .queue-panel,
-.queue-grid, .queue-brand {min-width:0;max-width:100%;}
-.queue-panel {
-    background-color:#112a3d;
-    background-image:linear-gradient(125deg,rgba(14,37,55,.94),rgba(16,49,58,.92)),
-        url("../img/backgrounds/night-pattern.svg");
-    background-size:cover;
-    background-position:center;
+.queue-grid, .queue-brand { min-width: 0; max-width: 100%; }
+.queue-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; border-bottom: 2px solid #496b83; padding-bottom: 1rem; }
+.queue-brand { display: flex; align-items: center; flex: 1 1 320px; gap: 1rem; }
+.queue-brand img { width: 72px; height: 72px; flex: 0 0 auto; object-fit: contain; }
+.queue-brand h1 { min-width: 0; margin: 0; font-size: clamp(1.25rem, 2.7vw, 2.6rem); font-weight: 800; overflow-wrap: break-word; }
+.queue-clock { font-size: clamp(1.3rem, 2.8vw, 2.6rem); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.queue-controls { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; flex: 0 1 auto; flex-wrap: wrap; }
+.queue-controls .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; flex: 0 0 auto; white-space: nowrap; }
+.queue-controls .bi, .queue-unlock .bi { flex: 0 0 auto; line-height: 1; }
+.queue-connection {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: .45rem;
+    max-width: 100%;
+    padding: .45rem .65rem;
+    border: 1px solid rgba(255, 214, 141, .55);
+    border-radius: .75rem;
+    color: #ffdb9c;
+    background: rgba(75, 45, 11, .55);
+    font-size: .85rem;
+    font-weight: 650;
 }
+.queue-connection[hidden] { display: none !important; }
+.queue-retry {
+    padding: .15rem .4rem;
+    border: 1px solid rgba(255, 214, 141, .75);
+    border-radius: .45rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.queue-retry:hover { background: rgba(255, 214, 141, .15); }
+.queue-retry:focus-visible, .queue-controls .btn:focus-visible, .queue-unlock:focus-visible {
+    outline: 3px solid #ffd68d;
+    outline-offset: 3px;
+}
+.queue-retry:disabled { opacity: .65; cursor: wait; }
 .queue-calling {
-    background-image:linear-gradient(125deg,rgba(254,219,107,.96),rgba(245,188,63,.93)),
-        url("../img/backgrounds/card-watermark.svg");
-    background-size:cover;
-    background-position:center;
+    margin: 1.5rem 0;
+    padding: 1.3rem 2rem;
+    border-radius: 1.2rem;
+    color: #142339;
+    background: linear-gradient(125deg, rgba(254, 219, 107, .96), rgba(245, 188, 63, .93)),
+        url("../img/backgrounds/card-watermark.svg") center / cover;
+    text-align: center;
 }
-.queue-calling-number,.queue-number {overflow-wrap:anywhere;max-width:100%;}
-.queue-brand {flex:1 1 320px;}
-.queue-brand h1 {min-width:0;overflow-wrap:anywhere;}
-.queue-controls {flex:0 1 auto;}
-.queue-grid {min-width:0;}
-.queue-controls .btn,.queue-unlock {display:inline-flex;justify-content:center;align-items:center;gap:.5rem;white-space:normal;text-align:center;}
-.queue-controls .bi,.queue-unlock .bi {flex:0 0 auto;line-height:1;}
-.queue-unlock {max-width:calc(100vw - 2rem);}
-@media(max-width:575.98px) {
-    .queue-header {align-items:stretch;}
-    .queue-brand img {width:clamp(40px,12vw,72px);height:auto;flex:0 0 auto;}
-    .queue-controls {justify-content:space-between;}
-    .queue-columns {gap:.85rem;}
-    .queue-panel {padding:clamp(.75rem,3vw,1.5rem);}
-    .queue-calling {padding:1rem .75rem;}
-    .queue-calling-number {font-size:clamp(3.5rem,19vw,9rem);}
-    .queue-grid {gap:.5rem;}
-    .queue-number {font-size:clamp(1.9rem,9vw,3.1rem);min-width:0;}
-    .queue-unlock {right:.65rem;bottom:.65rem;padding:.7rem 1rem;}
+.queue-kicker { font-size: clamp(1.2rem, 2.5vw, 2.5rem); text-transform: uppercase; font-weight: 800; letter-spacing: .08em; }
+.queue-calling-number { display: block; max-width: 100%; font-size: clamp(5rem, 16vw, 17rem); line-height: 1; font-weight: 900; font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
+.queue-flash { animation: queue-flash .85s ease-in-out 2; }
+@keyframes queue-flash { from { opacity: .35; transform: scale(.97); } to { opacity: 1; transform: scale(1); } }
+.queue-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.queue-panel {
+    min-height: 30vh;
+    padding: 1.6rem;
+    border: 2px solid #416784;
+    border-radius: 1rem;
+    background: linear-gradient(125deg, rgba(14, 37, 55, .94), rgba(16, 49, 58, .92)),
+        url("../img/backgrounds/night-pattern.svg") center / cover;
 }
-@media print {body,.queue-panel,.queue-calling {background-image:none!important;}}
-@media(max-width:767.98px) { body { background-attachment:scroll; } }
+.queue-panel h2 { margin: 0 0 1rem; padding-bottom: .8rem; border-bottom: 2px solid #416784; font-size: clamp(1.4rem, 3vw, 3rem); font-weight: 800; }
+.queue-grid { display: flex; flex-wrap: wrap; gap: 1rem; }
+.queue-number { display: inline-block; min-width: 3.8ch; max-width: 100%; padding: .2em .3em; border-radius: .25em; background: #25465e; font-size: clamp(2.5rem, 5vw, 6rem); text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
+.queue-ready .queue-number { color: #baffb2; background: #194b37; }
+.queue-empty { margin: 0; font-size: clamp(1rem, 2vw, 1.8rem); color: #b7cddd; }
+.queue-unlock { position: fixed; z-index: 10; right: 1.2rem; bottom: 1.2rem; display: inline-flex; align-items: center; gap: .5rem; max-width: calc(100vw - 2rem); font-weight: 700; box-shadow: 0 0 0 6px #0a203a; }
+.queue-unlock[hidden] { display: none !important; }
+@media (max-width: 760px) {
+    .queue-board { padding: 1rem; }
+    .queue-columns { grid-template-columns: 1fr; gap: .85rem; }
+    .queue-panel { min-height: 12vh; padding: clamp(.75rem, 3vw, 1.5rem); }
+    .queue-brand img { width: clamp(40px, 12vw, 72px); height: auto; }
+    .queue-controls { width: 100%; justify-content: space-between; }
+    .queue-calling { padding: 1rem .75rem; }
+    .queue-calling-number { font-size: clamp(3.5rem, 19vw, 9rem); }
+    .queue-grid { gap: .5rem; }
+    .queue-number { min-width: 0; font-size: clamp(1.9rem, 9vw, 3.1rem); }
+    .queue-unlock { right: .65rem; bottom: .65rem; padding: .7rem 1rem; }
+}
+@media (max-width: 575.98px) {
+    .queue-header { align-items: stretch; }
+    .queue-controls { gap: .5rem; }
+    .queue-connection { flex: 1 1 100%; order: 3; }
+}
+@media (max-width: 767.98px) { body { background-attachment: scroll; } }
+@media (prefers-reduced-motion: reduce) { .queue-flash { animation: none; } }
+@media print { body, .queue-panel, .queue-calling { background-image: none !important; } }

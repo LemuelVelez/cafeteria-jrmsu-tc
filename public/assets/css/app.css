@@ -649,6 +649,74 @@ body { min-width: 0; overflow-x: clip; }
     .pos-line-quantity { width: 84px; }
 }
 
+/* Scanner buttons are siblings of inputs, never children of an icon wrapper. */
+.scan-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    min-width: 0;
+}
+.page-shell .scan-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    flex: 0 0 auto;
+    min-height: 42px;
+    max-width: 100%;
+    padding: .5rem .8rem;
+    white-space: nowrap;
+    overflow-wrap: normal;
+}
+.scan-actions .btn .bi { flex: none; line-height: 1; }
+@media (max-width: 399.98px) {
+    .scan-actions .btn { font-size: .85rem; }
+}
+
+/* Rider status actions require a stable intrinsic width; the table scrolls internally. */
+.riders-page { min-width: 0; max-width: 100%; }
+.rider-table-card { min-width: 0; overflow: hidden; }
+.rider-table-card > .table-responsive { overflow-x: auto; overflow-y: hidden; }
+.rider-table { min-width: 840px; }
+.rider-table th:last-child, .rider-table .rider-update-cell { min-width: 240px; width: 240px; }
+.rider-table td:first-child { min-width: 200px; }
+.rider-update-form {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: .5rem;
+    width: max-content;
+    max-width: none;
+    margin: 0;
+}
+.rider-update-form .rider-status-select { flex: 0 0 128px; width: 128px; min-width: 128px; }
+.page-shell .rider-update-form .rider-save-button {
+    flex: 0 0 auto;
+    min-width: 70px;
+    max-width: none;
+    white-space: nowrap;
+    overflow-wrap: normal;
+}
+@media (max-width: 767.98px) {
+    .rider-table { min-width: 0; }
+    .rider-table td:first-child { min-width: 0; }
+    .rider-table .rider-update-cell { min-width: 0; width: 100%; }
+    .rider-table .rider-update-cell .rider-update-form {
+        justify-content: flex-end !important;
+        flex-wrap: wrap !important;
+        max-width: 100%;
+        width: 100%;
+    }
+    .rider-table .rider-update-cell .rider-status-select {
+        flex: 1 1 115px;
+        min-width: 0;
+        width: auto;
+        max-width: 200px;
+    }
+}
+
 /* User avatars */
 .user-identity {
     display: flex;
