@@ -738,10 +738,47 @@
 
     const tracker = document.querySelector('[data-order-status-tracker]');
     if (tracker?.dataset.orderId) {
+        const soundButton = tracker.querySelector('[data-order-sound-toggle]');
+        const soundEnabled = () => {
+            try { return window.localStorage.getItem('cafeteria-order-sound') === '1'; }
+            catch (_) { return false; }
+        };
+        const refreshSoundLabel = () => {
+            if (!soundButton) return;
+            soundButton.setAttribute('aria-pressed', String(soundEnabled()));
+            soundButton.textContent = soundEnabled() ? 'Disable sound alerts' : 'Enable sound alerts';
+        };
+        soundButton?.addEventListener('click', () => {
+            const enabled = !soundEnabled();
+            try { window.localStorage.setItem('cafeteria-order-sound', enabled ? '1' : '0'); } catch (_) {}
+            if (enabled) window.CafeteriaChime?.unlock();
+            refreshSoundLabel();
+        });
+        refreshSoundLabel();
         const initial = tracker.dataset.orderStatus;
-        window.setInterval(async () => {
-            if (document.hidden) return;
-            try { const { data } = await window.cafeteriaFetch(window.cafeteriaUrl(`api/orders/${tracker.dataset.orderId}`)); if (data?.status && data.status !== initial) window.location.reload(); } catch (_) {}
-        }, 25000);
+        if (!['completed', 'delivered', 'cancelled'].includes(initial)) {
+            let updating = false;
+            const pollOrder = async () => {
+                if (document.hidden || updating) return;
+                updating = true;
+                try {
+                    const { data } = await window.cafeteriaFetch(window.cafeteriaUrl(`api/orders/${tracker.dataset.orderId}`));
+                    if (!data?.status || data.status === initial) return;
+                    if (data.status === 'ready_for_pickup' && tracker.dataset.orderType === 'pickup') {
+                        if (soundEnabled()) window.CafeteriaChime?.play();
+                        if (typeof navigator.vibrate === 'function') navigator.vibrate([200, 100, 200]);
+                        const alert = tracker.querySelector('[data-order-ready-banner]');
+                        if (alert) {
+                            alert.className = 'alert alert-success fw-semibold my-3';
+                            alert.textContent = `Order ${data.queue_label || tracker.dataset.queueLabel} is ready! Please proceed to the counter.`;
+                            alert.hidden = false;
+                        }
+                        window.setTimeout(() => window.location.reload(), 4000);
+                    } else window.location.reload();
+                } catch (_) { updating = false; return; }
+                // Successful changed status is terminal for this page; reload handles future polling.
+            };
+            window.setInterval(pollOrder, 10000);
+        }
     }
 })();

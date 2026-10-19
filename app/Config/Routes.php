@@ -136,11 +136,15 @@ $routes->group('rider', ['filter' => ['auth', 'active', 'role:rider']], static f
 });
 
 
+$routes->get('queue-board', 'QueueBoard\\BoardController::index');
+$routes->get('queue-board/feed', 'QueueBoard\\BoardController::feed');
+
 $routes->group('staff', ['filter' => ['auth', 'active', 'role:admin,cashier,rider']], static function (RouteCollection $routes): void {
     $routes->post('orders/(:num)/prepared/(:num)', 'Staff\PreparationController::check/$1/$2');
     $routes->get('orders/(:num)/ticket', 'Staff\PreparationController::ticket/$1');
     $routes->post('orders/(:num)/verify-handoff', 'Staff\PreparationController::handoff/$1');
     $routes->get('orders/verify/(:segment)', 'Staff\OrderVerifyController::show/$1');
+    $routes->post('orders/(:num)/call-queue', 'Staff\QueueController::call/$1', ['filter' => 'role:admin,cashier']);
 });
 
 $routes->group('api', ['filter' => ['auth', 'active', 'role:admin,cashier,rider,customer']], static function (RouteCollection $routes): void {

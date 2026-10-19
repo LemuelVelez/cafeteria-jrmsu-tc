@@ -287,3 +287,10 @@ previous interactive workflow and updates the three CSVs only after the
 operator supplies and confirms every required value and USDA source. The
 legacy form `php spark populate hot-americano` also starts guided mode.
 `php spark seed strict` still fails until full nutrition acceptance is possible.
+
+
+## Queue display
+
+Open `/queue-board` on the cafeteria TV or monitor (this public board shows today's pickup queue only). Tap **Enable sound** once to let the browser play the chime and voice announcements, then press **F11** for full-screen kiosk viewing (or use the board's Fullscreen button). Keep the tab visible for automatic four-second updates. Cashiers and administrators can press **Call again** on a ready pickup order, no more than once per 15 seconds. Admins can configure the queue display, sound, voice, number prefix, and ready-order expiry in **Settings**. Queue numbers reset to 001 each day (Asia/Manila); historical orders display their original order number. The feed never publishes customer details.
+
+Menu photos use credited Unsplash and Pexels URLs. When offline, images automatically attempt their category placeholder and then the local cafeteria logo. Administrators may upload a file or paste a permitted HTTPS image URL in the Products editor.

@@ -21,6 +21,11 @@ final class OperationalSettingsSeeder extends Seeder
         'inventory_ingredient_tracking_enabled' => '0',
         'low_stock_email_digest' => '0',
         'web_push_enabled' => '0',
+        'queue_board_enabled' => '1',
+        'queue_sound_enabled' => '1',
+        'queue_voice_enabled' => '1',
+        'queue_ready_hide_minutes' => '30',
+        'queue_number_prefix' => '',
     ];
 
     public function run(): void

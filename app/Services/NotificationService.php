@@ -42,7 +42,13 @@ class NotificationService
             if ($status === OrderStatus::Cancelled->value && trim((string) $note) !== '') {
                 $message .= ' Reason: ' . mb_substr(trim((string) $note), 0, 180);
             }
-            $this->insert((int) $order['customer_id'], (int) $order['id'], 'order_status', $enum->label(), $message, '/customer/orders/' . $order['id']);
+            $title = $enum->label();
+            if ($status === OrderStatus::ReadyForPickup->value && ($order['order_type'] ?? '') === 'pickup') {
+                $queue = format_queue_number(isset($order['queue_number']) ? (int) $order['queue_number'] : null, $order['order_number'] ?? '');
+                $title = 'Order ' . $queue . ' is ready';
+                $message = 'Order ' . $queue . ' is ready for pickup. Please proceed to the counter.';
+            }
+            $this->insert((int) $order['customer_id'], (int) $order['id'], 'order_status', $title, $message, '/customer/orders/' . $order['id']);
             $this->emailOrderStatusIfEnabled($order, $enum, $message);
         }
         if ($status === OrderStatus::Cancelled->value) {

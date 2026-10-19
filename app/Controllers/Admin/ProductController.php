@@ -84,7 +84,19 @@ class ProductController extends BaseController
             $data['stock'] = 0; // InventoryService exclusively posts the opening stock.
         }
 
+        $imageUrl = trim((string) $this->request->getPost('image_url'));
         $image = $this->request->getFile('image');
+        $uploadSupplied = $image && $image->getError() !== UPLOAD_ERR_NO_FILE;
+        if (! $uploadSupplied && $imageUrl !== '') {
+            $host = strtolower((string) parse_url($imageUrl, PHP_URL_HOST));
+            $scheme = strtolower((string) parse_url($imageUrl, PHP_URL_SCHEME));
+            if (mb_strlen($imageUrl) > 2000 || ! $this->validate(['image_url' => 'valid_url_strict|max_length[2000]'])
+                || $scheme !== 'https' || ! in_array($host, ['images.unsplash.com','images.pexels.com','cdn.pixabay.com'], true)
+                || ! filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                return redirect()->to('/admin/products')->withInput()->with('error', 'Image URL must use HTTPS on an allowed image host and contain no more than 2000 characters.');
+            }
+            $data['image'] = $imageUrl;
+        }
         $newImagePath = null;
         $media = new MediaStorageService();
         if ($image && $image->getError() !== UPLOAD_ERR_NO_FILE) {
@@ -146,7 +158,7 @@ class ProductController extends BaseController
             return redirect()->to('/admin/products')->withInput()->with('error', $exception->getMessage());
         }
 
-        if ($newImagePath !== null && ! empty($existing['image'])) {
+        if ($data['image'] !== ($existing['image'] ?? null) && ! empty($existing['image'])) {
             $media->delete((string) $existing['image']);
         }
         return redirect()->to('/admin/products')->with('success', 'Product saved.');

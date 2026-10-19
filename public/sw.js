@@ -4,7 +4,7 @@ self.addEventListener('push', event => {
   try{if(event.data)message={...message,...event.data.json()};}catch(_){}
   event.waitUntil(self.registration.showNotification(String(message.title).slice(0,100),{
     body:String(message.body).slice(0,300),icon:'assets/img/jrmsu-cafeteria-logo.webp',
-    data:{url:String(message.url)},tag:'cafeteria-notification-'+Date.now(),renotify:false,
+    data:{url:String(message.url)},tag:'order-'+String(message.order_id||message.orderId||'notification'),renotify:true,silent:false,
   }));
 });
 self.addEventListener('notificationclick', event => {

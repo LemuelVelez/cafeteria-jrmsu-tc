@@ -189,6 +189,10 @@
 
     const cart = new CartStore(document.body.dataset.cartKey || 'jrmsu-cafeteria-cart');
     const productImagesData = document.querySelector('[data-cart-product-images]');
+    let productImageFallbacks = {};
+    try {
+        productImageFallbacks = JSON.parse(document.querySelector('[data-cart-product-fallbacks]')?.dataset.cartProductFallbacks || '{}');
+    } catch (_) { productImageFallbacks = {}; }
 
     if (productImagesData) {
         try {
@@ -631,7 +635,9 @@
     function renderProductMedia(line, imageClass, placeholderClass) {
         const image = String(line.image || '').trim();
         if (image) {
-            return `<img class="${imageClass}" src="${escapeHtml(image)}" alt="">`;
+            const logo = document.querySelector('meta[name="cafeteria-logo-url"]')?.content || '';
+            const fallback = productImageFallbacks[String(line.product_id)] || logo;
+            return `<img class="${imageClass}" src="${escapeHtml(image)}" alt="" width="800" height="600" loading="lazy" decoding="async" data-fallback-src="${escapeHtml(fallback)}">`;
         }
 
         return `<span class="${placeholderClass}" aria-hidden="true"><i class="bi bi-image"></i></span>`;

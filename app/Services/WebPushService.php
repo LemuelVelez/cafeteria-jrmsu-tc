@@ -100,7 +100,7 @@ final class WebPushService
         $held=(int)$db->query("SELECT GET_LOCK('cafeteria.webpush-dispatch',0) held")->getRow('held');
         if($held!==1)return ['sent'=>0,'failed'=>0];
         try {
-        $rows=$db->table('push_outbox q')->select('q.id,q.notification_id,q.attempts,n.user_id,n.title,n.message,n.link')->join('notifications n','n.id=q.notification_id')->where('q.delivered_at',null)->where('q.attempts <',5)->orderBy('q.id')->limit(max(1,min(100,$limit)))->get()->getResultArray();
+        $rows=$db->table('push_outbox q')->select('q.id,q.notification_id,q.attempts,n.user_id,n.title,n.message,n.link,n.order_id')->join('notifications n','n.id=q.notification_id')->where('q.delivered_at',null)->where('q.attempts <',5)->orderBy('q.id')->limit(max(1,min(100,$limit)))->get()->getResultArray();
         $sent=0;$failed=0;
         foreach ($rows as $row) {
             $all = true;
@@ -113,6 +113,7 @@ final class WebPushService
             $completedIds = array_fill_keys(array_map('intval', array_column($completed, 'subscription_id')), true);
             $payload = json_encode([
                 'title' => $row['title'], 'body' => $row['message'],
+                'order_id' => (int) ($row['order_id'] ?? 0),
                 'url' => (string) ($row['link'] ?? '/notifications'),
             ], JSON_THROW_ON_ERROR);
             foreach ($subs as $sub) {

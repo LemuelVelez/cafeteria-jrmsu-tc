@@ -101,14 +101,8 @@ $landingImages = [
             <?php if ($products): foreach ($products as $product): ?>
                 <div class="col-sm-6 col-lg-4">
                     <article class="product-card landing-product-card bg-white">
-                        <?php if ($product['image']): ?>
-                            <img class="product-image landing-product-image" src="<?= media_url($product['image']) ?>" alt="<?= esc($product['name']) ?>" width="800" height="600" loading="lazy" decoding="async">
-                        <?php else: ?>
-                            <?php $fallback = product_fallback_image($product); ?>
-                            <div class="product-placeholder landing-product-placeholder">
-                                <img src="<?= esc($fallback['url'], 'attr') ?>" alt="<?= esc($fallback['alt'], 'attr') ?>" width="800" height="600" loading="lazy" decoding="async">
-                            </div>
-                        <?php endif; ?>
+                        <?php $image = product_image($product); ?>
+                        <img class="product-image landing-product-image" src="<?= esc($image['url'], 'attr') ?>" alt="<?= esc($image['alt'], 'attr') ?>" width="800" height="600" loading="lazy" decoding="async" data-fallback-src="<?= esc($image['fallback'], 'attr') ?>">
                         <div class="p-4">
                             <div class="small text-secondary mb-2"><?= esc($product['category_name']) ?></div>
                             <div class="d-flex justify-content-between gap-3">

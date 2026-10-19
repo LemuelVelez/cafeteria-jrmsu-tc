@@ -48,9 +48,9 @@
     <div class="row g-4 menu-grid">
         <?php foreach ($products as $product): ?>
             <?php
-            $fallback = product_fallback_image($product);
-            $productImage = $product['image'] ? media_url($product['image']) : $fallback['url'];
-            $productImageAlt = $product['image'] ? (string) $product['name'] : $fallback['alt'];
+            $image = product_image($product);
+            $productImage = $image['url'];
+            $productImageAlt = $image['alt'];
             ?>
             <div class="col-sm-6 col-xl-4" data-product-column>
                 <article
@@ -63,7 +63,7 @@
                     data-product-image="<?= esc($productImage, 'attr') ?>"
                 >
                     <div class="product-media">
-                        <img class="product-image" src="<?= esc($productImage, 'attr') ?>" alt="<?= esc($productImageAlt, 'attr') ?>" width="800" height="600" loading="lazy" decoding="async">
+                        <img class="product-image" src="<?= esc($productImage, 'attr') ?>" alt="<?= esc($productImageAlt, 'attr') ?>" width="800" height="600" loading="lazy" decoding="async" data-fallback-src="<?= esc($image['fallback'], 'attr') ?>">
                         <span class="product-category-badge"><?= esc($product['category_name']) ?></span>
                     </div>
 

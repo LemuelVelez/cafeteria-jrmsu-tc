@@ -182,7 +182,15 @@ class OrderService
             $total = round(max(0.0, $subtotal - $discount + $deliveryFee), 2);
             $initialStatus = $actorRole === 'cashier' ? OrderStatus::Confirmed->value : OrderStatus::Pending->value;
 
-            $orderId = $this->orders->insert([
+            $timezone = new \DateTimeZone(config(\Config\Cafeteria::class)->timezone);
+            $now = new \DateTimeImmutable('now', $timezone);
+            $queueDate = $now->format('Y-m-d');
+            $queueTime = $now->format('Y-m-d H:i:s');
+            $queueNumber = self::allocateQueueNumber($this->db, $queueDate, $queueTime);
+
+            $orderId = $this->orders->insert([ 
+                'queue_number' => $queueNumber,
+                'queue_date' => $queueDate,
                 'order_number' => generate_order_number(),
                 'customer_id' => $customerId ?: null,
                 'cashier_id' => $actorRole === 'cashier' ? $actorId : null,
@@ -287,6 +295,21 @@ class OrderService
             }
             throw $exception;
         }
+    }
+
+    /** Caller must already be in the order transaction; FOR UPDATE serializes concurrent allocations. */
+    public static function allocateQueueNumber(BaseConnection $db, string $date, string $time): int
+    {
+        $db->query('INSERT IGNORE INTO queue_counters (queue_date, last_number, updated_at) VALUES (?, 0, ?)', [$date, $time]);
+        $counter = $db->query('SELECT last_number FROM queue_counters WHERE queue_date = ? FOR UPDATE', [$date])->getRowArray();
+        if (! $counter || (int) $counter['last_number'] >= 65535) {
+            throw new \DomainException('The daily queue is full.');
+        }
+        $next = (int) $counter['last_number'] + 1;
+        if (! $db->table('queue_counters')->where('queue_date', $date)->update(['last_number' => $next, 'updated_at' => $time])) {
+            throw new \RuntimeException('Unable to update the daily queue counter.');
+        }
+        return $next;
     }
 
     private function findIdempotentOrder(string $requestToken, string $actorRole, int $actorId): ?array
@@ -397,6 +420,10 @@ class OrderService
                 $orderUpdates['payment_status'] = 'failed';
             }
             if ($nextStatus === OrderStatus::ReadyForPickup->value) {
+                $time = (new \DateTimeImmutable('now', new \DateTimeZone(config(\Config\Cafeteria::class)->timezone)))->format('Y-m-d H:i:s');
+                $orderUpdates['ready_at'] = $time;
+                $orderUpdates['queue_called_at'] = $time;
+                $orderUpdates['queue_call_count'] = 1;
                 $unchecked = $this->db->table('order_items')->where('order_id', $orderId)->where('prepared_at', null)->countAllResults();
                 if ($unchecked > 0) {
                     throw new \DomainException('Every order item must be checked as prepared first.');

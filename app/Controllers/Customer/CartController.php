@@ -10,18 +10,21 @@ class CartController extends BaseController
     public function index(): string
     {
         $productImages = [];
+        $productImageFallbacks = [];
         $products = (new ProductModel())
-            ->select('id, image')
+            ->select('products.id, products.image, products.slug, categories.name AS category_name')
+            ->join('categories', 'categories.id = products.category_id', 'left')
             ->findAll();
 
         foreach ($products as $product) {
-            $productImages[(string) $product['id']] = ! empty($product['image'])
-                ? media_url($product['image'])
-                : base_url('assets/img/jrmsu-cafeteria-logo.webp');
+            $image = product_image($product);
+            $productImages[(string) $product['id']] = $image['url'];
+            $productImageFallbacks[(string) $product['id']] = $image['fallback'];
         }
 
         return $this->render('customer/cart/index', [
             'productImages' => $productImages,
+            'productImageFallbacks' => $productImageFallbacks,
         ]);
     }
 }

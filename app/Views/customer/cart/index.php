@@ -53,5 +53,6 @@
         </div>
     </div>
 </section>
+<div hidden data-cart-product-fallbacks="<?= esc(json_encode($productImageFallbacks ?? [], JSON_THROW_ON_ERROR), 'attr') ?>"></div>
 <script type="application/json" data-cart-product-images><?= json_encode($productImages ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <?= $this->endSection() ?>

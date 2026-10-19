@@ -4,7 +4,7 @@
 <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
     <div>
         <a class="small text-decoration-none" href="<?= base_url('admin/orders') ?>"><i class="bi bi-arrow-left"></i> All orders</a>
-        <h1 class="h3 section-title fw-bold mt-2 mb-1"><?= esc($order['order_number']) ?></h1>
+        <div class="h2 text-primary fw-bold mt-2">Queue # <?= esc(format_queue_number(isset($order['queue_number']) ? (int) $order['queue_number'] : null, $order['order_number'])) ?></div><h1 class="h3 section-title fw-bold mt-2 mb-1"><?= esc($order['order_number']) ?></h1>
         <div><?= order_status_badge($order['status']) ?></div>
     </div>
     <div class="text-md-end">
@@ -84,6 +84,9 @@
             <?php endif; ?>
         </div>
 
+        <?php if ($order['order_type'] === 'pickup' && $order['status'] === 'ready_for_pickup'): ?>
+        <form class="mb-3" method="post" action="<?= esc(base_url('staff/orders/'.$order['id'].'/call-queue'),'attr') ?>"><?= csrf_field() ?><button class="btn btn-warning w-100" type="submit"><i class="bi bi-megaphone"></i> Call again</button></form>
+        <?php endif; ?>
         <?= view('components/handoff_stages',['handoffs'=>$handoffs]) ?>
         <?php if (in_array($order['status'], ['ready_for_pickup','out_for_delivery'], true)): ?>
         <div class="surface-card p-4 mb-4">

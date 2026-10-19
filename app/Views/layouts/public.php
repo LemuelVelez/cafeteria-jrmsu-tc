@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="cafeteria-logo-url" content="<?= esc(base_url('assets/img/jrmsu-cafeteria-logo.webp'), 'attr') ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="JRMSU-TC Cafeteria online food ordering and delivery.">
     <meta name="csrf-name" content="<?= csrf_token() ?>">
@@ -50,6 +51,8 @@ $isLoginPage = $publicPath === 'login';
 </footer>
 <script src="<?= base_url('assets/vendor/bootstrap/bootstrap.bundle.min.js') ?>"></script>
 <script src="<?= base_url('assets/js/public-nav.js') ?>"></script>
+<script src="<?= base_url('assets/js/image-fallback.js') ?>"></script>
+<script src="<?= base_url('assets/js/queue-sound.js') ?>"></script>
 <script src="<?= base_url('assets/js/app.js') ?>"></script>
 <?= $this->renderSection('scripts') ?>
 </body>

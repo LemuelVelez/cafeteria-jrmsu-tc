@@ -47,15 +47,10 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                         data-product-name="<?= esc($product['name'], 'attr') ?>"
                         data-product-price="<?= esc($product['price'], 'attr') ?>"
                         data-product-stock="<?= esc($product['stock'], 'attr') ?>"
-                        data-product-image="<?= esc($product['image'] ? media_url($product['image']) : base_url('assets/img/jrmsu-cafeteria-logo.webp'), 'attr') ?>"
+                        data-product-image="<?= esc(product_image($product)['url'], 'attr') ?>"
                     >
-                        <?php if (! empty($product['image'])): ?>
-                            <img class="product-image rounded mb-3" src="<?= media_url($product['image']) ?>" alt="<?= esc($product['name']) ?>">
-                        <?php else: ?>
-                            <div class="product-placeholder rounded mb-3">
-                                <img src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="">
-                            </div>
-                        <?php endif; ?>
+                        <?php $image = product_image($product); ?>
+                        <img class="product-image rounded mb-3" src="<?= esc($image['url'], 'attr') ?>" alt="<?= esc($image['alt'], 'attr') ?>" width="800" height="600" loading="lazy" decoding="async" data-fallback-src="<?= esc($image['fallback'], 'attr') ?>">
                         <div class="d-flex justify-content-between gap-2">
                             <h2 class="h6 fw-bold mb-1"><?= esc($product['name']) ?></h2>
                             <span class="price text-nowrap"><?= format_price($product['price']) ?></span>
@@ -167,6 +162,7 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
         </div>
     </div>
 </div>
+<div class="modal fade" id="posQueueModal" tabindex="-1" aria-labelledby="posQueueTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content text-center"><div class="modal-header"><h2 class="modal-title h5" id="posQueueTitle">Order created</h2></div><div class="modal-body"><p class="mb-2">Tell the customer their queue number</p><div class="display-1 fw-bold text-primary" data-pos-queue-number>—</div><p class="small text-secondary" data-pos-order-number></p></div><div class="modal-footer justify-content-center"><button class="btn btn-primary btn-lg" type="button" data-pos-continue>Continue to orders</button></div></div></div></div>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>

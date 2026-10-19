@@ -1,0 +1,24 @@
+html, body { min-height:100%; background:#081524; color:#f7fbff; font-family:system-ui,-apple-system,sans-serif; }
+.queue-board { min-height:100vh; padding:1.6rem 2.3rem; max-width:1900px; margin:auto; }
+.queue-header { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; border-bottom:2px solid #496b83; padding-bottom:1rem; }
+.queue-brand { display:flex; align-items:center; gap:1rem; }
+.queue-brand img { width:72px; height:72px; object-fit:contain; }
+.queue-brand h1 { font-weight:800; font-size:clamp(1.25rem,2.7vw,2.6rem); margin:0; }
+.queue-clock { font-weight:800; font-size:clamp(1.3rem,2.8vw,2.6rem); font-variant-numeric:tabular-nums; }
+.queue-calling { background:#f2c650; color:#142339; padding:1.3rem 2rem; margin:1.5rem 0; border-radius:1.2rem; text-align:center; }
+.queue-calling .queue-kicker { font-size:clamp(1.2rem,2.5vw,2.5rem); text-transform:uppercase; font-weight:800; letter-spacing:.08em; }
+.queue-calling-number { display:block; font-size:clamp(5rem,16vw,17rem); line-height:1; font-weight:900; font-variant-numeric:tabular-nums; }
+.queue-flash { animation:queue-flash .85s ease-in-out 2; }
+@keyframes queue-flash { from {opacity:.35;transform:scale(.97)} to {opacity:1;transform:scale(1)} }
+.queue-columns { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
+.queue-panel { border:2px solid #416784; border-radius:1rem; padding:1.6rem; background:#12273a; min-height:30vh; }
+.queue-panel h2 { font-size:clamp(1.4rem,3vw,3rem); font-weight:800; border-bottom:2px solid #416784; padding-bottom:.8rem; }
+.queue-grid { display:flex; flex-wrap:wrap; gap:1rem; }
+.queue-number { display:inline-block; min-width:3.8ch; padding:.2em .3em; background:#25465e; border-radius:.25em; text-align:center; font-size:clamp(2.5rem,5vw,6rem); font-weight:800; font-variant-numeric:tabular-nums; }
+.queue-ready .queue-number { color:#baffb2; background:#194b37; }
+.queue-empty { font-size:clamp(1rem,2vw,1.8rem); color:#b7cddd; }
+.queue-controls {display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.queue-connection { color:#ffd68d; font-weight:700; }
+.queue-unlock { position:fixed;bottom:1.2rem;right:1.2rem;z-index:10;font-weight:700;box-shadow:0 0 0 6px #0a203a; }
+@media(max-width:760px) { .queue-board {padding:1rem} .queue-columns{grid-template-columns:1fr} .queue-panel{min-height:12vh} }
+@media(prefers-reduced-motion:reduce) { .queue-flash{animation:none} }

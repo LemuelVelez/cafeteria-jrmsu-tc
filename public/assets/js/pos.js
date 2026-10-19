@@ -184,8 +184,17 @@
                 body: JSON.stringify(payload),
             });
             cart.clear();
-            alert(`Order ${result.data.order_number} created.`);
-            window.location.assign(result.data.redirect_url || ordersUrl);
+            const modalEl = document.getElementById('posQueueModal');
+            const queueLabel = result.data.queue_label || result.data.order_number;
+            if (modalEl && window.bootstrap) {
+                modalEl.querySelector('[data-pos-queue-number]').textContent = String(queueLabel);
+                modalEl.querySelector('[data-pos-order-number]').textContent = String(result.data.order_number);
+                const continueButton = modalEl.querySelector('[data-pos-continue]');
+                continueButton.addEventListener('click', () => window.location.assign(result.data.redirect_url || ordersUrl), {once: true});
+                bootstrap.Modal.getOrCreateInstance(modalEl, {backdrop:'static',keyboard:false}).show();
+            } else {
+                window.location.assign(result.data.redirect_url || ordersUrl);
+            }
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Unable to create the order.');
             submitButton.disabled = false;

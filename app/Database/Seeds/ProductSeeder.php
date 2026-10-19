@@ -20,6 +20,11 @@ class ProductSeeder extends Seeder
             ['category_id'=>$categories['coffee'],'name'=>'Hot Americano','slug'=>'hot-americano','description'=>'Bold espresso with hot water.','price'=>60,'stock'=>45,'sku'=>'COF-AMER','barcode'=>'2000000000077','reorder_level'=>8,'serving_size'=>'12 fl oz','allergens'=>null,'is_healthy_choice'=>0,'is_featured'=>0],
             ['category_id'=>$categories['cold-drinks'],'name'=>'Calamansi Juice','slug'=>'calamansi-juice','description'=>'Fresh local calamansi juice served chilled.','price'=>45,'stock'=>60,'sku'=>'DRINK-CALAM','barcode'=>'2000000000084','reorder_level'=>10,'serving_size'=>'12 fl oz','allergens'=>null,'is_healthy_choice'=>0,'is_featured'=>0],
         ];
+        $catalog = config(\Config\MenuImages::class)->products;
+        foreach ($rows as &$row) {
+            $row['image'] = $catalog[$row['slug']]['url'];
+        }
+        unset($row);
         $productTable = $this->db->table('products');
         $allergenService = new \App\Services\AllergenService($this->db);
         $knownAllergens = array_column($allergenService->options(), 'id', 'code');

@@ -1,0 +1,17 @@
+ 'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync('public/assets/js/queue-board.js', 'utf8');
+const context = {module: {exports: {}}, window: {}};
+vm.runInNewContext(source, context);
+const {computeNewlyReady} = context.module.exports;
+const r = (number, calls) => ({number,calls,called_at:'2026-10-20T12:00:00+08:00'});
+let old = new Set([`042:1`]);
+let result = computeNewlyReady(old,[r('042',1)]);
+assert.equal(result.newlyReady.length,0,'Silent seed is achieved by initializing the prior keys from first response.');
+result = computeNewlyReady(result.keys,[r('042',1),r('043',1)]);
+assert.equal(result.newlyReady[0].number,'043');
+result = computeNewlyReady(result.keys,[r('042',2),r('043',1)]);
+assert.equal(result.newlyReady[0].calls,2,'A re-call must retrigger.');
+console.log('Queue board alert diff tests passed.');

@@ -22,6 +22,7 @@ class SettingController extends BaseController
         'backup_keep_daily', 'backup_keep_weekly', 'backup_keep_monthly',
         'attendance_overtime_premium', 'attendance_night_differential',
         'notification_read_retention_days', 'inventory_ingredient_tracking_enabled', 'low_stock_email_digest', 'web_push_enabled',
+        'queue_board_enabled', 'queue_sound_enabled', 'queue_voice_enabled', 'queue_ready_hide_minutes', 'queue_number_prefix',
     ];
 
     public function index(): string
@@ -52,6 +53,11 @@ class SettingController extends BaseController
             'inventory_ingredient_tracking_enabled' => 'required|in_list[0,1]',
             'low_stock_email_digest' => 'required|in_list[0,1]',
             'web_push_enabled' => 'required|in_list[0,1]',
+            'queue_board_enabled' => 'required|in_list[0,1]',
+            'queue_sound_enabled' => 'required|in_list[0,1]',
+            'queue_voice_enabled' => 'required|in_list[0,1]',
+            'queue_ready_hide_minutes' => 'required|integer|greater_than_equal_to[5]|less_than_equal_to[240]',
+            'queue_number_prefix' => 'permit_empty|max_length[3]|regex_match[/^[A-Za-z0-9]{0,3}$/]',
         ])) {
             return redirect()->to('/admin/settings')
                 ->withInput()

@@ -10,7 +10,7 @@ final class RouteCoverageTest extends TestCase
         $s=file_get_contents(dirname(__DIR__,2).'/app/Config/Routes.php');
         foreach(['notifications','products/barcode/(:segment)','orders/(:num)/reorder','products/labels',
             'inventory/stock-in','inventory/stock-out','inventory/count','audit-logs','reports/export/(:segment)',
-            'customers/(:num)/reveal-phone','menu','privacy','backups','costing','attendance'] as $endpoint) {
+            'customers/(:num)/reveal-phone','queue-board','menu','privacy','backups','costing','attendance'] as $endpoint) {
             self::assertStringContainsString("'".$endpoint."'",$s);
         }
         foreach(['admin','cashier','rider','customer','staff','api','attendance','admin/attendance'] as $prefix) {

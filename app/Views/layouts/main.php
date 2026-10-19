@@ -4,10 +4,10 @@ $role = $user['role'] ?? 'customer';
 $path = service('uri')->getPath();
 $menus = [
     'admin' => [
-        ['/admin/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/admin/products', 'bi-cup-straw', 'Products'], ['/admin/inventory', 'bi-box-seam', 'Inventory'], ['/admin/categories', 'bi-tags', 'Categories'], ['/admin/orders', 'bi-receipt', 'Orders'], ['/admin/users', 'bi-person-badge', 'Users'], ['/admin/customers', 'bi-people', 'Customers'], ['/admin/riders', 'bi-bicycle', 'Riders'], ['/admin/promos', 'bi-ticket-perforated', 'Promotions'], ['/admin/costing', 'bi-calculator', 'Product costing'], ['/admin/menu/poster', 'bi-image', 'Menu poster'], ['/admin/reports', 'bi-bar-chart', 'Reports'], ['/admin/audit-logs', 'bi-shield-check', 'Audit Logs'], ['/admin/backups', 'bi-cloud-arrow-down', 'Backups'], ['/admin/privacy/deletion-requests', 'bi-shield-lock', 'Privacy requests'], ['/admin/settings', 'bi-sliders', 'Cafeteria settings'], ['/notifications', 'bi-bell', 'Notifications'], ['/settings', 'bi-person-circle', 'My settings'],
+        ['/admin/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/admin/products', 'bi-cup-straw', 'Products'], ['/admin/inventory', 'bi-box-seam', 'Inventory'], ['/admin/categories', 'bi-tags', 'Categories'], ['/admin/orders', 'bi-receipt', 'Orders'], ['/queue-board', 'bi-display', 'Queue display'], ['/admin/users', 'bi-person-badge', 'Users'], ['/admin/customers', 'bi-people', 'Customers'], ['/admin/riders', 'bi-bicycle', 'Riders'], ['/admin/promos', 'bi-ticket-perforated', 'Promotions'], ['/admin/costing', 'bi-calculator', 'Product costing'], ['/admin/menu/poster', 'bi-image', 'Menu poster'], ['/admin/reports', 'bi-bar-chart', 'Reports'], ['/admin/audit-logs', 'bi-shield-check', 'Audit Logs'], ['/admin/backups', 'bi-cloud-arrow-down', 'Backups'], ['/admin/privacy/deletion-requests', 'bi-shield-lock', 'Privacy requests'], ['/admin/settings', 'bi-sliders', 'Cafeteria settings'], ['/notifications', 'bi-bell', 'Notifications'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'cashier' => [
-        ['/cashier/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/cashier/pos', 'bi-calculator', 'Point of Sale'], ['/cashier/orders', 'bi-receipt', 'Orders'], ['/cashier/inventory', 'bi-box-seam', 'Inventory'], ['/notifications', 'bi-bell', 'Notifications'], ['/settings', 'bi-person-circle', 'My settings'],
+        ['/cashier/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/cashier/pos', 'bi-calculator', 'Point of Sale'], ['/cashier/orders', 'bi-receipt', 'Orders'], ['/queue-board', 'bi-display', 'Queue display'], ['/cashier/inventory', 'bi-box-seam', 'Inventory'], ['/notifications', 'bi-bell', 'Notifications'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'customer' => [
         ['/customer/dashboard', 'bi-house', 'Dashboard'], ['/customer/menu', 'bi-cup-straw', 'Menu'], ['/customer/cart', 'bi-basket', 'Cart'], ['/customer/orders', 'bi-bag-check', 'My Orders'], ['/customer/reviews', 'bi-star', 'Reviews'], ['/notifications', 'bi-bell', 'Notifications'], ['/settings', 'bi-person-circle', 'My settings'],
@@ -31,6 +31,7 @@ $nav = static function (array $items, string $path): string {
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="cafeteria-logo-url" content="<?= esc(base_url('assets/img/jrmsu-cafeteria-logo.webp'), 'attr') ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-name" content="<?= csrf_token() ?>">
     <meta name="csrf-hash" content="<?= csrf_hash() ?>">
@@ -146,6 +147,8 @@ $nav = static function (array $items, string $path): string {
 </main>
 <div class="toast-container position-fixed bottom-0 end-0 p-3" data-notification-toasts aria-live="polite" aria-atomic="true"></div>
 <script src="<?= base_url('assets/vendor/bootstrap/bootstrap.bundle.min.js') ?>"></script>
+<script src="<?= base_url('assets/js/image-fallback.js') ?>"></script>
+<script src="<?= base_url('assets/js/queue-sound.js') ?>"></script>
 <script src="<?= base_url('assets/js/app.js') ?>"></script>
 <?php if (in_array($role, ['customer', 'cashier'], true)): ?><script src="<?= base_url('assets/js/cart.js') ?>"></script><?php endif; ?>
 <?= $this->renderSection('scripts') ?>

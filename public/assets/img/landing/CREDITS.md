@@ -14,13 +14,17 @@ All photos below are used under the Unsplash License (free for commercial use, a
 
 ## Product-specific menu fallbacks
 
-These fallbacks are used only when a product does not have its own uploaded image. Each seeded menu item has a visually matching photo instead of reusing one generic category image.
+Images are referenced directly by `Config\MenuImages`; photo authors and licenses are listed below.
 
-- `Chicken Adobo Rice` — https://unsplash.com/photos/cooked-food-on-plate-P_PwI00ai1s — Richard Barnedo — Unsplash License (free for commercial use, attribution not required)
-- `Pork Sisig Rice` — https://unsplash.com/photos/a-bowl-of-food-on-a-wooden-table-LsJyL1h7YNY — Christian Dala — Unsplash License (free for commercial use, attribution not required)
-- `Fried Chicken Meal` — https://unsplash.com/photos/fried-chicken-with-rice-on-plate-aps7t8mtRqw — Markus Winkler — Unsplash License (free for commercial use, attribution not required)
-- `Cheese Burger` — https://unsplash.com/photos/burger-with-potato-fries-fL-cFlbus_w — Sanjip Kadel — Unsplash License (free for commercial use, attribution not required)
-- `Crispy Fries` — https://unsplash.com/photos/french-fries-mFPlHlDLtUA — JC Gellidon — Unsplash License (free for commercial use, attribution not required)
-- `Iced Spanish Latte` — https://unsplash.com/photos/a-person-holding-a-cup-of-iced-coffee-DdHFjYpKLc8 — pariwat pannium — Unsplash License (free for commercial use, attribution not required)
-- `Hot Americano` — https://unsplash.com/photos/a-cup-of-coffee-on-a-wooden-table-MScc_RUGKMU — engin akyurt — Unsplash License (free for commercial use, attribution not required)
-- `Calamansi Juice` — https://unsplash.com/photos/lime-juice-on-drinking-glass-beside-sliced-limes-p5EiqkBYIEE — Francesca Hotchin — Unsplash License (free for commercial use, attribution not required)
+- `chicken-adobo-rice` — https://www.pexels.com/photo/mouthwatering-pork-adobo-with-eggs-beside-the-bowl-of-rice-6896058/ — Eiliv Aceron — Pexels License
+- `pork-sisig-rice` — https://www.pexels.com/photo/cooked-meat-on-black-cast-iron-cookware-6896281/ — Eiliv Aceron — Pexels License
+- `fried-chicken-meal` — https://unsplash.com/photos/fried-chicken-on-yellow-rice-77ItGP98s6g — Dr Muhammad Amer — Unsplash License
+- `cheese-burger` — https://unsplash.com/photos/burger-with-lettuce-and-tomato-_uju2LIPCSg — Amanda Lim — Unsplash License
+- `crispy-fries` — https://unsplash.com/photos/potato-fries-YOW3de4wEDk — Gilly — Unsplash License
+- `iced-spanish-latte` — https://unsplash.com/photos/a-person-pouring-coffee-into-a-glass-filled-with-ice-OSLnJG62isk — Sarah Swainson — Unsplash License
+- `hot-americano` — https://unsplash.com/photos/blue-ceramic-coffee-cup-on-blue-saucer-DvaoJEksloQ — Daniel Norris — Unsplash License
+- `calamansi-juice` — https://unsplash.com/photos/leaf-and-fruit-slices-and-beverage-and-iced-filled-drinking-glass-_0zCa-pRUE8 — zahra owji — Unsplash License
+- `Rice Meals` — https://www.pexels.com/photo/delicious-plate-of-rice-and-chicken-meal-33030612/ — nobleseed — Pexels License
+- `Snacks` — https://unsplash.com/photos/burger-with-fries-8l8Yl2ruUsg — Jonathan Borba — Unsplash License
+- `Coffee` — https://unsplash.com/photos/a-cup-of-coffee-sitting-on-top-of-a-wooden-table-G0DKq4yz5AA — Karl Hörnfeldt — Unsplash License
+- `Cold Drinks` — https://unsplash.com/photos/clear-drinking-glass-with-ice-and-lime-ohoOQxgvB0w — Johanne Pold Jacobsen — Unsplash License

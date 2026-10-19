@@ -35,7 +35,8 @@ class ProductApiController extends BaseController
         }
         $one = [$product]; (new \App\Services\AllergenService())->attach($one); $product = $one[0];
         $product['addons'] = (new ProductAddonModel())->where(['product_id' => $product['id'], 'is_active' => 1])->findAll();
-        $product['image_url'] = ! empty($product['image']) ? media_url((string) $product['image']) : '';
+        $product['category_name'] = (new CategoryModel())->find((int) $product['category_id'])['name'] ?? '';
+        $product['image_url'] = product_image($product)['url'];
         $product['available'] = (bool) $product['is_available'] && (int) $product['stock'] > 0;
         return $this->jsonSuccess('Product loaded.', $product);
     }
@@ -193,7 +194,7 @@ class ProductApiController extends BaseController
         }
         foreach ($products as &$product) {
             $product['addons'] = $addonsByProduct[(int) $product['id']] ?? [];
-            $product['image_url'] = ! empty($product['image']) ? media_url((string) $product['image']) : '';
+            $product['image_url'] = product_image($product)['url'];
         }
         unset($product);
     }
