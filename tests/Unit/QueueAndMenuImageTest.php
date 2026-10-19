@@ -32,6 +32,9 @@ final class QueueAndMenuImageTest extends TestCase
         foreach (['customer_id','customer_name','name','total','order_number','notes','delivery_address','address'] as $private) {
             self::assertStringNotContainsString('"' . $private . '"', json_encode($feed));
         }
+        // A supplied prefix must be reusable for all orders without another DB lookup.
+        $custom = QueueFeedService::present([$row, array_replace($row, ['queue_number' => 43])], true, false, $now, 30, 'P-');
+        self::assertSame(['P-042', 'P-043'], array_column($custom['ready'], 'number'));
     }
 
     public function testEverySeededProductHasAnAllowlistedHttpsImage(): void

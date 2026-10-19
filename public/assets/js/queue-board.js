@@ -24,13 +24,14 @@
     const fullscreen = board.querySelector('[data-queue-fullscreen]');
     const clock = board.querySelector('[data-queue-clock]');
     const POLL_INTERVAL = 6000;
-    const MAX_RETRY = 60000;
+    const MAX_RETRY = 300000;
     let known = null;
     let timer = null;
     let activeRequest = null;
     let backoff = POLL_INTERVAL;
     let audioEnabled = false;
     let pendingImmediateRetry = false;
+    let consecutiveFailures = 0;
 
     function renderNumbers(target, values) {
         target.replaceChildren();
@@ -60,6 +61,27 @@
         connection.hidden = !message;
     }
 
+    function showUnavailable() {
+        // The initial placeholders must not say "Loading" forever after a server failure.
+        // Preserve last-known numbers when a working display temporarily loses its feed.
+        if (known !== null) return;
+        [preparing, ready].forEach((target) => {
+            target.replaceChildren();
+            const placeholder = document.createElement('p');
+            placeholder.className = 'queue-empty';
+            placeholder.textContent = 'Queue updates unavailable';
+            target.append(placeholder);
+        });
+    }
+
+    function retryAfterMs(value) {
+        if (!value) return 0;
+        const seconds = Number(value);
+        if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+        const date = Date.parse(value);
+        return Number.isFinite(date) ? Math.max(0, date - Date.now()) : 0;
+    }
+
     async function poll() {
         if (document.hidden || activeRequest) return;
         if (root.navigator?.onLine === false) {
@@ -79,8 +101,13 @@
             if (!response.ok) {
                 const error = new Error('Queue feed unavailable');
                 error.status = response.status;
-                const retryAfter = Number.parseInt(response.headers.get('Retry-After'), 10);
-                error.retryAfter = Number.isFinite(retryAfter) ? retryAfter * 1000 : 0;
+                error.retryAfter = retryAfterMs(response.headers?.get('Retry-After'));
+                if (response.headers?.get('Content-Type')?.includes('application/json')) {
+                    try {
+                        const body = await response.json();
+                        error.code = typeof body?.code === 'string' ? body.code : '';
+                    } catch (_) { /* Servers may return HTML for unexpected errors. */ }
+                }
                 throw error;
             }
             const data = await response.json();
@@ -113,15 +140,31 @@
                 }
             }
             backoff = POLL_INTERVAL;
+            consecutiveFailures = 0;
             setConnection('');
         } catch (error) {
             if (controller.signal.aborted && document.hidden) return;
-            const limited = error.status === 429;
-            backoff = limited ? Math.max(30000, error.retryAfter || 0) : Math.min(MAX_RETRY, Math.max(POLL_INTERVAL * 2, backoff * 2));
-            backoff = Math.min(MAX_RETRY, backoff);
-            setConnection(limited ? 'Updates limited — retrying soon' :
-                root.navigator?.onLine === false ? 'Offline — waiting for network' :
-                    error.status === 404 ? 'Queue feed unavailable — retrying' : 'Reconnecting to queue…');
+            if (pendingImmediateRetry) return;
+            consecutiveFailures++;
+            const status = error.status || 0;
+            const limited = status === 429;
+            const setup = error.code === 'queue_setup_required';
+            const serverError = status >= 500;
+            if (limited || setup || serverError) {
+                // Respect Retry-After and back off server errors rather than issuing
+                // a failing request every few seconds on every open display.
+                const initial = setup ? MAX_RETRY : limited ? 30000 : 60000;
+                backoff = Math.min(MAX_RETRY, Math.max(error.retryAfter || 0,
+                    Math.min(MAX_RETRY, initial * 2 ** Math.min(consecutiveFailures - 1, 4))));
+            } else {
+                backoff = Math.min(60000, Math.max(POLL_INTERVAL * 2, backoff * 2));
+            }
+            setConnection(setup ? 'Queue setup required — contact staff' :
+                limited ? 'Updates limited — retrying soon' :
+                    root.navigator?.onLine === false ? 'Offline — waiting for network' :
+                        status === 404 ? 'Queue feed not found' :
+                            serverError ? 'Queue server unavailable — retrying' : 'Reconnecting to queue…');
+            showUnavailable();
         } finally {
             root.clearTimeout(timeout);
             if (activeRequest === controller) activeRequest = null;

@@ -5,10 +5,10 @@
 <link rel="icon" href="<?= esc(base_url('favicon.ico'),'attr') ?>">
 <link rel="stylesheet" href="<?= esc(base_url('assets/vendor/bootstrap/bootstrap.min.css'),'attr') ?>">
 <link rel="stylesheet" href="<?= esc(base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css'),'attr') ?>">
-<link rel="stylesheet" href="<?= esc(base_url('assets/css/queue-board.css') . '?v=20261020c','attr') ?>">
+<link rel="stylesheet" href="<?= esc(base_url('assets/css/queue-board.css') . '?v=20261020d','attr') ?>">
 </head><body><?= $this->renderSection('content') ?>
 <script src="<?= esc(base_url('assets/vendor/bootstrap/bootstrap.bundle.min.js'),'attr') ?>"></script>
 <script src="<?= esc(base_url('assets/js/image-fallback.js'),'attr') ?>"></script>
 <script src="<?= esc(base_url('assets/js/queue-sound.js'),'attr') ?>"></script>
-<script src="<?= esc(base_url('assets/js/queue-board.js') . '?v=20261020c','attr') ?>"></script>
+<script src="<?= esc(base_url('assets/js/queue-board.js') . '?v=20261020d','attr') ?>"></script>
 </body></html>

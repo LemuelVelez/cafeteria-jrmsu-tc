@@ -3,13 +3,14 @@
 namespace App\Services;
 
 use CodeIgniter\Database\BaseConnection;
+use App\Models\SettingModel;
 
 /** Intentionally constructs a strict public projection, never serializes DB rows. */
 final class QueueFeedService
 {
     public function __construct(private readonly ?BaseConnection $connection = null) {}
 
-    public static function present(array $orders, bool $sound, bool $voice, ?\DateTimeImmutable $now = null, int $hideMinutes = 30): array
+    public static function present(array $orders, bool $sound, bool $voice, ?\DateTimeImmutable $now = null, int $hideMinutes = 30, ?string $prefix = null): array
     {
         $zone = new \DateTimeZone(config(\Config\Cafeteria::class)->timezone);
         $now ??= new \DateTimeImmutable('now', $zone);
@@ -18,7 +19,9 @@ final class QueueFeedService
         $ready = [];
         foreach ($orders as $order) {
             if (($order['queue_date'] ?? '') !== $today || ($order['order_type'] ?? '') !== 'pickup' || empty($order['queue_number'])) continue;
-            $label = format_queue_number((int) $order['queue_number']);
+            // Resolve the prefix lazily, at most once per feed, and not on empty boards.
+            $prefix ??= (string) (new SettingModel())->getValue('queue_number_prefix', '');
+            $label = $prefix . str_pad((string) (int) $order['queue_number'], 3, '0', STR_PAD_LEFT);
             if (in_array($order['status'] ?? '', ['confirmed','preparing'], true)) {
                 $preparing[] = $label;
             } elseif (($order['status'] ?? '') === 'ready_for_pickup' && ! empty($order['ready_at'])) {
