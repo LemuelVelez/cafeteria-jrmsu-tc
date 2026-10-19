@@ -12,7 +12,7 @@
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
     <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/css/app.css') . '?v=20261020' ?>" rel="stylesheet">
 </head>
 <body>
 <?php
@@ -29,13 +29,13 @@ $isLoginPage = $publicPath === 'login';
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#publicNav" aria-controls="publicNav" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
         <div class="collapse navbar-collapse" id="publicNav">
             <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-                <li class="nav-item"><a class="nav-link public-nav-link" data-public-section="menu" href="<?= base_url('/#menu') ?>">Menu</a></li>
-                <li class="nav-item"><a class="nav-link public-nav-link" data-public-section="how-it-works" href="<?= base_url('/#how-it-works') ?>">How it works</a></li>
+                <li class="nav-item"><a class="nav-link public-nav-link" data-public-section="menu" href="<?= base_url('/#menu') ?>"><i class="bi bi-journal-richtext me-1" aria-hidden="true"></i>Menu</a></li>
+                <li class="nav-item"><a class="nav-link public-nav-link" data-public-section="how-it-works" href="<?= base_url('/#how-it-works') ?>"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>How it works</a></li>
                 <?php if ($currentUser ?? null): ?>
-                    <li class="nav-item"><a class="btn btn-primary" href="<?= base_url(role_home($currentUser['role'])) ?>">Open dashboard</a></li>
+                    <li class="nav-item"><a class="btn btn-primary" href="<?= base_url(role_home($currentUser['role'])) ?>"><i class="bi bi-speedometer2 me-1" aria-hidden="true"></i>Open dashboard</a></li>
                 <?php else: ?>
-                    <li class="nav-item"><a class="nav-link public-nav-link<?= $isLoginPage ? ' is-active' : '' ?>" href="<?= base_url('login') ?>"<?= $isLoginPage ? ' aria-current="page"' : '' ?>>Sign in</a></li>
-                    <li class="nav-item"><a class="btn btn-primary" href="<?= base_url('register') ?>">Create account</a></li>
+                    <li class="nav-item"><a class="nav-link public-nav-link<?= $isLoginPage ? ' is-active' : '' ?>" href="<?= base_url('login') ?>"<?= $isLoginPage ? ' aria-current="page"' : '' ?>><i class="bi bi-box-arrow-in-right me-1" aria-hidden="true"></i>Sign in</a></li>
+                    <li class="nav-item"><a class="btn btn-primary" href="<?= base_url('register') ?>"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Create account</a></li>
                 <?php endif; ?>
             </ul>
         </div>

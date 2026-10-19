@@ -38,6 +38,7 @@
                 class="category-pill <?= (int) $selectedCategory === (int) $category['id'] ? 'active' : '' ?>"
                 href="<?= base_url('customer/menu?category=' . $category['id']) ?>"
             >
+                <i class="bi bi-tag-fill" aria-hidden="true"></i>
                 <span><?= esc($category['name']) ?></span>
             </a>
         <?php endforeach; ?>

@@ -120,7 +120,7 @@ $landingImages = [
                     </article>
                 </div>
             <?php endforeach; else: ?>
-                <div class="col-12"><div class="surface-card"><?= view('components/empty', ['icon' => 'bi-cup-hot', 'title' => 'Menu coming soon', 'message' => 'Run the migrations and database seeder to load sample products.']) ?></div></div>
+                <div class="col-12"><div class="surface-card"><?= view('components/empty', ['icon' => 'bi-cup-straw', 'title' => 'Menu coming soon', 'message' => 'Run the migrations and database seeder to load sample products.']) ?></div></div>
             <?php endif; ?>
         </div>
     </div>

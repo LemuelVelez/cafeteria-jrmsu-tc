@@ -4,16 +4,16 @@ $role = $user['role'] ?? 'customer';
 $path = service('uri')->getPath();
 $menus = [
     'admin' => [
-        ['/admin/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/admin/products', 'bi-cup-hot', 'Products'], ['/admin/inventory', 'bi-box-seam', 'Inventory'], ['/admin/categories', 'bi-tags', 'Categories'], ['/admin/orders', 'bi-receipt', 'Orders'], ['/admin/users', 'bi-person-gear', 'Users'], ['/admin/customers', 'bi-people', 'Customers'], ['/admin/riders', 'bi-bicycle', 'Riders'], ['/admin/promos', 'bi-ticket-perforated', 'Promotions'], ['/admin/reports', 'bi-bar-chart', 'Reports'], ['/admin/audit-logs', 'bi-shield-check', 'Audit Logs'], ['/admin/settings', 'bi-sliders', 'Cafeteria settings'], ['/settings', 'bi-person-circle', 'My settings'],
+        ['/admin/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/admin/products', 'bi-cup-straw', 'Products'], ['/admin/inventory', 'bi-box-seam', 'Inventory'], ['/admin/categories', 'bi-tags', 'Categories'], ['/admin/orders', 'bi-receipt', 'Orders'], ['/admin/users', 'bi-person-badge', 'Users'], ['/admin/customers', 'bi-people', 'Customers'], ['/admin/riders', 'bi-bicycle', 'Riders'], ['/admin/promos', 'bi-ticket-perforated', 'Promotions'], ['/admin/costing', 'bi-calculator', 'Product costing'], ['/admin/menu/poster', 'bi-image', 'Menu poster'], ['/admin/reports', 'bi-bar-chart', 'Reports'], ['/admin/audit-logs', 'bi-shield-check', 'Audit Logs'], ['/admin/backups', 'bi-cloud-arrow-down', 'Backups'], ['/admin/privacy/deletion-requests', 'bi-shield-lock', 'Privacy requests'], ['/admin/settings', 'bi-sliders', 'Cafeteria settings'], ['/notifications', 'bi-bell', 'Notifications'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'cashier' => [
-        ['/cashier/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/cashier/pos', 'bi-calculator', 'Point of Sale'], ['/cashier/orders', 'bi-receipt', 'Orders'], ['/cashier/inventory', 'bi-box-seam', 'Inventory'], ['/settings', 'bi-person-circle', 'My settings'],
+        ['/cashier/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/cashier/pos', 'bi-calculator', 'Point of Sale'], ['/cashier/orders', 'bi-receipt', 'Orders'], ['/cashier/inventory', 'bi-box-seam', 'Inventory'], ['/notifications', 'bi-bell', 'Notifications'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'customer' => [
-        ['/customer/dashboard', 'bi-house', 'Dashboard'], ['/customer/menu', 'bi-cup-straw', 'Menu'], ['/customer/cart', 'bi-basket', 'Cart'], ['/customer/orders', 'bi-bag-check', 'My Orders'], ['/customer/reviews', 'bi-star', 'Reviews'], ['/settings', 'bi-person-circle', 'My settings'],
+        ['/customer/dashboard', 'bi-house', 'Dashboard'], ['/customer/menu', 'bi-cup-straw', 'Menu'], ['/customer/cart', 'bi-basket', 'Cart'], ['/customer/orders', 'bi-bag-check', 'My Orders'], ['/customer/reviews', 'bi-star', 'Reviews'], ['/notifications', 'bi-bell', 'Notifications'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
     'rider' => [
-        ['/rider/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/rider/deliveries', 'bi-geo-alt', 'Deliveries'], ['/settings', 'bi-person-circle', 'My settings'],
+        ['/rider/dashboard', 'bi-grid-1x2', 'Dashboard'], ['/rider/deliveries', 'bi-geo-alt', 'Deliveries'], ['/notifications', 'bi-bell', 'Notifications'], ['/settings', 'bi-person-circle', 'My settings'],
     ],
 ];
 $items = $menus[$role] ?? [];
@@ -22,7 +22,7 @@ $nav = static function (array $items, string $path): string {
     foreach ($items as [$href, $icon, $label]) {
         $active = str_starts_with('/' . trim($path, '/'), $href) ? ' active' : '';
         $badge = $label === 'Orders' && in_array((session()->get('user')['role'] ?? null), ['admin', 'cashier'], true) ? '<span class="badge text-bg-warning ms-auto" data-pending-orders hidden>0</span>' : '';
-        $html .= '<a class="nav-link' . $active . '" href="' . base_url(ltrim($href, '/')) . '"><i class="bi ' . $icon . '"></i><span>' . esc($label) . '</span>' . $badge . '</a>';
+        $html .= '<a class="nav-link' . $active . '" href="' . base_url(ltrim($href, '/')) . '"><span class="sidebar-nav-icon"><i class="bi ' . esc($icon, 'attr') . '" aria-hidden="true"></i></span><span>' . esc($label) . '</span>' . $badge . '</a>';
     }
     return $html;
 };
@@ -39,7 +39,7 @@ $nav = static function (array $items, string $path): string {
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
     <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/css/app.css') . '?v=20261020' ?>" rel="stylesheet">
     <?= $this->renderSection('styles') ?>
 </head>
 <?php $cartOwnerId = (int) ($currentUser['id'] ?? 0); ?>
@@ -49,7 +49,7 @@ $nav = static function (array $items, string $path): string {
         <img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="Logo">
         <div><div class="fw-bold">JRMSU-TC</div><small class="text-white-50">Cafeteria</small></div>
     </a>
-    <nav class="nav flex-column gap-1"><?= $nav($items, $path) ?></nav>
+    <nav class="nav flex-column gap-1" aria-label="Sidebar navigation"><?= $nav($items, $path) ?></nav>
     <div class="mt-auto pt-4 border-top border-secondary-subtle">
         <div class="d-flex align-items-center gap-3 px-2 mb-3">
             <img class="sidebar-user-avatar" src="<?= esc(user_avatar_url($user['avatar'] ?? null), 'attr') ?>" alt="<?= esc($user['name'] ?? 'User', 'attr') ?> avatar">
@@ -61,12 +61,12 @@ $nav = static function (array $items, string $path): string {
 <div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
     <div class="offcanvas-header border-bottom border-secondary"><div class="d-flex align-items-center gap-2"><img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="Logo"><h5 class="offcanvas-title" id="mobileSidebarLabel">JRMSU-TC Cafeteria</h5></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
     <div class="offcanvas-body d-flex flex-column">
-        <nav class="app-sidebar position-static d-flex flex-column p-0 w-100" style="min-height:auto;background:transparent;"><?= $nav($items, $path) ?></nav>
+        <nav aria-label="Mobile navigation" class="app-sidebar position-static d-flex flex-column p-0 w-100" style="min-height:auto;background:transparent;"><?= $nav($items, $path) ?></nav>
         <div class="d-flex align-items-center gap-3 mt-auto pt-4 mb-3 border-top border-secondary-subtle">
             <img class="sidebar-user-avatar" src="<?= esc(user_avatar_url($user['avatar'] ?? null), 'attr') ?>" alt="<?= esc($user['name'] ?? 'User', 'attr') ?> avatar">
             <div class="min-w-0"><div class="fw-semibold text-truncate"><?= esc($user['name'] ?? 'User') ?></div><small class="text-white-50 text-capitalize"><?= esc($role) ?></small></div>
         </div>
-        <form action="<?= base_url('logout') ?>" method="post" data-confirm="Sign out of your account?" data-confirm-title="Sign out" data-confirm-label="Sign out" data-confirm-class="btn-danger"><?= csrf_field() ?><button class="btn btn-outline-light w-100" type="submit">Sign out</button></form>
+        <form action="<?= base_url('logout') ?>" method="post" data-confirm="Sign out of your account?" data-confirm-title="Sign out" data-confirm-label="Sign out" data-confirm-class="btn-danger"><?= csrf_field() ?><button class="btn btn-outline-light w-100" type="submit"><i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Sign out</button></form>
     </div>
 </div>
 <main class="app-main">
@@ -81,9 +81,9 @@ $nav = static function (array $items, string $path): string {
                     <i class="bi bi-bell" aria-hidden="true"></i><span class="cart-count-badge" data-notification-count hidden>0</span>
                 </button>
                 <div class="dropdown-menu dropdown-menu-end p-0 shadow notification-dropdown" style="width:min(360px,90vw)">
-                    <div class="d-flex align-items-center justify-content-between p-3 border-bottom"><strong>Notifications</strong><button class="btn btn-sm btn-link" type="button" data-notifications-read-all>Mark all read</button></div>
+                    <div class="d-flex align-items-center justify-content-between p-3 border-bottom"><strong>Notifications</strong><button class="btn btn-sm btn-link" type="button" data-notifications-read-all><i class="bi bi-check2-all me-1" aria-hidden="true"></i>Mark all read</button></div>
                     <div data-notification-list><div class="p-3 text-secondary small">Loading notifications…</div></div>
-                    <a class="dropdown-item text-center border-top py-2" href="<?= base_url('notifications') ?>">View all notifications</a>
+                    <a class="dropdown-item text-center border-top py-2" href="<?= base_url('notifications') ?>"><i class="bi bi-bell me-2" aria-hidden="true"></i>View all notifications</a>
                 </div>
             </div>
             <?php if ($role === 'customer'): ?>
@@ -139,7 +139,7 @@ $nav = static function (array $items, string $path): string {
         <?php endif; ?>
         </div>
     </div>
-    <div class="page-shell">
+    <div class="page-shell<?= preg_match('#^/(admin|cashier|customer|rider)/dashboard$#', '/' . trim($path, '/')) ? ' dashboard-page dashboard-page--' . esc($role, 'attr') : '' ?>">
         <?= view('components/alerts') ?>
         <?= $this->renderSection('content') ?>
     </div>

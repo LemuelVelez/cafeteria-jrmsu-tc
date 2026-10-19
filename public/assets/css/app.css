@@ -1764,3 +1764,93 @@ body { min-width: 0; overflow-x: clip; }
         gap: .85rem 1.25rem !important;
     }
 }
+
+
+/* Café imagery and icon navigation: remote Unsplash photographs with opaque readability layers. */
+:root {
+    --cafe-photo-interior: url("https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=75");
+    --cafe-photo-counter: url("https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1600&q=75");
+    --cafe-photo-food: url("https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=75");
+    --cafe-photo-coffee: url("https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=75");
+}
+
+/* The same icon chips are rendered in desktop and mobile sidebars. */
+.app-sidebar .nav-link { min-height: 48px; gap: .75rem; transition: background-color .2s ease, color .2s ease; }
+.app-sidebar .sidebar-nav-icon {
+    width: 36px; height: 36px; flex: 0 0 36px; display: inline-flex;
+    align-items: center; justify-content: center; border-radius: .7rem;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.08);
+    color: #dbeafe; font-size: 1.08rem; transition: background-color .2s ease, color .2s ease;
+}
+.app-sidebar .sidebar-nav-icon .bi { width: auto; }
+.app-sidebar .nav-link:hover .sidebar-nav-icon,
+.app-sidebar .nav-link.active .sidebar-nav-icon {
+    background: rgba(255,255,255,.19); color: #fff; border-color: rgba(255,255,255,.22);
+}
+.app-sidebar .nav-link.active { background: linear-gradient(90deg,rgba(33,116,198,.4),rgba(255,255,255,.09)); }
+.app-sidebar .nav-link:focus-visible { outline: 2px solid #fbbf24; outline-offset: 2px; }
+
+/* Shared image-backed cards and sheets. Readable gradients keep dense forms usable. */
+.app-main .surface-card,
+.app-main .stat-card,
+.app-main .card:not(.product-card) {
+    background-image: linear-gradient(120deg,rgba(255,255,255,.975),rgba(255,255,255,.935)), var(--cafe-photo-coffee);
+    background-size: cover; background-position: center;
+}
+.modal-content,
+.offcanvas:not(#mobileSidebar) {
+    background-image: linear-gradient(130deg,rgba(255,255,255,.975),rgba(248,251,255,.935)), var(--cafe-photo-interior);
+    background-size: cover; background-position: center;
+}
+.modal-content .modal-header,
+.offcanvas:not(#mobileSidebar) .offcanvas-header {
+    background: linear-gradient(95deg,rgba(255,255,255,.90),rgba(235,245,255,.78));
+}
+/* The mobile sidebar is deliberately dark, not a white modal sheet. */
+#mobileSidebar { background-image: linear-gradient(150deg,#102a43,#071a2e); }
+
+/* Role-specific hero photography on every dashboard. */
+.dashboard-page { --dashboard-photo: var(--cafe-photo-interior); min-height: calc(100vh - 92px);
+    background-image: linear-gradient(180deg,rgba(244,247,251,.91),rgba(244,247,251,.985)), var(--dashboard-photo);
+    background-position: center top; background-size: cover;
+}
+.dashboard-page--admin { --dashboard-photo: var(--cafe-photo-interior); }
+.dashboard-page--cashier { --dashboard-photo: var(--cafe-photo-counter); }
+.dashboard-page--customer { --dashboard-photo: var(--cafe-photo-food); }
+.dashboard-page--rider { --dashboard-photo: var(--cafe-photo-coffee); }
+.dashboard-hero {
+    isolation: isolate; position: relative; border-radius: 1.4rem;
+    padding: clamp(1.45rem,3.25vw,2.5rem); overflow: hidden;
+    background-image: linear-gradient(100deg,rgba(7,27,47,.93),rgba(13,54,69,.82) 60%,rgba(14,63,66,.54)),var(--dashboard-photo);
+    background-position: center; background-size: cover;
+    border: 1px solid rgba(255,255,255,.16);
+    box-shadow: 0 18px 45px rgba(7,29,47,.15); color: #fff;
+}
+.dashboard-hero .section-title { color: #fff; font-size: clamp(1.5rem,2.5vw,2.2rem); letter-spacing: -.025em; }
+.dashboard-hero p.text-secondary { color: rgba(255,255,255,.89) !important; }
+.dashboard-hero__eyebrow { font-size: .77rem; letter-spacing: .1em; text-transform: uppercase;
+    font-weight: 800; color: #bfe9e2; display: flex; align-items: center; gap: .5rem; margin-bottom: .8rem; }
+.dashboard-hero__eyebrow .bi { font-size: 1rem; }
+.dashboard-hero .btn { align-self: flex-start; background: #fff; color: #102a43; border-color: #fff; }
+.dashboard-hero .btn:hover, .dashboard-hero .btn:focus-visible { background: #e6f4ff; border-color: #e6f4ff; color: #102a43; }
+.dashboard-page .stat-card { background-image: linear-gradient(125deg,rgba(255,255,255,.96),rgba(248,253,255,.86)),var(--dashboard-photo) !important;
+    background-size: cover; background-position: center; border: 1px solid rgba(213,226,238,.8); }
+.dashboard-page .surface-card { background-image: linear-gradient(120deg,rgba(255,255,255,.975),rgba(252,253,255,.90)),var(--dashboard-photo);
+    background-size: cover; background-position: center; }
+.dashboard-page .stat-card .stat-icon { background: rgba(223,238,250,.85); }
+.dashboard-page .stat-card .stat-inline-icon { display: inline-grid; place-items: center;
+    min-width: 1.8rem; min-height: 1.8rem; color: #185b72; border-radius: .5rem; background: rgba(219,236,245,.86); }
+.dashboard-page .table-card > .p-4:first-child {
+    background: linear-gradient(115deg,rgba(255,255,255,.93),rgba(233,247,248,.85));
+}
+.dashboard-page .table-card .table { --bs-table-bg: rgba(255,255,255,.93); }
+@media (max-width: 991.98px) {
+    .dashboard-page { min-height: calc(100vh - 64px); }
+}
+@media (max-width: 575.98px) {
+    .dashboard-hero { border-radius: 1rem; }
+    .dashboard-hero .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-sidebar .nav-link, .app-sidebar .sidebar-nav-icon { transition: none; }
+}

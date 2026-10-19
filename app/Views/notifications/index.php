@@ -1,9 +1,9 @@
 <?= $this->extend('layouts/main') ?>
 <?= $this->section('content') ?>
-<div class="d-flex justify-content-between align-items-center mb-4"><div><h1 class="h3 section-title fw-bold mb-1">Notifications</h1><p class="text-secondary mb-0">Order, assignment, and inventory alerts.</p></div><button class="btn btn-outline-primary" type="button" data-notifications-read-all>Mark all as read</button></div>
+<div class="d-flex justify-content-between align-items-center mb-4"><div><h1 class="h3 section-title fw-bold mb-1">Notifications</h1><p class="text-secondary mb-0">Order, assignment, and inventory alerts.</p></div><button class="btn btn-outline-primary" type="button" data-notifications-read-all><i class="bi bi-check2-all me-1" aria-hidden="true"></i>Mark all as read</button></div>
 <nav class="d-flex flex-wrap gap-2 mb-3" aria-label="Notification filters">
-<?php foreach([''=>'All','unread'=>'Unread','order'=>'Orders','inventory'=>'Inventory','system'=>'System'] as $key=>$label): ?>
-<a class="btn btn-sm <?= $filter===$key?'btn-primary':'btn-outline-secondary' ?>" href="<?= base_url('notifications'.($key!==''?'?filter='.$key:'')) ?>"><?= esc($label) ?></a>
+<?php foreach([''=>['All','bi-grid'],'unread'=>['Unread','bi-envelope'],'order'=>['Orders','bi-receipt'],'inventory'=>['Inventory','bi-box-seam'],'system'=>['System','bi-gear']] as $key=>[$label,$icon]): ?>
+<a class="btn btn-sm <?= $filter===$key?'btn-primary':'btn-outline-secondary' ?>" href="<?= base_url('notifications'.($key!==''?'?filter='.$key:'')) ?>"><i class="bi <?= esc($icon, 'attr') ?> me-1" aria-hidden="true"></i><?= esc($label) ?></a>
 <?php endforeach; ?>
 </nav>
 <div class="surface-card overflow-hidden">

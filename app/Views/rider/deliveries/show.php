@@ -51,7 +51,7 @@
                         data-copy-success-label="Address copied"
                         data-copy-error-label="Copy failed"
                     >
-                        <i class="bi bi-copy me-1" aria-hidden="true"></i><span data-copy-label aria-live="polite">Copy address</span>
+                        <i class="bi bi-files me-1" aria-hidden="true"></i><span data-copy-label aria-live="polite">Copy address</span>
                     </button>
                     <?php if (! empty($order['customer_phone'])): ?>
                         <a class="btn btn-outline-secondary" href="<?= $canViewContact ? 'tel:' . esc($order['customer_phone'], 'attr') : '#' ?>">
