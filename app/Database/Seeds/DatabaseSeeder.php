@@ -3,6 +3,7 @@
 namespace App\Database\Seeds;
 
 use App\Services\NutritionCatalogAudit;
+use App\Services\DemoProductNutritionCatalog;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Database\Seeder;
 
@@ -17,6 +18,15 @@ class DatabaseSeeder extends Seeder
         'UserSeeder',
         'CategorySeeder',
         'ProductSeeder',
+        // Independent, approved product recipes must run BEFORE legacy catalog seeders.
+        'ChickenAdoboRiceSeeder',
+        'PorkSisigRiceSeeder',
+        'FriedChickenMealSeeder',
+        'CheeseBurgerSeeder',
+        'CrispyFriesSeeder',
+        'IcedSpanishLatteSeeder',
+        'HotAmericanoSeeder',
+        'CalamansiJuiceSeeder',
         'IngredientSeeder',
         'RecipeSeeder',
         'SettingSeeder',
@@ -54,6 +64,14 @@ class DatabaseSeeder extends Seeder
                 'cold-drinks',
             ]),
             'ProductSeeder' => self::productSeedIsSatisfied($db),
+            'ChickenAdoboRiceSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'chicken-adobo-rice'),
+            'PorkSisigRiceSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'pork-sisig-rice'),
+            'FriedChickenMealSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'fried-chicken-meal'),
+            'CheeseBurgerSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'cheese-burger'),
+            'CrispyFriesSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'crispy-fries'),
+            'IcedSpanishLatteSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'iced-spanish-latte'),
+            'HotAmericanoSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'hot-americano'),
+            'CalamansiJuiceSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'calamansi-juice'),
             'IngredientSeeder' => self::ingredientSeedIsSatisfied($db),
             'RecipeSeeder' => self::recipeSeedIsSatisfied($db),
             'SettingSeeder' => self::hasAllValues($db, 'settings', 'setting_key', [
@@ -74,11 +92,17 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // The test framework may call DatabaseSeeder directly, bypassing the
-        // tracked Spark seed command. Never apply half a recipe catalog there.
-        $catalog = NutritionCatalogAudit::assess(IngredientSeeder::rows(), RecipeSeeder::rows());
+        // The test framework can call this directly. Apply each product only
+        // after its kitchen worksheet is approved. Legacy bulk seeders stay
+        // disabled: the eight custom seeders cover the same data and avoid
+        // double-importing recipes or overwriting existing administrator edits.
+        $ingredients = IngredientSeeder::rows();
+        $recipes = RecipeSeeder::rows();
+        $worksheet = DemoProductNutritionCatalog::worksheet();
         foreach (self::SEEDERS as $seeder) {
-            if (! $catalog['ready'] && in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)) {
+            if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)) continue;
+            $slug = DemoProductNutritionCatalog::slugForSeeder($seeder);
+            if ($slug !== null && ! DemoProductNutritionCatalog::assess($slug, $ingredients, $recipes, $worksheet)['ready']) {
                 continue;
             }
             $this->call($seeder);

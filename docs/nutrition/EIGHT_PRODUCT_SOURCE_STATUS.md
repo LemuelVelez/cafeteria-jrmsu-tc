@@ -34,3 +34,8 @@ The reference lemon entry is deliberately named **“not calamansi”**. It is n
 5. Calculate per-serving nutrients from the sourced recipes with `CostingService`, validate actual portions against the kitchen, and obtain the existing human verification sign-off. Keep `nutrition_status=estimated` until authorized staff verify it.
 
 The eight-product criteria (measured recipe, actual ingredient match, total nutrients/cost, history-safe migration, and human sign-off) are **blocked by real-world data not supplied in this repository**. Do not mark #5 or the final acceptance suite as Verified on the strength of this reference library.
+
+
+## Per-product custom seeders (v18)
+
+Separate classes now exist for each of the eight demo products; `php spark seed` attempts only individually approved products and defers the rest. Each class is idempotent, guarded by the original kitchen measurement worksheet and sourced CSVs, and cannot rewrite an existing admin recipe. The live worksheet supplied with the project still has no signed quantity values: **0/8 kitchen recipes are approved and all eight custom seeders remain deferred**. The seeders do not fabricate food composition, portions, unit prices, kitchen approvers, or approval dates. Team-provided data is still required before they can run against MySQL.
