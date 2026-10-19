@@ -45,7 +45,7 @@ class AuditLogService
     public static function scrub(array $details): array
     {
         foreach ($details as $key => $value) {
-            if (preg_match('/password|passphrase|secret|token|credential|authorization|email|phone|address|otp|totp|recovery|api.?key|ip.?device|(^|_)name$|note|comment|reason|description|supplier|avatar/i', (string) $key)) {
+            if (preg_match('/password|passphrase|secret|token|credential|authorization|email|phone|address|otp|totp|recovery|api.?key|ip.?device|(^|_)name$|note|comment|reason|description|supplier|avatar|full.?name|message|body|payload|raw.?data|(^|_)details$|shipping|billing|recipient|postal|postcode|session|cookie|endpoint|url|(^|_)link$/i', (string) $key)) {
                 unset($details[$key]);
             } elseif (is_array($value)) {
                 $details[$key] = self::scrub($value);

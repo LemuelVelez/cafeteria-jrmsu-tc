@@ -111,3 +111,11 @@ Provide authentic ingredient-level nutrient references (edition/food ID, measure
   `WebPushDispatchDatabaseTest`, and `ApiAuthorizationFeatureTest`. Database and
   Feature tests are **not verified** without Composer, MySQLi and MySQL.
 - `npm run check` and `./cafe lint` **PASS**.
+
+## Continuation v9 — code implemented, MySQL acceptance still blocked
+
+- `AuthService`: verification and password-reset token reissuance now lock the user, invalidate older links, persist `token_issue` metadata-only audit once, and commit atomically. `AuthenticationTokenAuditDatabaseTest` covers token reuse prevention, password reset and session-version invalidation, and rollback for missing users. These DB tests **have not executed**.
+- `SeedAll` / `DatabaseSeeder`: header-only ingredient/recipe CSV files now leave nutrition seeders **blocked**, not marked completed in `seeder_runs`. A previously recorded placeholder must be corrected with an append-only data migration after real source data is obtained; no seed state is overwritten. `NutritionSeederRegistryDatabaseTest` is added, **not run**.
+- `NutritionCatalogAudit` / `php spark nutrition:catalog-audit`: source-name/recipe-coverage/measurement preflight for all eight demos. Missing ingredients and contradictory quantities are reported, with no simulated nutrient values. The existing CSVs remain empty, so correction #5 stays **Partial / blocked on team source data**. `NutritionCatalogAuditTest` contains synthetic test fixtures only.
+- `NotificationApiController`: atomic individual and bulk read acknowledgments; documented low-risk audit exemption. `AuditLogService` drops additional PII-prone unstructured details and `AuditPrivacyTest` has expanded assertions. Correction #15 stays **Partial** until all routes have real-DB proof.
+- Runtime checks: see final packaging note; MySQL-backed PHPUnit, migrations and hardware acceptance are **not Verified** here. No new settings keys, `.env` variables or migrations.

@@ -9,8 +9,8 @@ exactly one appropriate audit record and `AuditLogService::scrub()` PII removal.
 |---|---|---|---|
 | POST | `/login` | login_success/login_failure | **Not run (MySQL unavailable)** |
 | POST | `/register` | account_created | **Not run (MySQL unavailable)** |
-| POST | `/email-verification/resend` | token_issue (verification token only) | **Not run (MySQL unavailable)** |
-| POST | `/forgot-password` | token_issue (password reset token only) | **Not run (MySQL unavailable)** |
+| POST | `/email-verification/resend` | `token_issue` (verification only), `AuthenticationTokenAuditDatabaseTest::testVerificationResendInvalidatesPreviousLinkAndAuditsMetadataOnly` | **Written; MySQL not run** |
+| POST | `/forgot-password` | `token_issue` (password reset only), `AuthenticationTokenAuditDatabaseTest::testPasswordResetIssuanceAndConsumptionAreAuditedOnceEach` | **Written; MySQL not run** |
 | POST | `/reset-password` | password_change | **Not run (MySQL unavailable)** |
 | POST | `/two-factor` | two_factor_success | **Not run (MySQL unavailable)** |
 | POST | `/logout` | logout | **Not run (MySQL unavailable)** |
@@ -61,7 +61,7 @@ exactly one appropriate audit record and `AuditLogService::scrub()` PII removal.
 | POST | `/staff/orders/(:num)/verify-handoff` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
 | POST | `/api/push/subscribe` | `push_subscribed` (WebPushService) | **Not run (MySQL unavailable)** |
 | POST | `/api/push/unsubscribe` | `push_unsubscribed` (WebPushService) | **Not run (MySQL unavailable)** |
-| PATCH | `/api/notifications/(:num)/read` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
+| PATCH | `/api/notifications/(:num)/read` | No audit (owned read acknowledgment; low-risk, transactional) | **Not run (MySQL unavailable)** |
 | PATCH | `/api/notifications/read-all` | No audit (notification-read acknowledgment; low risk) | **Not run (MySQL unavailable)** |
 | POST | `/api/orders/(:num)/reorder` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
 | POST | `/api/orders` | order_created | **Not run (MySQL unavailable)** |
@@ -107,3 +107,9 @@ notification with sent/retired device counts and retry state. Its updates to
 outbox, subscription deletion and successful delivery receipts are transactional.
 The MySQL test `WebPushDispatchDatabaseTest` covers attempts, retries and expired
 subscriptions, but **was not run** in this environment.
+
+### Continuation v9 — token issuance, nutrition source gating, notification reads
+
+- `POST /email-verification/resend` and `POST /forgot-password`: `token_issue` is persisted on the same MySQL transaction as the previous-token invalidation and new token creation; `purpose` only, with a NULL guest actor; no raw token, hash or email. `AuthenticationTokenAuditDatabaseTest` covers invalidation, verification consumption, password reset consumption, and missing-user rollback, but is **not run** without MySQL.
+- `PATCH /api/notifications/(:num)/read` and `PATCH /api/notifications/read-all` intentionally emit no audit for low-risk owned read acknowledgments. Both now use atomic transactions.
+- `AuditPrivacyTest` extends recursive PII scrub assertions for freeform messages, bodies, request payloads, endpoints and details (PHPUnit pending).

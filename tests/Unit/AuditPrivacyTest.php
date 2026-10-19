@@ -19,6 +19,11 @@ final class AuditPrivacyTest extends TestCase
             'comment' => 'Contact private@example.invalid',
             'note' => 'My personal phone number',
             'supplier' => 'Private contact detail',
+            'message' => 'Customer address and contact details',
+            'body' => 'User password sent accidentally',
+            'payload' => ['session' => 'private session'],
+            'endpoint' => 'https://private-device.example/push',
+            'details' => 'Contact the resident by phone',
             'changes' => [
                 'password_hash' => ['before' => 'secret', 'after' => 'new secret'],
                 'notes' => ['before' => 'old details', 'after' => 'new details'],
@@ -29,7 +34,7 @@ final class AuditPrivacyTest extends TestCase
         self::assertSame('completed', $clean['status']);
         self::assertSame(2, $clean['quantity']);
         self::assertSame(['before' => 2, 'after' => 4], $clean['changes']['stock']);
-        foreach (['name','email','customer_address','reason','description','comment','note','supplier'] as $key) {
+        foreach (['name','email','customer_address','reason','description','comment','note','supplier','message','body','payload','endpoint','details'] as $key) {
             self::assertArrayNotHasKey($key, $clean);
         }
         self::assertArrayNotHasKey('password_hash', $clean['changes']);

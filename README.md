@@ -223,3 +223,11 @@ is provided for database acceptance tests without making external network calls.
 `AuthFilter`, `RoleFilter`, and `ActiveAccountFilter` respond with JSON 401/403
 for `/api/...` paths, including when requests lack AJAX headers.
 `npm run check` and `./cafe lint` pass; MySQL-backed tests remain pending.
+
+### Nutrition catalog readiness and seeder integrity
+
+Run `php spark nutrition:catalog-audit` to validate coverage of all eight demo recipes and sourced ingredient names, measurement conversions, and batch settings before seeding. This command **does not fabricate or certify nutrition data**: the team must cross-check the named PhilFCT/USDA records, measured weights, supplier receipts, and human verification. The distributed `ingredients.csv` and `recipes.csv` intentionally have headers only, pending real source material.
+
+`php spark seed` now **fails with an explicit blocked result** when those source CSVs are empty instead of recording empty nutrition seeders as successful. It still executes other pending seeders. If an older installation has already recorded one of these placeholder seeders in `seeder_runs`, do not delete/replay the record: bring newly obtained source data in through a new append-only migration. Once the real CSVs are supplied on a fresh installation, registered seeders validate and load the data idempotently.
+
+Authentication verification-email and password-reset resends atomically invalidate earlier tokens and write a `token_issue` audit event that records only the token purpose, not the token or account contact information. Notification-read acknowledgments are committed atomically and intentionally do not create an audit event.

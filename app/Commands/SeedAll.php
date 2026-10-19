@@ -51,6 +51,7 @@ class SeedAll extends BaseCommand
 
             $this->step('🔎', sprintf('Checking %d registered seeder(s)...', count($seeders)), 'cyan');
             $pending = [];
+            $blockedSources = [];
             $skipped = 0;
 
             foreach ($seeders as $index => $seeder) {
@@ -60,8 +61,30 @@ class SeedAll extends BaseCommand
                     throw new RuntimeException('Registered seeder file is missing: ' . $seeder . '.php');
                 }
 
+                // Empty nutrition source files are placeholders, NOT successful
+                // seeding. Do not write a seeder_runs marker for either of them.
+                // This also detects incorrect markers written by older releases.
+                if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)) {
+                    $class = 'App\\Database\\Seeds\\' . $seeder;
+                    $sourceRows = $class::rows();
+                    if ($sourceRows === []) {
+                        $blockedSources[] = $seeder;
+                        CLI::write(sprintf('   ⛔ [%d/%d] %s — BLOCKED (source CSV has no verified rows)',
+                            $position, count($seeders), $seeder), 'red');
+                        continue;
+                    }
+                }
+
                 $record = $this->seederRun($db, $seeder);
                 if ($record !== null) {
+                    // An old release could have recorded a placeholder as seeded.
+                    // Registry markers cannot be replayed or overwritten: require
+                    // an append-only data migration for newly sourced records.
+                    if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)
+                        && ! DatabaseSeeder::isSatisfied($seeder, $db)) {
+                        throw new RuntimeException($seeder . ' has a seeder_runs marker but sourced data is incomplete. '
+                            . 'Add an append-only sourced data migration; never silently replay a recorded seeder.');
+                    }
                     $skipped++;
                     CLI::write(sprintf(
                         '   ⏭️  [%d/%d] %s — SKIPPED (already seeded)',
@@ -94,6 +117,11 @@ class SeedAll extends BaseCommand
             }
 
             CLI::newLine();
+            if ($pending === [] && $blockedSources !== []) {
+                CLI::error('Nutrition seeding is BLOCKED: ' . implode(', ', $blockedSources)
+                    . ' require real, sourced CSV records. No placeholder seeder was recorded.');
+                return EXIT_ERROR;
+            }
             if ($pending === []) {
                 $this->success(sprintf(
                     '🎉 No pending seeders — %d existing seeder(s) skipped. Database seed state is current.',
@@ -143,7 +171,7 @@ class SeedAll extends BaseCommand
             }
 
             if ($missing !== []) {
-                CLI::error(sprintf('❌ Seeder verification failed: %d seeder(s) are still pending.', count($missing)));
+                CLI::error(sprintf('❌ Seeder verification incomplete: %d seeder(s) remain unverified (including empty-source blocks).', count($missing)));
                 return EXIT_ERROR;
             }
 

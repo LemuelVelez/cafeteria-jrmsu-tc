@@ -149,7 +149,7 @@ class AuthService
 
     public function issueVerificationToken(array $user): string
     {
-        return $this->tokens->issue((int) $user['id'], AuthTokenModel::EMAIL_VERIFICATION, DAY);
+        return $this->issueAuditedToken((int) $user['id'], AuthTokenModel::EMAIL_VERIFICATION, DAY);
     }
 
     public function verifyEmail(string $plainToken): bool
@@ -164,7 +164,7 @@ class AuthService
             }
             $updated = $this->users->update((int) $token['user_id'], ['requires_email_verification' => 0, 'email_verified_at' => date('Y-m-d H:i:s')]);
             $used = $this->tokens->markUsed((int) $token['id']);
-            (new AuditLogService($database))->record('email_verified','user',(int)$token['user_id'],[],(int)$token['user_id']);
+            (new AuditLogService($database))->record('email_verified','user',(int)$token['user_id']);
             if (! $updated || ! $used || ! $database->transStatus()) {
                 throw new \RuntimeException('Unable to verify the email address.');
             }
@@ -179,7 +179,36 @@ class AuthService
 
     public function issuePasswordResetToken(array $user): string
     {
-        return $this->tokens->issue((int) $user['id'], AuthTokenModel::PASSWORD_RESET, HOUR);
+        return $this->issueAuditedToken((int) $user['id'], AuthTokenModel::PASSWORD_RESET, HOUR);
+    }
+
+    /**
+     * Token replacement invalidates all earlier unused links. Keep that mutation
+     * and the single metadata-only audit event on the same database connection.
+     * Never put the raw token, its hash or the account email into the audit row.
+     */
+    private function issueAuditedToken(int $userId, string $purpose, int $lifetime): string
+    {
+        $database = db_connect();
+        $database->transBegin();
+        try {
+            $user = $database->query('SELECT id FROM users WHERE id = ? FOR UPDATE', [$userId])->getRowArray();
+            if (! $user) {
+                throw new \DomainException('Account not found.');
+            }
+            $token = $this->tokens->issue($userId, $purpose, $lifetime);
+            // These links are requested by an unauthenticated visitor. Do not
+            // impersonate the account owner in the audit actor column.
+            (new AuditLogService($database))->record('token_issue', 'user', $userId, ['purpose' => $purpose]);
+            if (! $database->transStatus()) {
+                throw new \RuntimeException('Unable to issue the account token.');
+            }
+            $database->transCommit();
+            return $token;
+        } catch (Throwable $exception) {
+            $database->transRollback();
+            throw $exception;
+        }
     }
 
     public function isPasswordResetTokenValid(string $plainToken): bool
@@ -210,7 +239,7 @@ class AuthService
                 'session_version' => (int) ($user['session_version'] ?? 1) + 1,
             ]);
             $used = $this->tokens->markUsed((int) $token['id']);
-            (new AuditLogService($database))->record('password_change', 'user', $userId, ['source' => 'password_reset'], $userId);
+            (new AuditLogService($database))->record('password_change', 'user', $userId, ['source' => 'password_reset']);
             if (! $updated || ! $used || ! $database->transStatus()) {
                 throw new \RuntimeException('Unable to reset the password.');
             }

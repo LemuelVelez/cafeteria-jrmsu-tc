@@ -370,3 +370,12 @@ subscription removal, the delivery/attempt state and the scrubbed
 prevents simultaneous dispatchers. A power failure between provider acceptance
 and recording the receipt can still cause a resend. The transport-mocked DB
 acceptance tests require Composer and a running MySQL test schema.
+
+## Source-data and token auditing safeguards (2026-10-19)
+
+- `nutrition:catalog-audit` is a read-only readiness check for eight demo recipe source CSV groups, referenced ingredient names, batch consistency and measurable recipe-to-purchase units. It does not independently verify externally cited food IDs.
+- `IngredientSeeder` and `RecipeSeeder` with empty CSVs are NOT satisfied; the `seed` CLI reports `BLOCKED` rather than registering them as complete. Previously recorded placeholder runs must be corrected using an append-only sourced-data migration, not a silent seeder replay.
+- `AuthService::issueVerificationToken()` and `issuePasswordResetToken()` replace prior unused tokens in one transaction with a PII-free `token_issue` audit record. The controller may send email only after the transaction commits.
+- `NotificationApiController::read()` and `readAll()` use transactional updates. These low-risk per-user read acknowledgments remain documented audit exemptions.
+- The audit scrubber also drops raw messages, request payloads, contact URLs, subscription endpoints and other unstructured fields that might contain personal details.
+- Database acceptance is pending a real MySQL database, the MySQLi extension and Composer dependencies.

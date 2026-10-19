@@ -147,7 +147,11 @@ class DatabaseSeeder extends Seeder
     private static function ingredientSeedIsSatisfied(BaseConnection $db): bool
     {
         if (! $db->tableExists('ingredients') || ! $db->tableExists('ingredient_movements')) return false;
-        foreach (IngredientSeeder::rows() as $ingredient) {
+        $rows = IngredientSeeder::rows();
+        // An empty source catalog is not a successfully applied seeder. The team
+        // must supply real nutrient references before this can be satisfied.
+        if ($rows === []) return false;
+        foreach ($rows as $ingredient) {
             $record = $db->table('ingredients')->select('id')->where('name', $ingredient['name'])->get()->getRowArray();
             if (! $record) return false;
             if ($ingredient['opening_stock'] > 0 && ! $db->table('ingredient_movements')
@@ -159,7 +163,9 @@ class DatabaseSeeder extends Seeder
     private static function recipeSeedIsSatisfied(BaseConnection $db): bool
     {
         if (! $db->tableExists('product_recipes')) return false;
-        foreach (RecipeSeeder::rows() as $recipe) {
+        $rows = RecipeSeeder::rows();
+        if ($rows === []) return false;
+        foreach ($rows as $recipe) {
             $product = $db->table('products')->select('id')->where('slug', $recipe['product_slug'])->get()->getRowArray();
             if (! $product || ! $db->table('product_recipes')->where('product_id', $product['id'])->countAllResults()) return false;
         }
