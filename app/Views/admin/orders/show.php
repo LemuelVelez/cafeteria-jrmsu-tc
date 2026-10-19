@@ -84,6 +84,7 @@
             <?php endif; ?>
         </div>
 
+        <?= view('components/handoff_stages',['handoffs'=>$handoffs]) ?>
         <?php if (in_array($order['status'], ['ready_for_pickup','out_for_delivery'], true)): ?>
         <div class="surface-card p-4 mb-4">
             <h2 class="h5 fw-bold">Verify hand-off</h2>

@@ -27,40 +27,73 @@ class PreparationController extends BaseController
     {
         $db=db_connect();$order=$db->table('orders')->where('id',$id)->get()->getRowArray();
         if (!$order)throw PageNotFoundException::forPageNotFound();
-        return $this->render('staff/orders/ticket',['title'=>'Kitchen ticket','order'=>$order,'items'=>(new OrderItemModel())->where('order_id',$id)->findAll(),'token'=>(new OrderQrService())->token($order)]);
+        return $this->render('staff/orders/ticket',['title'=>'Kitchen ticket','order'=>$order,'items'=>(new OrderItemModel())->where('order_id',$id)->findAll(),'token'=>(new OrderQrService())->token($order), 'handoffs'=>$db->table('order_handoffs h')->select('h.*,u.name verifier_name')->join('users u','u.id=h.verified_by','left')->where('order_id',$id)->get()->getResultArray()]);
     }
     public function handoff(int $id)
     {
-        $actor=session()->get('user');$db=db_connect();$db->transBegin();
+        $actor=session()->get('user');
+        $role=(string)($actor['role']??'');
+        $actorId=(int)($actor['id']??0);
+        $db=db_connect();$db->transBegin();
         try {
             $order=$db->query('SELECT * FROM orders WHERE id=? FOR UPDATE',[$id])->getRowArray();
             if (!$order) throw new \DomainException('Order not found.');
-            $role=$actor['role'];$status=$order['status'];
             $delivery=$order['order_type']==='delivery';
-            if ($delivery) {
-                if ($role==='rider' && (int)$order['rider_id']!==(int)$actor['id']) throw new \DomainException('Not your delivery.');
-                if ($status==='ready_for_pickup' && !in_array($role,['admin','cashier','rider'],true)) throw new \DomainException('Staff role required.');
-                if ($status==='out_for_delivery' && $role!=='rider') throw new \DomainException('Assigned rider confirmation required.');
-                if (!in_array($status,['ready_for_pickup','out_for_delivery'],true)) throw new \DomainException('Unexpected delivery status.');
-            } elseif ($status!=='ready_for_pickup' || !in_array($role,['admin','cashier'],true)) {
-                throw new \DomainException('Pickup verification is only available when ready.');
+            $stage=$delivery ? ($order['status']==='ready_for_pickup'?'dispatch':'delivery') : 'pickup';
+            if ($delivery && $stage==='dispatch') {
+                if (!in_array($role,['cashier','admin'],true)) throw new \DomainException('Cashier or admin must independently verify rider departure.');
+                if (empty($order['rider_id'])) throw new \DomainException('Assign a rider before dispatch verification.');
+                if ($db->table('order_items')->where('order_id',$id)->where('prepared_at',null)->countAllResults()) {
+                    throw new \DomainException('Every item must be checked as prepared.');
+                }
+            } elseif ($delivery && $stage==='delivery') {
+                if ($order['status']!=='out_for_delivery' || $role!=='rider'
+                    || (int)$order['rider_id']!==$actorId) {
+                    throw new \DomainException('Only the assigned rider can verify delivery.');
+                }
+            } elseif ($order['status']!=='ready_for_pickup' || !in_array($role,['cashier','admin'],true)) {
+                throw new \DomainException('Pickup is verified at the counter by cashier or admin.');
             }
-            if (!service('throttler')->check('handoff-'.$id.'-'.$this->request->getIPAddress(),5,MINUTE)) throw new \DomainException('Too many verification attempts.');
+            if (!service('throttler')->check('handoff-'.$id.'-'.$this->request->getIPAddress(),5,MINUTE)) {
+                throw new \DomainException('Too many verification attempts; try again later.');
+            }
             $token=trim((string)$this->request->getPost('token'));
-            if (str_contains($token, '/')) {
-                $path=parse_url($token, PHP_URL_PATH);
+            if (str_contains($token,'/')) {
+                $path=parse_url($token,PHP_URL_PATH);
                 $token=is_string($path)?basename($path):'';
             }
             $code=trim((string)$this->request->getPost('code'));
-            $signed=$token!=='' ? (new OrderQrService())->verify($token) : null;
+            $qr=new OrderQrService();
+            $signed=$token!==''?$qr->verify($token):null;
             $validToken=$signed && (int)$signed['id']===$id;
-            $validCode=$code!=='' && preg_match('/^[0-9]{4}$/',$code) && hash_equals((new OrderQrService())->pickupCode($order),$code);
-            if (!$validToken && (!$validCode || $delivery)) throw new \DomainException('Invalid or expired verification code.');
-            $method=$delivery && $status==='out_for_delivery'?'delivery_confirmation':($validToken?'qr':'pickup_code');
-            $db->table('orders')->where('id',$id)->update(['handoff_verified_by'=>(int)$actor['id'],'handoff_verified_at'=>date('Y-m-d H:i:s'),'handoff_method'=>$method]);
-            (new AuditLogService($db))->record('handoff_verified','order',$id,['method'=>$method],(int)$actor['id']);
-            if (!$db->transStatus())throw new \RuntimeException('Unable to confirm hand-off.');
-            $db->transCommit();return redirect()->back()->with('success','Order hand-off verified. You may update the status.');
-        }catch(\Throwable $e){$db->transRollback();return redirect()->back()->with('error',$e->getMessage());}
+            $validCode=preg_match('/^[0-9]{4}$/',$code)===1;
+            $validPickup=$validCode && hash_equals($qr->pickupCode($order),$code);
+            $validDelivery=$validCode && !empty($order['delivery_code_hash'])
+                && password_verify($code,(string)$order['delivery_code_hash']);
+            if (!$validToken && !($stage==='delivery'?$validDelivery:($stage==='pickup' && $validPickup))) {
+                throw new \DomainException('Invalid or expired verification code.');
+            }
+            $method=$validToken?'qr':($stage==='delivery'?'delivery_code':'pickup_code');
+            if ($db->table('order_handoffs')->where(['order_id'=>$id,'stage'=>$stage])->countAllResults()) {
+                throw new \DomainException('This hand-off stage has already been verified.');
+            }
+            $now=date('Y-m-d H:i:s');
+            $db->table('order_handoffs')->insert([
+                'order_id'=>$id,'stage'=>$stage,'verified_by'=>$actorId,
+                'rider_id'=>$delivery?(int)$order['rider_id']:null,'method'=>$method,'created_at'=>$now,
+            ]);
+            // Backward-compatible last verification; the stage table retains each separate event.
+            $db->table('orders')->where('id',$id)->update([
+                'handoff_verified_by'=>$actorId,'handoff_verified_at'=>$now,'handoff_method'=>$method,
+            ]);
+            (new AuditLogService($db))->record('handoff_'.$stage.'_verified','order',$id,
+                ['stage'=>$stage,'method'=>$method],$actorId);
+            if (!$db->transStatus()) throw new \RuntimeException('Handoff verification failed.');
+            $db->transCommit();
+            return redirect()->back()->with('success','Hand-off stage verified.');
+        } catch (\Throwable $error) {
+            $db->transRollback();
+            return redirect()->back()->with('error',$error->getMessage());
+        }
     }
 }

@@ -1,0 +1,1 @@
+<?php if ($handoffs ?? []): ?><div class="small border rounded p-2 my-3"><strong>Independent hand-off checks</strong><?php foreach($handoffs as $handoff): ?><div><?= esc(ucfirst($handoff['stage'])) ?> · <?= esc($handoff['method']) ?> · <?= esc($handoff['verifier_name'] ?: 'Staff') ?> · <?= esc($handoff['created_at']) ?></div><?php endforeach; ?></div><?php endif; ?>

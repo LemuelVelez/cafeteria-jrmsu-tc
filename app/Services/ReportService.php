@@ -10,11 +10,54 @@ class ReportService
     {
     }
 
-    public function profit(string $from,string $to): array
+    public function profit(string $from, string $to): array
     {
-        $rows=$this->db()->query("SELECT oi.product_id,oi.product_name,c.name category,COALESCE(SUM(oi.line_total),0) revenue,COALESCE(SUM(oi.quantity*oi.unit_cost),0) cost,COALESCE(SUM(oi.line_total-oi.quantity*oi.unit_cost),0) gross_profit FROM order_items oi JOIN orders o ON o.id=oi.order_id LEFT JOIN products p ON p.id=oi.product_id LEFT JOIN categories c ON c.id=p.category_id WHERE o.payment_status='paid' AND DATE(o.created_at)>=? AND DATE(o.created_at)<=? GROUP BY oi.product_id,oi.product_name,c.name ORDER BY gross_profit DESC",[$from,$to])->getResultArray();
-        return ['rows'=>$rows,'revenue'=>array_sum(array_column($rows,'revenue')),'cost'=>array_sum(array_column($rows,'cost')),'profit'=>array_sum(array_column($rows,'gross_profit'))];
+        $db = $this->db();
+        // Allocate order-level discounts proportionally over immutable sale-time item totals.
+        $rows = $db->query(<<<'SQL'
+SELECT oi.product_id, oi.product_name, c.name category, oi.cost_status,
+       ROUND(COALESCE(SUM(oi.line_total),0),2) revenue,
+       ROUND(COALESCE(SUM(CASE WHEN o.subtotal > 0 THEN oi.line_total * o.discount / o.subtotal ELSE 0 END),0),2) discount_allocated,
+       ROUND(COALESCE(SUM(oi.line_total - CASE WHEN o.subtotal > 0 THEN oi.line_total * o.discount / o.subtotal ELSE 0 END),0),2) net_revenue,
+       ROUND(COALESCE(SUM(CASE WHEN oi.cost_status='complete' THEN oi.quantity * oi.unit_cost ELSE 0 END),0),2) cost
+FROM order_items oi
+JOIN orders o ON o.id = oi.order_id
+LEFT JOIN products p ON p.id = oi.product_id
+LEFT JOIN categories c ON c.id = p.category_id
+WHERE o.payment_status='paid' AND DATE(o.created_at)>=? AND DATE(o.created_at)<=?
+GROUP BY oi.product_id, oi.product_name, c.name, oi.cost_status
+ORDER BY net_revenue DESC
+SQL, [$from, $to])->getResultArray();
+        $revenue = 0.0; $discounts = 0.0; $cost = 0.0; $profit = 0.0;
+        $costedNet = 0.0; $uncostedNet = 0.0;
+        foreach ($rows as &$row) {
+            $row['gross_profit'] = $row['cost_status'] === 'complete'
+                ? round((float) $row['net_revenue'] - (float) $row['cost'], 2) : null;
+            $revenue += (float) $row['revenue'];
+            $discounts += (float) $row['discount_allocated'];
+            if ($row['cost_status'] === 'complete') {
+                $cost += (float) $row['cost'];
+                $profit += (float) $row['gross_profit'];
+                $costedNet += (float) $row['net_revenue'];
+            } else {
+                $uncostedNet += (float) $row['net_revenue'];
+            }
+        }
+        unset($row);
+        $netSales = (float) $this->sales($from, $to)['summary']['net_sales'];
+        $deliveryFees = (float) $this->sales($from, $to)['summary']['delivery_fees'];
+        $target = (float) ($db->table('settings')->where('setting_key','target_food_cost_percent')->get()->getRow('setting_value') ?? 35);
+        return [
+            'rows' => $rows, 'revenue' => round($revenue,2), 'discounts' => round($discounts,2),
+            'netSales' => $netSales, 'deliveryFees' => $deliveryFees,
+            'cost' => round($cost,2), 'profit' => round($profit,2),
+            'uncostedRevenue' => round($uncostedNet,2),
+            'foodCostPercent' => $costedNet > 0 ? round($cost / $costedNet * 100,2) : null,
+            'marginPercent' => $costedNet > 0 ? round($profit / $costedNet * 100,2) : null,
+            'targetFoodCostPercent' => $target,
+        ];
     }
+
     public function lowStock(string $from,string $to): array
     {
         // Reconstruct the balance at the end of the selected day from immutable movements.
@@ -75,7 +118,7 @@ class ReportService
     public function orders(string $from, string $to): array
     {
         $db = $this->db();
-        $rows = $db->query('SELECT * FROM orders WHERE DATE(created_at) >= ? AND DATE(created_at) <= ? ORDER BY created_at DESC', [$from, $to])->getResultArray();
+        $rows = $db->query('SELECT id,order_number,created_at,order_type,status,payment_method,payment_status,subtotal,discount,delivery_fee,total,cashier_id FROM orders WHERE DATE(created_at) >= ? AND DATE(created_at) <= ? ORDER BY created_at DESC', [$from, $to])->getResultArray();
         $status = $db->query('SELECT status, COUNT(*) count FROM orders WHERE DATE(created_at) >= ? AND DATE(created_at) <= ? GROUP BY status', [$from, $to])->getResultArray();
         $type = $db->query('SELECT order_type, COUNT(*) count FROM orders WHERE DATE(created_at) >= ? AND DATE(created_at) <= ? GROUP BY order_type', [$from, $to])->getResultArray();
         $channel = $db->query("SELECT IF(cashier_id IS NULL,'online','pos') channel, COUNT(*) count FROM orders WHERE DATE(created_at) >= ? AND DATE(created_at) <= ? GROUP BY channel", [$from, $to])->getResultArray();

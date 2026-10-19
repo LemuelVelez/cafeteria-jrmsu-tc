@@ -18,14 +18,16 @@ final class IngredientInventoryService
     public function requirements(array $productQuantities): array
     {
         if (!$productQuantities)return [];
-        $rows=$this->db()->table('product_recipes r')->select('r.product_id,r.ingredient_id,r.quantity,r.unit,r.wastage_percent,p.recipe_servings,i.purchase_unit')
+        $rows=$this->db()->table('product_recipes r')->select('r.product_id,r.ingredient_id,r.quantity,r.unit,r.wastage_percent,p.recipe_servings,i.purchase_unit,i.density_g_per_ml,i.grams_per_piece')
             ->join('products p','p.id=r.product_id')->join('ingredients i','i.id=r.ingredient_id')
             ->whereIn('r.product_id',array_keys($productQuantities))->get()->getResultArray();
         $needed=[];
         foreach ($rows as $row) {
             $quantity=(int)($productQuantities[(int)$row['product_id']] ?? 0);
             if ($quantity<1)continue;
-            $used=CostingService::convert((float)$row['quantity'],(string)$row['unit'],(string)$row['purchase_unit']);
+            $used=CostingService::ingredientUnits((float)$row['quantity'],(string)$row['unit'],
+                (string)$row['purchase_unit'],(float)$row['density_g_per_ml'],
+                $row['grams_per_piece']===null?null:(float)$row['grams_per_piece']);
             $used *= $quantity / max(1,(int)$row['recipe_servings']);
             $used *= 1 + (float)$row['wastage_percent']/100;
             $id=(int)$row['ingredient_id'];

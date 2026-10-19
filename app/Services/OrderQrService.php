@@ -23,6 +23,16 @@ class OrderQrService
         return str_pad((string)(hexdec(substr($hash,0,8)) % 10000),4,'0',STR_PAD_LEFT);
     }
 
+    /** A stable, order-bound code that is stored only as a hash while in transit. */
+    public function deliveryCode(array $order): string
+    {
+        $id=(int)($order['id']??0);
+        $request=(string)($order['request_token']??'');
+        if ($id<1 || $request==='') throw new \DomainException('Order cannot have a delivery code.');
+        $hash=hash_hmac('sha256','delivery:'.$id.':'.$request,$this->key());
+        return str_pad((string)(hexdec(substr($hash,0,8))%10000),4,'0',STR_PAD_LEFT);
+    }
+
     public function verify(string $token): ?array
     {
         [$encodedId, $signature] = array_pad(explode('.', trim($token), 2), 2, null);

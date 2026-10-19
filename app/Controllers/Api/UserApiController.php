@@ -20,12 +20,23 @@ class UserApiController extends BaseController
         }
 
         $model = new UserModel();
-        if (! $model->find($id)) {
-            return $this->jsonError('User account not found.', null, 404);
-        }
-
-        if (! $model->update($id, ['status' => $status])) {
-            return $this->jsonError('The account status could not be updated.', $model->errors());
+        $db=db_connect();$db->transBegin();
+        try {
+            $existing=$db->query('SELECT id,status,session_version FROM users WHERE id=? FOR UPDATE',[$id])->getRowArray();
+            if (!$existing) {
+                $db->transRollback();
+                return $this->jsonError('User account not found.', null, 404);
+            }
+            $updates=['status'=>$status];
+            if ($existing['status']!==$status) $updates['session_version']=(int)$existing['session_version']+1;
+            if (! $model->update($id,$updates)) throw new \DomainException('The account status could not be updated.');
+            (new \App\Services\AuditLogService($db))->recordChange('user_status_changed','user',$id,
+                $existing,['status'=>$status],(int)(session()->get('user')['id']??0));
+            if (!$db->transStatus()) throw new \RuntimeException('Unable to save account status.');
+            $db->transCommit();
+        } catch (\Throwable $error) {
+            $db->transRollback();
+            return $this->jsonError($error->getMessage(),null,422);
         }
 
         return $this->jsonSuccess('Account status updated.');

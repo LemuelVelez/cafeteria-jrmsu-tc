@@ -15,8 +15,11 @@ class ProductController extends BaseController
 {
     public function index(): string
     {
+        $products = (new ProductModel())->withCategory();
+        (new \App\Services\AllergenService())->attach($products);
         return $this->render('admin/products/index', [
-            'products' => (new ProductModel())->withCategory(),
+            'products' => $products,
+            'allergenOptions' => (new \App\Services\AllergenService())->options(),
             'categories' => (new CategoryModel())->where('is_active', 1)->orderBy('name')->findAll(),
         ]);
     }
@@ -70,14 +73,14 @@ class ProductController extends BaseController
             'sugar_g' => $this->nullablePost('sugar_g'),
             'fiber_g' => $this->nullablePost('fiber_g'),
             'sodium_mg' => $this->nullablePost('sodium_mg'),
-            'allergens' => $this->nullablePost('allergens'),
+            // Legacy column is preserved for rollback and legacy tokens; pivot is authoritative.
             'is_healthy_choice' => $this->request->getPost('is_healthy_choice') ? 1 : 0,
             'is_available' => $this->request->getPost('is_available') ? 1 : 0,
             'is_featured' => $this->request->getPost('is_featured') ? 1 : 0,
             'image' => $existing['image'] ?? null,
         ];
         if ($id === null) {
-            $data['stock'] = (int) $initialStock;
+            $data['stock'] = 0; // InventoryService exclusively posts the opening stock.
         }
 
         $image = $this->request->getFile('image');
@@ -118,6 +121,16 @@ class ProductController extends BaseController
             if ($id === null) {
                 (new InventoryService($db))->opening($productId, (int) $initialStock, (int) (session()->get('user')['id'] ?? 0));
             }
+            $allergenService = new \App\Services\AllergenService($db);
+            $oldIds = [];
+            if ($id !== null) {
+                $oldIds = array_map('intval', array_column(
+                    $db->table('product_allergens')->select('allergen_id')->where('product_id',$productId)->get()->getResultArray(), 'allergen_id'
+                ));
+            }
+            $newIds = $allergenService->sync($productId, (array) $this->request->getPost('allergen_ids'));
+            (new AuditLogService($db))->recordChange('product_allergens_updated', 'product', $productId,
+                ['allergen_ids' => $oldIds], ['allergen_ids' => $newIds]);
             $newProduct = $model->find($productId);
             (new AuditLogService($db))->recordChange($id===null?'product_created':'product_updated','product',$productId,$locked??[],$newProduct??[]);
             if (! $db->transStatus()) {

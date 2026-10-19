@@ -32,6 +32,7 @@ class ProductApiController extends BaseController
         if (! $product) {
             return $this->jsonError('Product not found.', null, 404);
         }
+        $one = [$product]; (new \App\Services\AllergenService())->attach($one); $product = $one[0];
         $product['addons'] = (new ProductAddonModel())->where(['product_id' => $product['id'], 'is_active' => 1])->findAll();
         $product['image_url'] = ! empty($product['image']) ? media_url((string) $product['image']) : '';
         $product['available'] = (bool) $product['is_available'] && (int) $product['stock'] > 0;
@@ -83,7 +84,7 @@ class ProductApiController extends BaseController
             'sugar_g' => $this->nullable($payload['sugar_g'] ?? null),
             'fiber_g' => $this->nullable($payload['fiber_g'] ?? null),
             'sodium_mg' => $this->nullable($payload['sodium_mg'] ?? null),
-            'allergens' => $this->nullable($payload['allergens'] ?? null),
+            // Allergen IDs are stored only in the normalized product_allergens pivot.
             'is_healthy_choice' => ! empty($payload['is_healthy_choice']) ? 1 : 0,
             'is_available' => ! empty($payload['is_available']) ? 1 : 0,
             'is_featured' => ! empty($payload['is_featured']) ? 1 : 0,
@@ -94,7 +95,7 @@ class ProductApiController extends BaseController
             if ($initialStock === false) {
                 return $this->jsonError('Initial stock must be zero or greater.');
             }
-            $data['stock'] = (int) $initialStock;
+            $data['stock'] = 0; // InventoryService exclusively posts the opening stock.
         }
 
         $db = db_connect();
@@ -114,12 +115,19 @@ class ProductApiController extends BaseController
             if (! $id) {
                 (new InventoryService($db))->opening($productId, (int) $initialStock, (int) (session()->get('user')['id'] ?? 0));
             }
+            $allergenService = new \App\Services\AllergenService($db);
+            $oldIds = $id ? array_map('intval', array_column($db->table('product_allergens')
+                ->select('allergen_id')->where('product_id',$id)->get()->getResultArray(), 'allergen_id')) : [];
+            $newIds = $allergenService->sync($productId, (array) ($payload['allergen_ids'] ?? []));
+            (new AuditLogService($db))->recordChange('product_allergens_updated','product',$productId,
+                ['allergen_ids'=>$oldIds],['allergen_ids'=>$newIds]);
             $saved = $model->find($productId);
             (new AuditLogService($db))->recordChange($id ? 'product_updated' : 'product_created', 'product', $productId, $existing ?? [], $saved ?? []);
             if (! $db->transStatus()) {
                 throw new \RuntimeException('Unable to save product.');
             }
             $db->transCommit();
+            $one=[$saved]; $allergenService->attach($one); $saved=$one[0];
             return $this->jsonSuccess('Product saved.', $saved, $id ? 200 : 201);
         } catch (\DomainException $exception) {
             $db->transRollback();
@@ -138,9 +146,17 @@ class ProductApiController extends BaseController
         if (! $product) {
             return $this->jsonError('Product not found.', null, 404);
         }
+        $db = db_connect();
+        $db->transBegin();
         try {
+            $db->query('SELECT id FROM products WHERE id=? FOR UPDATE', [$id]);
             $deleted = $model->delete($id);
+            if (! $deleted) throw new \RuntimeException('Unable to delete product.');
+            (new AuditLogService($db))->record('product_deleted','product',$id,['product_id'=>$id]);
+            if (! $db->transStatus()) throw new \RuntimeException('Product deletion transaction failed.');
+            $db->transCommit();
         } catch (Throwable $exception) {
+            $db->transRollback();
             log_message('error', 'API product delete failed: {message}', ['message' => $exception->getMessage()]);
             $deleted = false;
         }

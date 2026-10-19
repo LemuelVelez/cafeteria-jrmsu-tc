@@ -131,6 +131,8 @@ class AuthService
             if (! $userId) {
                 throw new \RuntimeException('Unable to create the customer account.');
             }
+            (new AuditLogService($database))->record('account_created','user',(int)$userId,
+                ['role'=>'customer','privacy_consent'=>true],(int)$userId);
             $token = $this->tokens->issue((int) $userId, AuthTokenModel::EMAIL_VERIFICATION, DAY);
             $user = $this->users->find((int) $userId);
             if (! $user || ! $database->transStatus()) {
@@ -162,6 +164,7 @@ class AuthService
             }
             $updated = $this->users->update((int) $token['user_id'], ['requires_email_verification' => 0, 'email_verified_at' => date('Y-m-d H:i:s')]);
             $used = $this->tokens->markUsed((int) $token['id']);
+            (new AuditLogService($database))->record('email_verified','user',(int)$token['user_id'],[],(int)$token['user_id']);
             if (! $updated || ! $used || ! $database->transStatus()) {
                 throw new \RuntimeException('Unable to verify the email address.');
             }
@@ -222,6 +225,19 @@ class AuthService
 
     public function logout(): void
     {
+        $actor = session()->get('user');
+        $actorId = is_array($actor) ? (int)($actor['id'] ?? 0) : 0;
+        if ($actorId > 0) {
+            $db=db_connect();$db->transBegin();
+            try {
+                (new AuditLogService($db))->record('logout','user',$actorId,[], $actorId);
+                if (! $db->transStatus()) throw new \RuntimeException('Logout audit failed.');
+                $db->transCommit();
+            } catch (\Throwable $error) {
+                $db->transRollback();
+                throw $error;
+            }
+        }
         session()->destroy();
     }
 }

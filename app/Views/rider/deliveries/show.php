@@ -1,7 +1,9 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
-<?php if(in_array($order['status'],['ready_for_pickup','out_for_delivery'],true)): ?><form method="post" action="<?= base_url('staff/orders/'.$order['id'].'/verify-handoff') ?>" class="surface-card p-3 mb-3"><?= csrf_field() ?><label class="form-label" for="deliveryToken">Scan customer's signed order QR verification token (or paste token from URL)</label><input class="form-control mb-2" id="deliveryToken" name="token" required><button class="btn btn-outline-primary">Verify <?= $order['status']==='out_for_delivery'?'delivered order':'rider departure' ?></button></form><?php endif; ?>
+<?php if($order['status']==='out_for_delivery'): ?><form method="post" action="<?= base_url('staff/orders/'.$order['id'].'/verify-handoff') ?>" class="surface-card p-3 mb-3"><?= csrf_field() ?><label class="form-label" for="deliveryToken">Scan customer's signed order QR verification token (or paste token from URL)</label><input class="form-control mb-2" id="deliveryToken" name="token"><label class="form-label mt-2" for="deliveryCode">Or customer 4-digit code (delivery only)</label><input class="form-control mb-2" id="deliveryCode" name="code" inputmode="numeric" pattern="[0-9]{4}" maxlength="4"><button class="btn btn-outline-primary">Verify delivery</button></form><?php endif; ?>
+<?php if($order['status']==='ready_for_pickup'): ?><div class="alert alert-info">A cashier or administrator must verify the packed order and assigned rider before departure. Once that dispatch check is recorded, acknowledge departure using the status button.</div><?php endif; ?>
+<?= view('components/handoff_stages',['handoffs'=>$handoffs]) ?>
 <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
     <div>
         <a class="small text-decoration-none" href="<?= base_url('rider/deliveries') ?>">

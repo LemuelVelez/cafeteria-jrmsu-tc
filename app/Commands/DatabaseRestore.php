@@ -23,7 +23,7 @@ class DatabaseRestore extends BaseCommand
             $tmp=tempnam(sys_get_temp_dir(),'cafe-restore-');
             if($tmp===false)throw new \RuntimeException('Unable to create credential file.');
             @chmod($tmp,0600);
-            file_put_contents($tmp,"[client]\nuser=".json_encode((string)$db->username)."\npassword=".json_encode((string)$db->password)."\nhost=".json_encode((string)$db->hostname)."\n");
+            file_put_contents($tmp, DatabaseBackupService::clientOptions($db));
             try {
                 $process=proc_open([$binary,'--defaults-extra-file='.$tmp,(string)$db->database],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
                 if(!is_resource($process))throw new \RuntimeException('mysql could not start.');

@@ -55,13 +55,21 @@ class ProductModel extends BaseModel
             $builder->where('products.calories IS NOT NULL', null, false)->where('products.calories <=', $maxCalories);
         }
         if ($excludeAllergen) {
-            $builder->groupStart()->where('products.allergens', null)->orNotLike('products.allergens', $excludeAllergen)->groupEnd();
+            $allergen = $this->db->table('allergens')->groupStart()
+                ->where('code', strtolower($excludeAllergen))->orWhere('name', $excludeAllergen)
+                ->groupEnd()->get()->getRowArray();
+            if ($allergen) {
+                $id = (int) $allergen['id'];
+                $builder->where("NOT EXISTS (SELECT 1 FROM product_allergens pa WHERE pa.product_id = products.id AND pa.allergen_id = {$id})", null, false);
+            }
         }
         if (!empty($filters['high_protein'])) $builder->where('products.protein_g >=', 20);
         if (!empty($filters['low_sodium'])) $builder->where('products.sodium_mg <=', 140);
         if (!empty($filters['healthy_choice'])) $builder->where('products.is_healthy_choice', 1);
         if (!empty($filters['vegetarian'])) $builder->where('products.is_vegetarian', 1);
-        return $builder->orderBy('products.is_featured', 'DESC')->orderBy('products.name')->findAll();
+        $products = $builder->orderBy('products.is_featured', 'DESC')->orderBy('products.name')->findAll();
+        (new \App\Services\AllergenService())->attach($products);
+        return $products;
     }
 
     public function featured(int $limit = 4): array

@@ -29,7 +29,12 @@ class CostingController extends BaseController
             $prior=$db->table('ingredients')->where('name',$name)->get()->getRowArray();
             $density=filter_var($this->request->getPost('density_g_per_ml')??1,FILTER_VALIDATE_FLOAT);
             if($density===false || $density<=0 || $density>25)throw new \DomainException('Enter a valid liquid density (0 to 25 g/mL).');
-            $fields=['name'=>$name,'cost_per_unit'=>(float)$this->request->getPost('cost_per_unit'),'purchase_unit'=>$this->request->getPost('purchase_unit'),
+            $gramsValue = $this->request->getPost('grams_per_piece');
+            $gramsPerPiece = $gramsValue === null || $gramsValue === '' ? null : filter_var($gramsValue, FILTER_VALIDATE_FLOAT);
+            if ($gramsPerPiece === false || ($gramsPerPiece !== null && ($gramsPerPiece <= 0 || $gramsPerPiece > 100000))) {
+                throw new \DomainException('Grams per piece must be a positive measured value.');
+            }
+            $fields=['grams_per_piece'=>$gramsPerPiece,'name'=>$name,'cost_per_unit'=>(float)$this->request->getPost('cost_per_unit'),'purchase_unit'=>$this->request->getPost('purchase_unit'),
                 'density_g_per_ml'=>(float)$density,
                 'nutrient_basis'=>$this->request->getPost('purchase_unit')==='pcs'?'unit':'100g',
                 'supplier'=>trim((string)$this->request->getPost('supplier')),'source_reference'=>trim((string)$this->request->getPost('source_reference'))];
@@ -74,7 +79,12 @@ class CostingController extends BaseController
             $locked=$db->query('SELECT * FROM products WHERE id=? FOR UPDATE',[$productId])->getRowArray();
             $ingredient=$db->table('ingredients')->where('id',$ingredientId)->get()->getRowArray();
             if (!$locked||!$ingredient) throw new \DomainException('Missing product or ingredient.');
-            CostingService::convert((float)$qty,$unit,$ingredient['purchase_unit']);
+            CostingService::ingredientUnits((float)$qty,$unit,(string)$ingredient['purchase_unit'],
+                (float)$ingredient['density_g_per_ml'], $ingredient['grams_per_piece']===null ? null : (float)$ingredient['grams_per_piece']);
+            if ($unit === 'pcs' && $ingredient['nutrient_basis'] === '100g'
+                && (!isset($ingredient['grams_per_piece']) || (float)$ingredient['grams_per_piece'] <= 0)) {
+                throw new \DomainException('Enter measured grams per piece for 100g-based ingredient nutrition.');
+            }
             $previous=$db->table('product_recipes')->where(['product_id'=>$productId,'ingredient_id'=>$ingredientId])->get()->getRowArray();
             $values=['product_id'=>$productId,'ingredient_id'=>$ingredientId,'quantity'=>$qty,'unit'=>$unit,'wastage_percent'=>min(100,max(0,(float)$this->request->getPost('wastage_percent')))];
             if ($previous) $db->table('product_recipes')->where('id',$previous['id'])->update($values);

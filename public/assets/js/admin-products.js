@@ -4,7 +4,7 @@
     const modal = document.getElementById('productModal');
     if (!form || !modal) return;
     const stockGroup = form.querySelector('[data-initial-stock-group]');
-    const nutritionFields = ['serving_size','calories','protein_g','carbohydrates_g','fat_g','sugar_g','fiber_g','sodium_mg','allergens'];
+    const nutritionFields = ['serving_size','calories','protein_g','carbohydrates_g','fat_g','sugar_g','fiber_g','sodium_mg'];
     const setInitialStockMode = (create) => {
         stockGroup.hidden = !create;
         form.elements.stock.disabled = !create;
@@ -13,6 +13,9 @@
     const resetForm = () => {
         form.reset(); form.action = form.dataset.baseAction;
         form.elements.is_available.checked = true; form.elements.reorder_level.value = 5;
+        form.querySelectorAll('input[name="allergen_ids[]"]').forEach((checkbox) => { checkbox.checked = false; });
+        const legacy = form.querySelector('[data-legacy-allergens]');
+        if (legacy) legacy.textContent = '';
         setInitialStockMode(true);
     };
     document.querySelector('[data-create-product]')?.addEventListener('click', resetForm);
@@ -22,6 +25,12 @@
         ['name','category_id','description','price','sku','barcode','reorder_level',...nutritionFields].forEach((name) => { if (form.elements[name]) form.elements[name].value = product[name] ?? ''; });
         form.elements.image.value = '';
         ['is_available','is_featured','is_healthy_choice'].forEach((name) => { form.elements[name].checked = Number(product[name]) === 1; });
+        const legacy = form.querySelector('[data-legacy-allergens]');
+        if (legacy) legacy.textContent = product.allergens ? `Original text: ${product.allergens}` : '';
+        const assigned = product.allergen_ids || [];
+        form.querySelectorAll('input[name="allergen_ids[]"]').forEach((checkbox) => {
+            checkbox.checked = assigned.includes(Number(checkbox.value));
+        });
         setInitialStockMode(false);
         bootstrap.Modal.getOrCreateInstance(modal).show();
     }));

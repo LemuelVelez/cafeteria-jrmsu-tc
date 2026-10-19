@@ -82,8 +82,12 @@ class InventoryService
         if (! $product) {
             throw new \DomainException('Product not found.');
         }
-        if ((int) $product['stock'] !== $quantity || $quantity < 0) {
-            throw new \DomainException('Opening balance must match the product initial stock.');
+        if ((int) $product['stock'] !== 0 || $quantity < 0 ||
+            $db->table('inventory_movements')->where('product_id', $productId)->countAllResults() !== 0) {
+            throw new \DomainException('Opening stock is only allowed once for a new product with zero stock.');
+        }
+        if (! $db->table('products')->where('id', $productId)->update(['stock' => $quantity])) {
+            throw new \RuntimeException('Unable to set initial product stock.');
         }
         if (! $db->table('inventory_movements')->insert([
             'product_id' => $productId,
@@ -100,6 +104,9 @@ class InventoryService
         ])) {
             throw new \RuntimeException('Unable to record opening stock.');
         }
+        (new AuditLogService($db))->record('inventory_movement', 'product', $productId,
+            ['movement_type' => 'opening', 'quantity' => $quantity, 'stock_before' => 0, 'stock_after' => $quantity], $userId);
+        $product['stock'] = $quantity;
         return $product;
     }
 

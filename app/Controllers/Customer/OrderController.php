@@ -42,6 +42,23 @@ class OrderController extends BaseController
         $orders = $model->orderBy('created_at', 'DESC')->paginate(10);
 
         $db = db_connect();
+        if ($orders !== []) {
+            $orderIds = array_map('intval', array_column($orders, 'id'));
+            $items = $db->table('order_items')->select('order_id,product_name,quantity')
+                ->whereIn('order_id',$orderIds)->orderBy('id')->get()->getResultArray();
+            $byOrder = [];
+            foreach ($items as $item) $byOrder[(int)$item['order_id']][] = $item;
+            $cancelled = $db->table('order_status_history')->select('order_id,from_status')
+                ->whereIn('order_id',$orderIds)->where('to_status','cancelled')->get()->getResultArray();
+            $cancelledAt = array_column($cancelled, 'from_status','order_id');
+            foreach ($orders as &$order) {
+                $lines = $byOrder[(int)$order['id']] ?? [];
+                $labels = array_map(static fn ($line): string => (int)$line['quantity'] . '× ' . $line['product_name'], array_slice($lines,0,2));
+                $order['item_summary'] = implode(', ', $labels) . (count($lines)>2 ? ' +' . (count($lines)-2) . ' more' : '');
+                $order['cancelled_at_status'] = $cancelledAt[(int)$order['id']] ?? 'pending';
+            }
+            unset($order);
+        }
         $summary = $db->query(
             "SELECT COUNT(*) total_orders, SUM(status IN ('completed','delivered')) completed_orders, COALESCE(SUM(CASE WHEN status IN ('completed','delivered') AND payment_status='paid' THEN total ELSE 0 END),0) total_spent, SUM(status NOT IN ('completed','delivered','cancelled')) active_orders FROM orders WHERE customer_id=?",
             [$userId],
@@ -64,6 +81,8 @@ class OrderController extends BaseController
             'items' => (new OrderItemModel())->where('order_id', $id)->findAll(),
             'history' => (new OrderStatusHistoryModel())->where('order_id', $id)->orderBy('created_at')->findAll(),
             'verificationUrl' => base_url('staff/orders/verify/' . rawurlencode($token)),
+            'deliveryCode' => $order['order_type']==='delivery' && $order['status']==='out_for_delivery'
+                ? (new OrderQrService())->deliveryCode($order) : null,
         ]);
     }
 

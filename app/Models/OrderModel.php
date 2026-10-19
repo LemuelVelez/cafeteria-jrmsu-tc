@@ -14,7 +14,7 @@ class OrderModel extends BaseModel
     protected $allowedFields = [
         'order_number', 'customer_id', 'cashier_id', 'rider_id', 'order_type', 'status',
         'subtotal', 'discount', 'delivery_fee', 'total', 'payment_method', 'payment_status',
-        'delivery_address', 'notes', 'promo_id', 'request_token', 'handoff_verified_by', 'handoff_verified_at', 'handoff_method',
+        'delivery_address', 'notes', 'promo_id', 'request_token', 'handoff_verified_by', 'handoff_verified_at', 'handoff_method', 'delivery_code_hash',
     ];
     protected $validationRules = [
         'order_number' => 'required|max_length[40]',

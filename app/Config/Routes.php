@@ -50,6 +50,8 @@ $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static f
     $routes->get('dashboard', 'Admin\\DashboardController::index');
     $routes->get('products/labels', 'Admin\ProductController::labels');
     $routes->get('inventory', 'Admin\InventoryController::index');
+    $routes->get('inventory/stock-card', 'Admin\InventoryController::stockCard');
+    $routes->get('inventory/stock-card/export', 'Admin\InventoryController::stockCardExport');
     $routes->post('inventory/stock-in', 'Admin\InventoryController::stockIn');
     $routes->post('inventory/stock-out', 'Admin\InventoryController::stockOut');
     $routes->post('inventory/count', 'Admin\InventoryController::count');
@@ -104,6 +106,8 @@ $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static f
 $routes->group('cashier', ['filter' => ['auth', 'active', 'role:cashier']], static function (RouteCollection $routes): void {
     $routes->get('dashboard', 'Cashier\\DashboardController::index');
     $routes->get('inventory', 'Admin\InventoryController::index');
+    $routes->get('inventory/stock-card', 'Admin\InventoryController::stockCard');
+    $routes->get('inventory/stock-card/export', 'Admin\InventoryController::stockCardExport');
     $routes->get('pos', 'Cashier\\PosController::index');
     $routes->get('orders', 'Cashier\\OrderController::index');
     $routes->post('orders/(:num)/status', 'Cashier\\OrderController::status/$1');

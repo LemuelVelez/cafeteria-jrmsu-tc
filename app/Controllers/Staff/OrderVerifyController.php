@@ -21,6 +21,8 @@ class OrderVerifyController extends BaseController
             'order' => $order,
             'token' => $token,
             'items' => (new OrderItemModel())->where('order_id', $order['id'])->findAll(),
+            'handoffs' => db_connect()->table('order_handoffs h')->select('h.*,u.name verifier_name')
+                ->join('users u','u.id=h.verified_by','left')->where('order_id',$order['id'])->get()->getResultArray(),
         ]);
     }
 }

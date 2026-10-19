@@ -67,7 +67,9 @@ final class RemainingCorrectionsTest extends TestCase
         }
         self::assertEqualsWithDelta(205, CostingService::nutrientQuantity(200, 'ml', 1.025), 0.000001);
         self::assertEqualsWithDelta(1050, CostingService::nutrientQuantity(1, 'l', 1.05), 0.000001);
-        self::assertEqualsWithDelta(2, CostingService::nutrientQuantity(2, 'pcs', 1), 0.000001);
+        self::assertEqualsWithDelta(50, CostingService::nutrientQuantity(2, 'pcs', 1, 25), 0.000001);
+        $this->expectException(\DomainException::class);
+        CostingService::nutrientQuantity(2, 'pcs', 1);
     }
 
     public function testPushRetryHasOneReceiptPerDeviceAndIsMigrationSafe(): void

@@ -29,14 +29,25 @@ final class DatabaseBackupService
         (new AuditLogService())->record('database_backup','backup',null,['file'=>$name,'sha256'=>hash_file('sha256',$path)]);
         return $name;
     }
+    /** Escape MySQL option-file quoted values; JSON's escaped slashes are not MySQL option-file syntax. */
+    public static function clientOptions(object $db): string
+    {
+        $quote = static function (string $value): string {
+            return '"' . str_replace(['\\', '"', "\n", "\r"], ['\\\\', '\\"', '\\n', '\\r'], $value) . '"';
+        };
+        return "[client]\n"
+            . 'user=' . $quote((string) $db->username) . "\n"
+            . 'password=' . $quote((string) $db->password) . "\n"
+            . 'host=' . $quote((string) $db->hostname) . "\n"
+            . 'port=' . (int) $db->port . "\n";
+    }
+
     private function dumpProcess(string $binary,object $db,$output): void
     {
         $tmp=tempnam(sys_get_temp_dir(),'cafe-credentials-');
         if ($tmp===false)throw new \RuntimeException('Could not create credential file.');
         @chmod($tmp,0600);
-        $dsn=$db->hostname;
-        $credentials="[client]\nuser=".json_encode((string)$db->username)."\npassword=".json_encode((string)$db->password)."\nhost=".json_encode((string)$dsn)."\n";
-        file_put_contents($tmp,$credentials);
+        file_put_contents($tmp,self::clientOptions($db));
         $cmd=[$binary,'--defaults-extra-file='.$tmp,'--single-transaction','--routines','--triggers','--default-character-set=utf8mb4','--no-tablespaces',(string)$db->database];
         try {
             $process=proc_open($cmd,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);

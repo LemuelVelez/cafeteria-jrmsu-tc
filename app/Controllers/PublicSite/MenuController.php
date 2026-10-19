@@ -13,6 +13,7 @@ class MenuController extends BaseController
     public function index(): string
     {
         $products=(new ProductModel())->select('products.*,categories.name category_name')->join('categories','categories.id=products.category_id')->where('categories.is_active',1)->where('categories.deleted_at',null)->orderBy('categories.sort_order')->orderBy('products.name')->findAll();
+        (new \App\Services\AllergenService())->attach($products);
         return $this->render('public/menu/index', ['title'=>'Public menu','products'=>$products,'categories'=>(new CategoryModel())->where('is_active',1)->findAll()]);
     }
 
@@ -22,6 +23,7 @@ class MenuController extends BaseController
         if (! $product) {
             throw PageNotFoundException::forPageNotFound();
         }
+        $single=[$product]; (new \App\Services\AllergenService())->attach($single); $product=$single[0];
         return $this->render('public/menu/show', [
             'title' => $product['name'],
             'product' => $product,

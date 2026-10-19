@@ -16,13 +16,8 @@ class InventoryController extends BaseController
     {
         $role = (string) (session()->get('user')['role'] ?? '');
         $productId = (int) ($this->request->getGet('product_id') ?? 0);
+        // The filtered, paginated stock card lives at inventory/stock-card.
         $movements = [];
-        if ($productId > 0) {
-            $movements = (new InventoryMovementModel())
-                ->select('inventory_movements.*, users.name AS user_name')
-                ->join('users', 'users.id=inventory_movements.user_id', 'left')
-                ->where('product_id', $productId)->orderBy('created_at', 'DESC')->findAll(100);
-        }
         $balances = db_connect()->query("SELECT product_id, COALESCE(SUM(quantity),0) ledger_balance FROM inventory_movements GROUP BY product_id")->getResultArray();
         $balancesById = array_column($balances, 'ledger_balance', 'product_id');
         return $this->render('admin/inventory/index', ['balancesById' => $balancesById,
@@ -32,6 +27,61 @@ class InventoryController extends BaseController
             'selectedProductId' => $productId,
             'canEdit' => $role === 'admin',
         ]);
+    }
+
+    private function stockCardData(int $page=1,int $pageSize=25): array
+    {
+        $ledger=(string)($this->request->getGet('ledger') ?: 'product');
+        $id=(int)($this->request->getGet($ledger==='ingredient'?'ingredient_id':'product_id') ?: 0);
+        if ($id < 1 && in_array($ledger, ['product','ingredient'], true)) {
+            $table=$ledger==='ingredient'?'ingredients':'products';
+            $id=(int)(db_connect()->table($table)->select('id')->orderBy('id')->get(1)->getRow('id')??0);
+        }
+        $from=(string)($this->request->getGet('from') ?: date('Y-m-01'));
+        $to=(string)($this->request->getGet('to') ?: date('Y-m-d'));
+        $type=trim((string)$this->request->getGet('movement_type'));
+        foreach ([$from,$to] as $date) {
+            $d=\DateTimeImmutable::createFromFormat('!Y-m-d',$date);
+            if (!$d || $d->format('Y-m-d')!==$date) throw new \DomainException('Invalid stock card date.');
+        }
+        return (new \App\Services\StockCardService())->get($ledger,$id,$from,$to,$type,$page,$pageSize);
+    }
+
+    public function stockCard(): string
+    {
+        $page=max(1,(int)$this->request->getGet('page'));
+        $card=$this->stockCardData($page);
+        $db=db_connect();
+        $items=$card['ledger']==='ingredient'
+            ? $db->table('ingredients')->select('id,name')->orderBy('name')->get()->getResultArray()
+            : $db->table('products')->select('id,name')->where('deleted_at',null)->orderBy('name')->get()->getResultArray();
+        $pageLinks=service('pager')->makeLinks($card['page'],$card['total'],25,'default_full');
+        return $this->render('admin/inventory/stock_card',[
+            'title'=>'Stock card','card'=>$card,'items'=>$items,'pagerLinks'=>$pageLinks,
+            'canEdit'=>(session()->get('user')['role']??'')==='admin',
+        ]);
+    }
+
+    public function stockCardExport()
+    {
+        $card=$this->stockCardData(1,50000);
+        $stream=fopen('php://temp','w+');fwrite($stream,"\xEF\xBB\xBF");
+        $put=static function(array $cells)use($stream):void {
+            fputcsv($stream,array_map([\App\Controllers\Admin\ReportController::class,'safeCsvCell'],$cells),',','"','');
+        };
+        $put(['Stock card',$card['ledger'].' #'.$card['id']]);
+        $put(['Period',$card['from'].' to '.$card['to']]);
+        $put(['Opening balance',$card['opening']]);
+        $put(['Date','Movement','Quantity','Running balance','Actor','Reference','Note']);
+        foreach(array_reverse($card['rows']) as $row) {
+            $put([$row['created_at'],$row['movement_type'],$row['quantity'],$row['running_balance'],
+                $row['user_name']??'System',$row['reference']??'',$row['note']??'']);
+        }
+        $put(['Closing balance',$card['closing']]);
+        rewind($stream);$csv=stream_get_contents($stream);fclose($stream);
+        return $this->response->setHeader('Content-Type','text/csv; charset=UTF-8')
+            ->setHeader('Content-Disposition','attachment; filename="stock-card-'.$card['ledger'].'-'.$card['id'].'.csv"')
+            ->setBody($csv ?: '');
     }
 
     public function stockIn()
@@ -124,7 +174,6 @@ class InventoryController extends BaseController
                 default => throw new \DomainException('Invalid inventory operation.'),
             };
             (new NotificationService($db))->lowStock($product);
-            (new AuditLogService($db))->record('inventory_' . $type, 'product', (int) $productId, ['quantity' => (int) $quantity, 'reference' => $reference ?: null]);
             if (! $db->transStatus()) {
                 throw new \RuntimeException('Unable to save inventory change.');
             }

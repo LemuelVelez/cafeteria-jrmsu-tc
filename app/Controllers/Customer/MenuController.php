@@ -29,6 +29,7 @@ class MenuController extends BaseController
             'products' => $products,
             'categories' => (new CategoryModel())->where('is_active', 1)->orderBy('sort_order')->findAll(),
             'addons' => $addons,
+            'allergenOptions' => (new \App\Services\AllergenService())->options(),
             'selectedCategory' => $categoryId,
             'search' => $search,
             'under500' => $under500,

@@ -19,7 +19,7 @@ class ReviewApiController extends BaseController
         if (! (new OrderModel())->where([
             'id' => $orderId,
             'customer_id' => $userId,
-            'status' => 'completed',
+            'payment_status' => 'paid',
         ])->first()) {
             return $this->jsonError('Only completed orders can be reviewed.');
         }
@@ -42,6 +42,7 @@ class ReviewApiController extends BaseController
             return $this->jsonError('The selected product is not part of this order.');
         }
 
+        $db=db_connect();$db->transBegin();
         try {
             $id = $model->insert([
                 'order_id' => $orderId,
@@ -51,7 +52,13 @@ class ReviewApiController extends BaseController
                 'comment' => trim((string) ($payload['comment'] ?? '')),
                 'is_visible' => 1,
             ], true);
+            if (!$id) throw new \DomainException('Review validation failed.');
+            (new \App\Services\AuditLogService($db))->record('review_created','review',(int)$id,
+                ['order_id'=>$orderId,'rating'=>(int)($payload['rating']??0)],$userId);
+            if (!$db->transStatus()) throw new \RuntimeException('Unable to save review.');
+            $db->transCommit();
         } catch (Throwable $exception) {
+            $db->transRollback();
             if ($model->where(['order_id' => $orderId, 'customer_id' => $userId])->first()) {
                 return $this->jsonError('This order has already been reviewed.');
             }

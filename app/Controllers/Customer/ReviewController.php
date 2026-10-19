@@ -62,6 +62,7 @@ class ReviewController extends BaseController
             return redirect()->to('/customer/reviews')->withInput()->with('error', 'The selected product is not part of this order.');
         }
 
+        $db=db_connect();$db->transBegin();
         try {
             $ok = $model->insert([
                 'order_id' => $orderId,
@@ -70,8 +71,14 @@ class ReviewController extends BaseController
                 'rating' => $this->request->getPost('rating'),
                 'comment' => trim((string) $this->request->getPost('comment')),
                 'is_visible' => 1,
-            ]);
+            ], true);
+            if (!$ok) throw new \DomainException('Review validation failed.');
+            (new \App\Services\AuditLogService($db))->record('review_created','review',(int)$ok,
+                ['order_id'=>$orderId,'rating'=>(int)$this->request->getPost('rating')],$userId);
+            if (!$db->transStatus()) throw new \RuntimeException('Unable to save review.');
+            $db->transCommit();
         } catch (Throwable $exception) {
+            $db->transRollback();
             if ($model->where(['order_id' => $orderId, 'customer_id' => $userId])->first()) {
                 return redirect()->to('/customer/reviews')->with('error', 'This order has already been reviewed.');
             }

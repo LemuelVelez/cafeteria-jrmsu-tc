@@ -203,15 +203,18 @@ class OrderService
                 throw new \RuntimeException('Unable to save the order.');
             }
 
+            $costingService = new CostingService($this->db);
             foreach ($normalized as $line) {
                 $product = $line['product'];
+                $costing = $costingService->calculate((int) $product['id']);
                 if (! $this->items->insert([
                     'order_id' => $orderId,
                     'product_id' => $product['id'],
                     'product_name' => $product['name'],
                     'quantity' => $line['quantity'],
                     'unit_price' => $product['price'],
-                    'unit_cost' => (new CostingService($this->db))->calculate((int)$product['id'])['unit_cost'],
+                    'unit_cost' => $costing['unit_cost'],
+                    'cost_status' => $costing['cost_status'],
                     'addon_total' => $line['addon_total'],
                     'line_total' => $line['line_total'],
                     'addons_json' => $line['addons_json'],
@@ -359,20 +362,28 @@ class OrderService
             if ($nextStatus === OrderStatus::OutForDelivery->value && ((string) $order['order_type'] !== OrderType::Delivery->value || empty($order['rider_id']))) {
                 throw new \DomainException('A rider must be assigned before delivery starts.');
             }
-            if (in_array($nextStatus, [OrderStatus::Completed->value, OrderStatus::Delivered->value], true) && empty($order['handoff_verified_at'])) {
-                throw new \DomainException('Verify the hand-off with the order QR or pickup code before completing.');
-            }
-            if ($nextStatus === OrderStatus::Delivered->value && $order['handoff_method'] !== 'delivery_confirmation') {
-                throw new \DomainException('The rider must confirm the delivery before marking it Delivered.');
-            }
-            if ($nextStatus === OrderStatus::OutForDelivery->value && empty($order['handoff_verified_at'])) {
-                throw new \DomainException('Scan and verify the order QR before rider departure.');
+            if (in_array($nextStatus, [OrderStatus::Completed->value,OrderStatus::Delivered->value,OrderStatus::OutForDelivery->value], true)) {
+                $stage=match ($nextStatus) {
+                    OrderStatus::Completed->value=>'pickup',
+                    OrderStatus::OutForDelivery->value=>'dispatch',
+                    default=>'delivery',
+                };
+                $exists=$this->db->table('order_handoffs')->where('order_id',$orderId)
+                    ->where('stage',$stage)->countAllResults();
+                if (!$exists) throw new \DomainException('Required '. $stage .' verification has not been recorded.');
             }
             if (! in_array($nextStatus, self::allowedTransitions($order, $actor), true)) {
                 throw new \DomainException('Invalid order status transition.');
             }
 
             $orderUpdates = ['status' => $nextStatus];
+            if ($nextStatus === OrderStatus::OutForDelivery->value) {
+                $orderUpdates['delivery_code_hash'] = password_hash(
+                    (new \App\Services\OrderQrService())->deliveryCode($order), PASSWORD_DEFAULT);
+            }
+            if ($nextStatus === OrderStatus::Delivered->value) {
+                $orderUpdates['delivery_code_hash'] = null;
+            }
             if (OrderStatus::from($nextStatus)->isFulfilled()) {
                 $orderUpdates['payment_status'] = 'paid';
             } elseif ($nextStatus === OrderStatus::Cancelled->value) {
@@ -383,6 +394,10 @@ class OrderService
                 if ($unchecked > 0) {
                     throw new \DomainException('Every order item must be checked as prepared first.');
                 }
+            }
+            if ($nextStatus === OrderStatus::OutForDelivery->value) {
+                $this->audit->record('rider_departure_acknowledged','order',$orderId,
+                    ['dispatch_stage'=>'verified'],(int)($actor['id']??0));
             }
             if (! $this->orders->update($orderId, $orderUpdates)) {
                 throw new \RuntimeException('Unable to update the order status.');

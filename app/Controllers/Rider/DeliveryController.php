@@ -35,6 +35,8 @@ class DeliveryController extends BaseController
         return $this->render('rider/deliveries/show', [
             'order' => $order,
             'items' => (new OrderItemModel())->where('order_id', $id)->findAll(),
+            'handoffs' => db_connect()->table('order_handoffs h')->select('h.*,u.name verifier_name')
+                ->join('users u','u.id=h.verified_by','left')->where('order_id',$id)->get()->getResultArray(),
             'canViewContact' => in_array((string) $order['status'], ['ready_for_pickup', 'out_for_delivery'], true),
         ]);
     }

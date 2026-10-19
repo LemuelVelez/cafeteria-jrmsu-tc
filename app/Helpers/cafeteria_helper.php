@@ -14,6 +14,21 @@ if (! function_exists('format_price')) {
 
 
 
+if (! function_exists('payment_status_badge')) {
+    /** Includes text and payment method; never rely only on badge color. */
+    function payment_status_badge(string $status, string $method): string
+    {
+        $variant = match ($status) {
+            'paid' => 'success', 'failed' => 'danger', default => 'warning',
+        };
+        $label = match ($status) {
+            'paid' => 'Paid', 'failed' => 'Failed', default => 'Pending',
+        };
+        return '<span class="badge text-bg-' . $variant . '">' . esc($label)
+            . ' · ' . esc(payment_method_label($method)) . '</span>';
+    }
+}
+
 if (! function_exists('product_fallback_image')) {
     /**
      * Return an accurate fallback menu image when a product has no uploaded image.

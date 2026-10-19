@@ -67,16 +67,11 @@ class Database extends Config
     {
         parent::__construct();
 
-        if (ENVIRONMENT === 'testing') {
-            $this->defaultGroup = 'tests';
-            return;
-        }
-
         $databaseUrl = getenv('MySQL_Database_URL');
         if (is_string($databaseUrl) && $databaseUrl !== '') {
             $connection = parse_url($databaseUrl);
 
-            if (is_array($connection)) {
+            if (is_array($connection) && ! empty($connection['path'])) {
                 $this->default['DSN'] = '';
                 $this->default['DBDriver'] = 'MySQLi';
                 $this->default['hostname'] = rawurldecode($connection['host'] ?? '127.0.0.1');
@@ -89,6 +84,22 @@ class Database extends Config
                 $this->default['strictOn'] = true;
                 $this->default['DBDebug'] = ENVIRONMENT !== 'production';
             }
+        }
+
+        if (ENVIRONMENT === 'testing') {
+            // Unit tests must still bootstrap if MySQL is not configured. DB tests skip
+            // explicitly; they must never silently run MySQL-specific SQL on SQLite.
+            $this->tests = $this->default;
+            $this->tests['database'] = empty($this->default['database'])
+                ? '' : $this->default['database'] . '_test';
+            $this->tests['DBDriver'] = 'MySQLi';
+            $this->tests['DBPrefix'] = '';
+            $this->tests['pConnect'] = false;
+            if ($this->tests['database'] !== '' && $this->tests['database'] === $this->default['database']) {
+                throw new \RuntimeException('Test and development database must differ.');
+            }
+            $this->defaultGroup = 'tests';
+            $this->default = $this->tests;
         }
     }
 }

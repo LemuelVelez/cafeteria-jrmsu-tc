@@ -33,6 +33,8 @@ class OrderController extends BaseController
             'order' => $order,
             'items' => (new OrderItemModel())->where('order_id', $id)->findAll(),
             'riders' => (new UserModel())->activeRiders(),
+            'handoffs' => db_connect()->table('order_handoffs h')->select('h.*,u.name verifier_name')
+                ->join('users u','u.id=h.verified_by','left')->where('order_id',$id)->get()->getResultArray(),
             'statusOptions' => OrderService::allowedTransitions($order, (array) session()->get('user')),
             'canAssignRider' => $order['order_type'] === 'delivery'
                 && ! in_array($order['status'], ['out_for_delivery', 'delivered', 'cancelled'], true),

@@ -7,6 +7,7 @@
     <?php if(!in_array($order['status'],['ready_for_pickup','out_for_delivery'],true)): ?>
         <div class="alert alert-warning">This order is not in the hand-off stage. Confirm status before scanning.</div>
     <?php endif; ?>
+<?= view('components/handoff_stages',['handoffs'=>$handoffs]) ?>
     <div class="table-responsive"><table class="table">
         <thead><tr><th>Line</th><th>Preparation</th></tr></thead><tbody>
         <?php foreach($items as $item): ?><tr>

@@ -45,4 +45,7 @@ const ean='0036000291452';
 const encoding='101'+Array.from(ean.slice(1,7),(c,i)=>par[+ean[0]][i]==='L'?L[+c]:GL[+c]).join('')+'01010'+Array.from(ean.slice(7),c=>R[+c]).join('')+'101';
 assert.equal(encoding.length,95);
 assert.equal(detector.decode(bitsCanvas(encoding)),'036000291452');
+const demo='2000000000015';
+const demoBits='101'+Array.from(demo.slice(1,7),(c,i)=>par[+demo[0]][i]==='L'?L[+c]:GL[+c]).join('')+'01010'+Array.from(demo.slice(7),c=>R[+c]).join('')+'101';
+assert.equal(detector.decode(bitsCanvas(demoBits)),demo,'Demo EAN-13 must scan as the full EAN code.');
 console.log('Barcode fallback: valid and tampered Code 128, UPC-A EAN encoding all pass.');
