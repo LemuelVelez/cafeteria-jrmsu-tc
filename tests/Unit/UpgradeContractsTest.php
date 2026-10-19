@@ -73,13 +73,24 @@ final class UpgradeContractsTest extends TestCase
             file_put_contents($temp,'tampered');self::assertFalse(DatabaseBackupService::checksum($temp));
         } finally {unlink($temp);unlink($temp.'.sha256');}
     }
-    public function testSharedInventoryAndPreparationRulesAreEnforcedByServices(): void
+    public function testPreparationAndInventoryPolicyRejectUnsafeTransitions(): void
     {
-        $order=file_get_contents(dirname(__DIR__,2).'/app/Services/OrderService.php');
-        $inventory=file_get_contents(dirname(__DIR__,2).'/app/Services/InventoryService.php');
-        $notification=file_get_contents(dirname(__DIR__,2).'/app/Services/NotificationService.php');
-        foreach(['FOR UPDATE','prepared_at','handoff_verified_at','restockForCancelledOrder','isFulfilled'] as $word)self::assertStringContainsString($word,$order);
-        foreach(['cancel_restock','stock_out','inventory_movements','FOR UPDATE'] as $word)self::assertStringContainsString($word,$inventory);
-        foreach(['$crossed','$becameZero','staffUsers'] as $word)self::assertStringContainsString($word,$notification);
+        // Exercise public policy behavior instead of matching obsolete order
+        // columns: dispatch and delivery now use distinct order_handoffs stages.
+        $assigned = ['role' => 'rider', 'id' => 4];
+        $other = ['role' => 'rider', 'id' => 5];
+        $order = ['order_type' => 'delivery', 'status' => 'ready_for_pickup', 'rider_id' => 4];
+        self::assertSame(['out_for_delivery'], \App\Services\OrderService::allowedTransitions($order, $assigned));
+        self::assertSame([], \App\Services\OrderService::allowedTransitions($order, $other));
+        $order['status'] = 'out_for_delivery';
+        self::assertSame(['delivered'], \App\Services\OrderService::allowedTransitions($order, $assigned));
+        self::assertSame([], \App\Services\OrderService::allowedTransitions($order, $other));
+        $order['status'] = 'delivered';
+        self::assertSame([], \App\Services\OrderService::allowedTransitions($order, $assigned));
+        self::assertTrue(\App\Services\StockAlertPolicy::crossed(6, 5, 5));
+        self::assertFalse(\App\Services\StockAlertPolicy::crossed(5, 4, 5));
+        // Recording/reading the dispatch stage and ledger requires the
+        // corresponding database tests, not a source-string assertion.
     }
+
 }

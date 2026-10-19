@@ -190,8 +190,10 @@ final class ProjectStructureTest extends TestCase
         self::assertStringContainsString("DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i'", $promoController);
         self::assertStringContainsString("'minimum_order' => 'required|decimal|greater_than_equal_to[0]'", $promoModel);
         self::assertStringContainsString('$subtotal < 0', $promoService);
-        self::assertStringContainsString("where(['id' => \$categoryId, 'is_active' => 1])", $productController);
-        self::assertStringContainsString("where(['id' => \$categoryId, 'is_active' => 1])", $productApi);
+        // Active-category existence needs a MySQL-backed controller test; this
+        // integration guard only confirms the query has not been accidentally removed.
+        self::assertStringContainsString("where(['id' => (int) \$categoryId, 'is_active' => 1])", $productController);
+        self::assertStringContainsString("where(['id' => (int) \$categoryId, 'is_active' => 1])", $productApi);
         self::assertStringContainsString('$from > $to', $reportController);
         self::assertStringContainsString("DateTimeImmutable::createFromFormat('!Y-m-d'", $reportController);
     }
