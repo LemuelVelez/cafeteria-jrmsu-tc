@@ -28,6 +28,11 @@ class PreparationController extends BaseController
     {
         $db=db_connect();$order=$db->table('orders')->where('id',$id)->get()->getRowArray();
         if (!$order)throw PageNotFoundException::forPageNotFound();
+        $actor=session()->get('user');
+        if (($actor['role']??'')==='rider' && ($order['order_type']!=='delivery'
+            || (int)($order['rider_id']??0)!==(int)($actor['id']??0))) {
+            throw PageNotFoundException::forPageNotFound();
+        }
         return $this->render('staff/orders/ticket',['title'=>'Kitchen ticket','order'=>$order,'items'=>(new OrderItemModel())->where('order_id',$id)->findAll(),'token'=>(new OrderQrService())->token($order), 'handoffs'=>$db->table('order_handoffs h')->select('h.*,u.name verifier_name')->join('users u','u.id=h.verified_by','left')->where('order_id',$id)->get()->getResultArray()]);
     }
     public function handoff(int $id)
@@ -65,7 +70,7 @@ class PreparationController extends BaseController
             }
             $code=trim((string)$this->request->getPost('code'));
             $qr=new OrderQrService();
-            $signed=$token!==''?$qr->verify($token):null;
+            $signed=$token!==''?($stage === 'delivery' ? $qr->verifyDeliveryToken($token) : $qr->verify($token)):null;
             $validToken=$signed && (int)$signed['id']===$id;
             $validCode=preg_match('/^[0-9]{4}$/',$code)===1;
             $validPickup=$validCode && hash_equals($qr->pickupCode($order),$code);

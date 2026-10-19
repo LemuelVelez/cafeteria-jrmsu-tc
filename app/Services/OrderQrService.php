@@ -16,6 +16,44 @@ class OrderQrService
         return rtrim(strtr(base64_encode((string) $id), '+/', '-_'), '=') . '.' . $signature;
     }
 
+    /**
+     * Delivery proof is a separate HMAC scope from the kitchen-ticket QR.
+     * The customer page shows it only while out for delivery; a photographed
+     * kitchen ticket or dispatch QR must never verify customer receipt.
+     */
+    public function deliveryToken(array $order): string
+    {
+        $id = (int) ($order['id'] ?? 0);
+        $request = (string) ($order['request_token'] ?? '');
+        if ($id < 1 || $request === '') {
+            throw new \InvalidArgumentException('Order cannot be signed.');
+        }
+        $encoded = rtrim(strtr(base64_encode((string) $id), '+/', '-_'), '=');
+        return 'd.' . $encoded . '.' . hash_hmac('sha256', 'delivery-proof:' . $id . ':' . $request, $this->key());
+    }
+
+    /** Delivery proof expires immediately on delivery or cancellation. */
+    public function verifyDeliveryToken(string $token): ?array
+    {
+        if (! preg_match('/^d\.([A-Za-z0-9_-]{1,30})\.([a-f0-9]{64})$/D', trim($token), $matches)) {
+            return null;
+        }
+        $encoded = $matches[1];
+        $decoded = base64_decode(strtr($encoded, '-_', '+/') . str_repeat('=', (4 - strlen($encoded) % 4) % 4), true);
+        if ($decoded === false || ! ctype_digit($decoded) || (int) $decoded < 1
+            || $encoded !== rtrim(strtr(base64_encode((string) (int) $decoded), '+/', '-_'), '=')) {
+            return null;
+        }
+        $order = db_connect()->table('orders')
+            ->where(['id' => (int) $decoded, 'order_type' => 'delivery', 'status' => 'out_for_delivery'])
+            ->get()->getRowArray();
+        if (! $order || empty($order['request_token'])) {
+            return null;
+        }
+        $expected = hash_hmac('sha256', 'delivery-proof:' . (int) $order['id'] . ':' . $order['request_token'], $this->key());
+        return hash_equals($expected, $matches[2]) ? $order : null;
+    }
+
     public function pickupCode(array $order): string
     {
         // Stable four-digit code; server verifies against the bound order and rate-limits attempts.

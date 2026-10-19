@@ -311,10 +311,10 @@ class OrderService
 
         if ($role === 'admin') {
             return array_values(array_filter($candidates, static function (string $status) use ($isDelivery): bool {
-                if ($isDelivery && in_array($status, [OrderStatus::OutForDelivery->value, OrderStatus::Delivered->value], true)) {
+                if ($isDelivery && in_array($status, [OrderStatus::OutForDelivery->value, OrderStatus::Delivered->value, OrderStatus::Completed->value], true)) {
                     return false;
                 }
-                if (! $isDelivery && $status === OrderStatus::OutForDelivery->value) {
+                if (! $isDelivery && in_array($status, [OrderStatus::OutForDelivery->value, OrderStatus::Delivered->value], true)) {
                     return false;
                 }
                 return true;

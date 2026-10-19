@@ -74,13 +74,12 @@ class NotificationService
         $stock = (int) ($product['stock'] ?? 0);
         $level = (int) ($product['reorder_level'] ?? 5);
         $previous = $product['previous_stock'] ?? null;
-        // Alert only for a movement across the reorder boundary or the distinct zero-stock event.
-        // A restock above reorder automatically re-arms the next crossing.
+        // One alert per below-threshold episode; restocking above reorder re-arms it.
+        // Reaching zero while already below threshold must NOT notify a second time.
         if ($previous === null) return;
-        $was = (int) $previous;
-        $becameZero = $was > 0 && $stock === 0;
-        $crossed = $was > $level && $stock <= $level;
-        if (! $becameZero && ! $crossed) return;
+        $crossed = StockAlertPolicy::crossed((int) $previous, $stock, $level);
+        if (! $crossed) return;
+        $becameZero = $stock === 0;
         $type = $becameZero ? 'out_of_stock' : 'low_stock';
         foreach ($this->staffUsers(['admin', 'cashier']) as $staff) {
             $link = $staff['role'] === 'cashier' ? '/cashier/inventory' : '/admin/inventory';

@@ -75,7 +75,9 @@ class OrderController extends BaseController
         if (! $order) {
             throw PageNotFoundException::forPageNotFound();
         }
-        $token = (new OrderQrService())->token($order);
+        $qr = new OrderQrService();
+        $token = $order['order_type'] === 'delivery' && $order['status'] === 'out_for_delivery'
+            ? $qr->deliveryToken($order) : $qr->token($order);
         return $this->render('customer/orders/show', [
             'order' => $order,
             'items' => (new OrderItemModel())->where('order_id', $id)->findAll(),

@@ -8,6 +8,7 @@ use App\Models\OrderModel;
 use App\Models\ProductAddonModel;
 use App\Models\ProductModel;
 use App\Services\OrderService;
+use App\Services\OrderApiPresenter;
 use DomainException;
 use Throwable;
 
@@ -49,7 +50,12 @@ class OrderApiController extends BaseController
         if (! $order || ! $this->canView($order)) {
             return $this->jsonError('Order not found.', null, 404);
         }
-        return $this->jsonSuccess('Order loaded.', ['order' => $order, 'items' => (new OrderItemModel())->where('order_id', $id)->findAll()]);
+        $actor = session()->get('user');
+        $items = (new OrderItemModel())->where('order_id', $id)->findAll();
+        return $this->jsonSuccess('Order loaded.', [
+            'order' => OrderApiPresenter::present($order, $actor),
+            'items' => OrderApiPresenter::items($items, $order, $actor),
+        ]);
     }
 
 
@@ -106,7 +112,7 @@ class OrderApiController extends BaseController
         try {
             $payload = $this->request->getJSON(true) ?: $this->request->getRawInput();
             $order = (new OrderService())->updateStatus($id, (string) ($payload['status'] ?? ''), session()->get('user'), $payload['note'] ?? null);
-            return $this->jsonSuccess('Order status updated.', $order);
+            return $this->jsonSuccess('Order status updated.', OrderApiPresenter::present($order, session()->get('user')));
         } catch (DomainException $exception) {
             return $this->jsonError($exception->getMessage());
         } catch (Throwable $exception) {
@@ -125,7 +131,7 @@ class OrderApiController extends BaseController
                 session()->get('user'),
             );
 
-            return $this->jsonSuccess('Rider assigned.', $order);
+            return $this->jsonSuccess('Rider assigned.', OrderApiPresenter::present($order, session()->get('user')));
         } catch (DomainException $exception) {
             return $this->jsonError($exception->getMessage());
         } catch (Throwable $exception) {

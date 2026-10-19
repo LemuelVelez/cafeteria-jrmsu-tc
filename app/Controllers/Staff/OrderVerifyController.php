@@ -11,11 +11,20 @@ class OrderVerifyController extends BaseController
 {
     public function show(string $token): string
     {
-        $order = (new OrderQrService())->verify($token);
-        if (! $order) {
+        $qr = new OrderQrService();
+        $order = str_starts_with($token, 'd.') ? $qr->verifyDeliveryToken($token) : $qr->verify($token);
+        $actor = session()->get('user');
+        if (! $order || ! in_array($actor['role'] ?? '', ['admin','cashier','rider'], true)) {
             throw PageNotFoundException::forPageNotFound('Invalid or tampered order verification code.');
         }
-        $order['delivery_address']=\App\Services\FieldEncryption::open($order['delivery_address']??null);
+        if (($actor['role'] ?? '') === 'rider'
+            && ($order['order_type'] !== 'delivery'
+                || (int) ($order['rider_id'] ?? 0) !== (int) ($actor['id'] ?? 0)
+                || ! in_array($order['status'], ['ready_for_pickup','out_for_delivery'], true))) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+        // The verification screen uses preparation and handoff details, not contact PII.
+        unset($order['delivery_address']);
         return $this->render('staff/orders/verify', [
             'title' => 'Verify order',
             'order' => $order,

@@ -29,9 +29,11 @@ class AuditLogController extends BaseController
         if ($filters['to']!=='')$builder->where('audit_logs.created_at <=',$filters['to'].' 23:59:59');
         if ((string)$this->request->getGet('format')==='csv') {
             $handle=fopen('php://temp','w+');
-            fputcsv($handle,['Date','Actor','Role','Action','Entity','Entity ID','Changes','IP']);
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle,['Date','Actor','Role','Action','Entity','Entity ID','Changes','IP'],',','"','');
             foreach ($builder->orderBy('audit_logs.id','DESC')->findAll(20000) as $row) {
-                fputcsv($handle,[$row['created_at'],$row['user_name'],$row['user_role'],$row['action'],$row['entity_type'],$row['entity_id'],$row['details_json'],$row['ip_address']]);
+                fputcsv($handle,array_map([\App\Controllers\Admin\ReportController::class, 'safeCsvCell'],
+                    [$row['created_at'],$row['user_name'],$row['user_role'],$row['action'],$row['entity_type'],$row['entity_id'],$row['details_json'],$row['ip_address']]),',','"','');
             }
             rewind($handle);$csv=stream_get_contents($handle);fclose($handle);
             return $this->response->setHeader('Content-Type','text/csv; charset=UTF-8')->setHeader('Content-Disposition','attachment; filename="audit-logs.csv"')->setBody($csv?:'');
