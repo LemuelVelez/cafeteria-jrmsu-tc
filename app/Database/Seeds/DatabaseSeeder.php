@@ -16,6 +16,8 @@ class DatabaseSeeder extends Seeder
         'UserSeeder',
         'CategorySeeder',
         'ProductSeeder',
+        'IngredientSeeder',
+        'RecipeSeeder',
         'SettingSeeder',
         'OperationalSettingsSeeder',
         'PromoSeeder',
@@ -51,6 +53,8 @@ class DatabaseSeeder extends Seeder
                 'cold-drinks',
             ]),
             'ProductSeeder' => self::productSeedIsSatisfied($db),
+            'IngredientSeeder' => self::ingredientSeedIsSatisfied($db),
+            'RecipeSeeder' => self::recipeSeedIsSatisfied($db),
             'SettingSeeder' => self::hasAllValues($db, 'settings', 'setting_key', [
                 'cafeteria_name',
                 'delivery_fee',
@@ -138,6 +142,28 @@ class DatabaseSeeder extends Seeder
         $openingCount = (int) ($openingRow['seeded_products'] ?? 0);
 
         return $openingCount === count($productIds);
+    }
+
+    private static function ingredientSeedIsSatisfied(BaseConnection $db): bool
+    {
+        if (! $db->tableExists('ingredients') || ! $db->tableExists('ingredient_movements')) return false;
+        foreach (IngredientSeeder::rows() as $ingredient) {
+            $record = $db->table('ingredients')->select('id')->where('name', $ingredient['name'])->get()->getRowArray();
+            if (! $record) return false;
+            if ($ingredient['opening_stock'] > 0 && ! $db->table('ingredient_movements')
+                    ->where(['ingredient_id' => $record['id'], 'movement_type' => 'opening'])->countAllResults()) return false;
+        }
+        return true;
+    }
+
+    private static function recipeSeedIsSatisfied(BaseConnection $db): bool
+    {
+        if (! $db->tableExists('product_recipes')) return false;
+        foreach (RecipeSeeder::rows() as $recipe) {
+            $product = $db->table('products')->select('id')->where('slug', $recipe['product_slug'])->get()->getRowArray();
+            if (! $product || ! $db->table('product_recipes')->where('product_id', $product['id'])->countAllResults()) return false;
+        }
+        return true;
     }
 
     private static function notificationSeedIsSatisfied(BaseConnection $db): bool

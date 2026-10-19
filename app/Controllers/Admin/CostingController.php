@@ -36,8 +36,15 @@ class CostingController extends BaseController
             }
             $fields=['grams_per_piece'=>$gramsPerPiece,'name'=>$name,'cost_per_unit'=>(float)$this->request->getPost('cost_per_unit'),'purchase_unit'=>$this->request->getPost('purchase_unit'),
                 'density_g_per_ml'=>(float)$density,
-                'nutrient_basis'=>$this->request->getPost('purchase_unit')==='pcs'?'unit':'100g',
+                'nutrient_basis'=>(string)($this->request->getPost('nutrient_basis') ?: '100g'),
                 'supplier'=>trim((string)$this->request->getPost('supplier')),'source_reference'=>trim((string)$this->request->getPost('source_reference'))];
+            if (! in_array($fields['nutrient_basis'], ['100g', 'unit'], true)) {
+                throw new \DomainException('Nutrient basis must be 100g or unit.');
+            }
+            if ($fields['purchase_unit'] === 'pcs' && $fields['nutrient_basis'] === '100g'
+                && $gramsPerPiece === null) {
+                throw new \DomainException('A measured grams-per-piece value is required for 100g-based piece nutrition.');
+            }
             foreach (['calories','protein_g','carbohydrates_g','fat_g','sugar_g','fiber_g','sodium_mg'] as $field) {
                 $num=filter_var($this->request->getPost($field)??0,FILTER_VALIDATE_FLOAT);
                 if ($num === false || $num < 0) throw new \DomainException('Invalid nutrient quantity.');
@@ -102,6 +109,17 @@ class CostingController extends BaseController
             $row=$db->query('SELECT * FROM products WHERE id=? FOR UPDATE',[$productId])->getRowArray();
             if (!$row) throw new \DomainException('Product not found.');
             if (!$db->table('product_recipes')->where('product_id',$productId)->countAllResults()) throw new \DomainException('A recipe is required before verification.');
+            $sources = $db->table('product_recipes r')->select('i.name,i.source_reference')
+                ->join('ingredients i', 'i.id=r.ingredient_id')->where('r.product_id', $productId)
+                ->get()->getResultArray();
+            foreach ($sources as $ingredient) {
+                if (! \App\Services\SourcedRecipeCatalog::validReference(
+                    (string) ($ingredient['source_reference'] ?? ''))) {
+                    throw new \DomainException('Source reference required before verifying nutrition for: ' . $ingredient['name']);
+                }
+            }
+            // This remains an explicit human sign-off; automatic recipe calculation
+            // never changes nutrition_status to verified.
             $db->table('products')->where('id',$productId)->update(['nutrition_status'=>'verified','nutrition_verified_by'=>(int)session()->get('user')['id'],'nutrition_verified_at'=>date('Y-m-d H:i:s')]);
             (new AuditLogService($db))->record('nutrition_verified','product',$productId,['source'=>'recipe']);
             $db->transCommit();return redirect()->to('/admin/costing')->with('success','Nutrition verified.');

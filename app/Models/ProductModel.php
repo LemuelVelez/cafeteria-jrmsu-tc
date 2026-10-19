@@ -65,7 +65,7 @@ class ProductModel extends BaseModel
         }
         if (!empty($filters['high_protein'])) $builder->where('products.protein_g >=', 20);
         if (!empty($filters['low_sodium'])) $builder->where('products.sodium_mg <=', 140);
-        if (!empty($filters['healthy_choice'])) $builder->where('products.is_healthy_choice', 1);
+        if (!empty($filters['healthy_choice'])) $builder->where('products.is_healthy_choice', 1)->where('products.nutrition_status', 'verified');
         if (!empty($filters['vegetarian'])) $builder->where('products.is_vegetarian', 1);
         $products = $builder->orderBy('products.is_featured', 'DESC')->orderBy('products.name')->findAll();
         (new \App\Services\AllergenService())->attach($products);

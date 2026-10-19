@@ -26,15 +26,14 @@ final class RemainingCorrectionsTest extends TestCase
         ],NutritionLookupService::nutrients($input));
     }
 
-    public function testLegacyFoodDataCentralNutrientsAndMissingNutrients(): void
+    public function testMissingFoodDataCentralNutrientsAreNotInventedAsZero(): void
     {
-        $data=NutritionLookupService::nutrients(['foodNutrients'=>[
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('missing');
+        NutritionLookupService::nutrients(['foodNutrients'=>[
             ['nutrientNumber'=>'203','value'=>2.1],
             ['nutrientNumber'=>'307','value'=>140],
         ]]);
-        self::assertSame(2.1,$data['protein_g']);
-        self::assertSame(140.0,$data['sodium_mg']);
-        self::assertSame(0.0,$data['calories']);
     }
 
     public function testAllOptionalSettingsHaveSafeDefaultsAndNoExternalKeyIsNeeded(): void

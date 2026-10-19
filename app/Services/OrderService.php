@@ -368,9 +368,16 @@ class OrderService
                     OrderStatus::OutForDelivery->value=>'dispatch',
                     default=>'delivery',
                 };
-                $exists=$this->db->table('order_handoffs')->where('order_id',$orderId)
-                    ->where('stage',$stage)->countAllResults();
-                if (!$exists) throw new \DomainException('Required '. $stage .' verification has not been recorded.');
+                $handoff = $this->db->table('order_handoffs')->where('order_id', $orderId)
+                    ->where('stage', $stage)->get()->getRowArray();
+                if (! $handoff) throw new \DomainException('Required ' . $stage . ' verification has not been recorded.');
+                // A dispatch checked for rider A must never authorize rider B to depart.
+                if ($stage === 'dispatch' && (int) ($handoff['rider_id'] ?? 0) !== (int) $order['rider_id']) {
+                    throw new \DomainException('Dispatch verification belongs to another rider; request a new staff check.');
+                }
+                if ($stage === 'delivery' && (int) ($handoff['rider_id'] ?? 0) !== (int) $order['rider_id']) {
+                    throw new \DomainException('Delivery was not verified by the assigned rider.');
+                }
             }
             if (! in_array($nextStatus, self::allowedTransitions($order, $actor), true)) {
                 throw new \DomainException('Invalid order status transition.');
@@ -475,6 +482,10 @@ class OrderService
             $rider = (new UserModel())->where(['id' => $riderId, 'role' => 'rider', 'status' => 'active'])->first();
             if (! $rider) {
                 throw new \DomainException('Select an active rider.');
+            }
+            if ($this->db->table('order_handoffs')->where('order_id', $orderId)
+                ->where('stage', 'dispatch')->countAllResults()) {
+                throw new \DomainException('Rider cannot be reassigned after independent dispatch verification.');
             }
             $oldRiderId = ! empty($order['rider_id']) ? (int) $order['rider_id'] : null;
             if (! $this->orders->update($orderId, ['rider_id' => $riderId])) {

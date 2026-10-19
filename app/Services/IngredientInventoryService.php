@@ -21,6 +21,15 @@ final class IngredientInventoryService
         $rows=$this->db()->table('product_recipes r')->select('r.product_id,r.ingredient_id,r.quantity,r.unit,r.wastage_percent,p.recipe_servings,i.purchase_unit,i.density_g_per_ml,i.grams_per_piece')
             ->join('products p','p.id=r.product_id')->join('ingredients i','i.id=r.ingredient_id')
             ->whereIn('r.product_id',array_keys($productQuantities))->get()->getResultArray();
+        // When ingredient tracking is enabled, selling an uncosted product must
+        // not silently bypass the ingredient ledger. Fail the enclosing order
+        // transaction before changing any stock or payment rows.
+        $covered = array_fill_keys(array_map('intval', array_column($rows, 'product_id')), true);
+        foreach ($productQuantities as $productId => $quantity) {
+            if ($quantity > 0 && ! isset($covered[(int) $productId])) {
+                throw new \DomainException('A complete ingredient recipe is required before selling product #' . $productId . ' with ingredient tracking enabled.');
+            }
+        }
         $needed=[];
         foreach ($rows as $row) {
             $quantity=(int)($productQuantities[(int)$row['product_id']] ?? 0);
@@ -55,6 +64,20 @@ final class IngredientInventoryService
             if ($already)continue;
             $this->change($id,abs((float)$row['quantity']),'cancel_restock',$orderId,$actorId,'Order cancelled');
         }
+    }
+
+    /** Ledger-backed opening balance; only for a brand-new ingredient at zero stock. */
+    public function opening(int $ingredientId, float $quantity): void
+    {
+        if ($quantity <= 0 || $quantity > 10000000) {
+            throw new \DomainException('Opening stock must be positive.');
+        }
+        $existing = $this->db()->table('ingredient_movements')
+            ->where('ingredient_id', $ingredientId)->countAllResults();
+        if ($existing !== 0) {
+            throw new \DomainException('Opening stock is only allowed before the first movement.');
+        }
+        $this->change($ingredientId, $quantity, 'opening', null, null, 'Verified CSV opening balance');
     }
 
     public function stockIn(int $ingredientId,float $quantity,?int $actorId,string $note): void

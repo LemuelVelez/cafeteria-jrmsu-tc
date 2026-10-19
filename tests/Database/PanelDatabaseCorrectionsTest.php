@@ -23,8 +23,10 @@ final class PanelDatabaseCorrectionsTest extends DatabaseTestCase
             $balance = (float) (db_connect('tests')->table('inventory_movements')
                 ->selectSum('quantity')->where('product_id', (int) $row['id'])->get()->getRow('quantity') ?? 0);
             self::assertEqualsWithDelta((float) $row['stock'], $balance, 0.001);
-            self::assertSame('no_recipe', (new CostingService(db_connect('tests')))
-                ->calculate((int) $row['id'])['cost_status']);
+            $hasRecipe = db_connect('tests')->table('product_recipes')
+                ->where('product_id', $row['id'])->countAllResults() > 0;
+            self::assertSame($hasRecipe ? 'complete' : 'no_recipe',
+                (new CostingService(db_connect('tests')))->calculate((int) $row['id'])['cost_status']);
         }
     }
 

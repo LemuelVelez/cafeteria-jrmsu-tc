@@ -13,7 +13,14 @@ final class StockCardService
     public function get(string $ledger, int $id, string $from, string $to, string $type='', int $page=1, int $perPage=25): array
     {
         if (! in_array($ledger,['product','ingredient'],true)) throw new \DomainException('Unsupported stock card.');
-        if ($id < 1 || $from > $to || $perPage<1 || $perPage>50000) throw new \DomainException('Invalid stock card request.');
+        if ($id < 0 || $from > $to || $perPage<1 || $perPage>50000) throw new \DomainException('Invalid stock card request.');
+        // A fresh database can have no ingredients yet; show an empty stock card
+        // instead of making both admin and cashier inventory pages crash.
+        if ($id === 0) return [
+            'rows' => [], 'opening' => 0.0, 'closing' => 0.0, 'total' => 0,
+            'page' => 1, 'perPage' => $perPage, 'from' => $from, 'to' => $to,
+            'type' => $type, 'ledger' => $ledger, 'id' => $id,
+        ];
         if ($type !== '' && !preg_match('/^[a-z_]{1,32}$/',$type)) throw new \DomainException('Invalid movement type.');
         $table=$ledger==='product'?'inventory_movements':'ingredient_movements';
         $column=$ledger==='product'?'product_id':'ingredient_id';

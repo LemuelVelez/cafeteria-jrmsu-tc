@@ -17,6 +17,7 @@ class PreparationController extends BaseController
             $order=$db->query('SELECT * FROM orders WHERE id=? FOR UPDATE',[$orderId])->getRowArray();
             $line=$db->query('SELECT * FROM order_items WHERE id=? AND order_id=? FOR UPDATE',[$itemId,$orderId])->getRowArray();
             if (!$order||!$line||!in_array($order['status'],['confirmed','preparing'],true)) throw new \DomainException('Order line cannot be checked at this stage.');
+            if ($line['prepared_at'] !== null) throw new \DomainException('This item has already been checked.');
             $db->table('order_items')->where('id',$itemId)->update(['prepared_at'=>date('Y-m-d H:i:s'),'prepared_by'=>(int)$actor['id']]);
             (new AuditLogService($db))->record('order_item_prepared','order_item',$itemId,['order_id'=>$orderId],(int)$actor['id']);
             if (!$db->transStatus()) throw new \RuntimeException('Unable to save preparation check.');

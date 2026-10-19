@@ -125,10 +125,16 @@ class CostingService
         $nutrition=$details['nutrients'];
         $nutrition['calories']=(int)round($nutrition['calories']);
         $nutrition['sodium_mg']=(int)round($nutrition['sodium_mg']);
-        $sources = array_unique(array_filter(array_map(static fn (array $row): string =>
-            trim((string) ($row['source_reference'] ?? '')), $details['ingredients'])));
-        $nutrition['nutrition_source'] = count($sources) === count($details['ingredients'])
-            ? 'recipe_sourced' : 'recipe_unverified';
+        // Several ingredients may share one valid catalog source: do not
+        // interpret repeated source IDs as a missing ingredient reference.
+        $allReferenced = true;
+        foreach ($details['ingredients'] as $ingredient) {
+            if (! SourcedRecipeCatalog::validReference((string) ($ingredient['source_reference'] ?? ''))) {
+                $allReferenced = false;
+                break;
+            }
+        }
+        $nutrition['nutrition_source'] = $allReferenced ? 'recipe_sourced' : 'recipe_unverified';
         $nutrition['nutrition_status']='estimated';
         $nutrition['nutrition_verified_by']=null;
         $nutrition['nutrition_verified_at']=null;

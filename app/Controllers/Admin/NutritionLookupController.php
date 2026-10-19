@@ -22,13 +22,22 @@ final class NutritionLookupController extends BaseController
         $unit=(string)$this->request->getPost('purchase_unit');
         if($fdcId===false||$cost===false||$cost<0||$unit!=='g')return redirect()->to('/admin/costing/nutrition-search')->with('error','Import as grams with a valid cost per gram.');
         try {$food=(new NutritionLookupService())->details((int)$fdcId);}catch(\Throwable $e){return redirect()->to('/admin/costing/nutrition-search')->with('error',$e->getMessage());}
-        $nutrients=NutritionLookupService::nutrients($food);
+        try {
+            $nutrients=NutritionLookupService::nutrients($food);
+        } catch (\DomainException $error) {
+            return redirect()->to('/admin/costing/nutrition-search')->with('error', $error->getMessage());
+        }
+        $dataType = trim((string) ($food['dataType'] ?? ''));
+        if (! preg_match('/^[A-Za-z][A-Za-z ]{1,70}$/', $dataType)) {
+            return redirect()->to('/admin/costing/nutrition-search')
+                ->with('error', 'FoodData Central did not supply a valid food data type.');
+        }
         $name=mb_substr(trim((string)($food['description']??'')),0,160);
         if(!$name)return redirect()->to('/admin/costing/nutrition-search')->with('error','The selected USDA food has no name.');
         $db=db_connect();$db->transBegin();
         try {
             $old=$db->query('SELECT * FROM ingredients WHERE name=? FOR UPDATE',[$name])->getRowArray();
-            $fields=array_merge(['name'=>$name,'purchase_unit'=>'g','cost_per_unit'=>$cost,'nutrient_basis'=>'100g','source_reference'=>'USDA FoodData Central #'.(int)$fdcId],$nutrients);
+            $fields=array_merge(['name'=>$name,'purchase_unit'=>'g','cost_per_unit'=>$cost,'nutrient_basis'=>'100g','source_reference'=>'USDA FDC #'.(int)$fdcId.' ('.$dataType.')'],$nutrients);
             if($old)$db->table('ingredients')->where('id',$old['id'])->update($fields);
             else $db->table('ingredients')->insert($fields);
             $id=(int)($old['id']??$db->insertID());

@@ -37,14 +37,27 @@ final class NutritionLookupService
     {
         $map=['208'=>'calories','203'=>'protein_g','205'=>'carbohydrates_g','204'=>'fat_g','269'=>'sugar_g','291'=>'fiber_g','307'=>'sodium_mg',
             '1008'=>'calories','1003'=>'protein_g','1005'=>'carbohydrates_g','1004'=>'fat_g','2000'=>'sugar_g','1079'=>'fiber_g','1093'=>'sodium_mg'];
-        $result=array_fill_keys(array_unique(array_values($map)),0.0);
-        foreach(($food['foodNutrients']??[]) as $row){
-            if(!is_array($row))continue;
-            $nutrient=$row['nutrient']??$row;
-            if (!is_array($nutrient))continue;
-            $number=(string)($nutrient['number']??$nutrient['nutrientNumber']??$nutrient['id']??'');
-            $field=$map[$number]??null;
-            if($field!==null)$result[$field]=max(0,(float)($row['amount']??$row['value']??0));
+        $result = [];
+        foreach (($food['foodNutrients'] ?? []) as $row) {
+            if (! is_array($row)) continue;
+            $nutrient = $row['nutrient'] ?? $row;
+            if (! is_array($nutrient)) continue;
+            $number = (string) ($nutrient['number'] ?? $nutrient['nutrientNumber'] ?? $nutrient['id'] ?? '');
+            $field = $map[$number] ?? null;
+            if ($field === null) continue;
+            // An omitted nutrient is unknown, not automatically zero. Never insert
+            // an invented zero or claim the source reported a value it did not.
+            $raw = $row['amount'] ?? $row['value'] ?? null;
+            if (! is_numeric($raw) || ! is_finite((float) $raw) || (float) $raw < 0) {
+                throw new \DomainException('Invalid USDA nutrient value for ' . $field . '.');
+            }
+            $result[$field] = (float) $raw;
+        }
+        foreach (array_unique(array_values($map)) as $field) {
+            if (! array_key_exists($field, $result)) {
+                throw new \DomainException('USDA record is missing ' . $field .
+                    '; find a complete sourced record before importing it.');
+            }
         }
         return $result;
     }
