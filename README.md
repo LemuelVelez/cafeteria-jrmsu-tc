@@ -212,3 +212,14 @@ now fail the transaction instead of being ignored.
 PHP syntax and JavaScript checks pass locally; Composer, PHP MySQLi and a real
 MySQL database are still required to execute the MySQL-based acceptance tests
 and manually verify printed page numbering.
+
+### Push delivery and JSON API rejection hardening (continuation v8)
+
+Web Push dispatch keeps per-device receipts and removes providers reporting HTTP
+404 or 410. Push endpoint URLs are checked both at subscription time and before
+sending, protecting against stored unsafe destinations. Dispatch state and a
+scrubbed audit event commit in one transaction after sending. A mock transport
+is provided for database acceptance tests without making external network calls.
+`AuthFilter`, `RoleFilter`, and `ActiveAccountFilter` respond with JSON 401/403
+for `/api/...` paths, including when requests lack AJAX headers.
+`npm run check` and `./cafe lint` pass; MySQL-backed tests remain pending.

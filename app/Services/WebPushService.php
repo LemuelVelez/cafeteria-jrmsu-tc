@@ -7,7 +7,17 @@ use CodeIgniter\Database\BaseConnection;
 /** RFC 8291 encrypted push payload, RFC 8292 VAPID, no new environment variables. */
 final class WebPushService
 {
-    public function __construct(private readonly ?BaseConnection $connection=null) {}
+    /**
+     * Tests can supply an HTTP transport without contacting push providers.
+     * The transport receives decrypted subscription data and payload, and
+     * returns an HTTP response status. Production always uses the VAPID sender.
+     *
+     * @param null|\Closure(array<string,mixed>, string):int $transport
+     */
+    public function __construct(
+        private readonly ?BaseConnection $connection = null,
+        private readonly ?\Closure $transport = null,
+    ) {}
     private function db(): BaseConnection {return $this->connection ?? db_connect();}
     private static function encode(string $raw): string {return rtrim(strtr(base64_encode($raw),'+/','-_'),'=');}
     private static function decode(string $text): string
@@ -49,14 +59,7 @@ final class WebPushService
     {
         if(!$this->enabled())throw new \DomainException('Web Push is disabled.');
         $endpoint=(string)($subscription['endpoint']??'');
-        $url=parse_url($endpoint);
-        $host=strtolower((string)($url['host']??''));
-        // A strict endpoint allowlist prevents server-side requests to internal networks.
-        $allowed=['fcm.googleapis.com','updates.push.services.mozilla.com','push.services.mozilla.com','web.push.apple.com'];
-        $suffixes=['.push.apple.com','.notify.windows.com','.push.services.mozilla.com'];
-        $trusted=in_array($host,$allowed,true);
-        foreach($suffixes as $suffix)if(str_ends_with($host,$suffix))$trusted=true;
-        if(($url['scheme']??'')!=='https'||!$trusted||strlen($endpoint)>2048)throw new \DomainException('Unsupported push provider endpoint.');
+        self::assertTrustedEndpoint($endpoint);
         $keys=$subscription['keys']??[];
         $public=self::decode((string)($keys['p256dh']??''));$auth=self::decode((string)($keys['auth']??''));
         if(strlen($public)!==65||ord($public[0])!==4||strlen($auth)!==16)throw new \DomainException('Invalid push subscription keys.');
@@ -99,27 +102,75 @@ final class WebPushService
         try {
         $rows=$db->table('push_outbox q')->select('q.id,q.notification_id,q.attempts,n.user_id,n.title,n.message,n.link')->join('notifications n','n.id=q.notification_id')->where('q.delivered_at',null)->where('q.attempts <',5)->orderBy('q.id')->limit(max(1,min(100,$limit)))->get()->getResultArray();
         $sent=0;$failed=0;
-        foreach($rows as $row){
-            $all=true;
-            $subs=$db->table('push_subscriptions')->where('user_id',$row['user_id'])->get()->getResultArray();
-            $completed=$db->table('push_delivery_receipts')->select('subscription_id')->where('notification_id',$row['notification_id'])->get()->getResultArray();
-            $completedIds=array_fill_keys(array_map('intval',array_column($completed,'subscription_id')),true);
-            $payload=json_encode(['title'=>$row['title'],'body'=>$row['message'],'url'=>(string)($row['link']??'/notifications')],JSON_THROW_ON_ERROR);
-            foreach($subs as $sub){
-                // Device receipts remain after a partial delivery, so retries target only pending devices.
-                if(isset($completedIds[(int)$sub['id']]))continue;
-                try{
-                    $subscription=json_decode(service('encrypter')->decrypt(base64_decode($sub['subscription_cipher'],true)),true,512,JSON_THROW_ON_ERROR);
-                    $code=$this->post($subscription,$payload);
-                    if(in_array($code,[404,410],true)){$db->table('push_subscriptions')->where('id',$sub['id'])->delete();continue;}
-                    if($code>=200 && $code<300){
-                        $db->query('INSERT IGNORE INTO push_delivery_receipts (notification_id, subscription_id, delivered_at) VALUES (?,?,?)',
-                            [(int)$row['notification_id'],(int)$sub['id'],date('Y-m-d H:i:s')]);
-                    }else $all=false;
-                }catch(\Throwable $e){$all=false;log_message('warning','Push notification could not be delivered, notification {id}.',['id'=>(int)$row['notification_id']]);}
+        foreach ($rows as $row) {
+            $all = true;
+            $retired = [];
+            $successful = [];
+            $subs = $db->table('push_subscriptions')->where('user_id', $row['user_id'])
+                ->orderBy('id', 'ASC')->get()->getResultArray();
+            $completed = $db->table('push_delivery_receipts')->select('subscription_id')
+                ->where('notification_id', $row['notification_id'])->get()->getResultArray();
+            $completedIds = array_fill_keys(array_map('intval', array_column($completed, 'subscription_id')), true);
+            $payload = json_encode([
+                'title' => $row['title'], 'body' => $row['message'],
+                'url' => (string) ($row['link'] ?? '/notifications'),
+            ], JSON_THROW_ON_ERROR);
+            foreach ($subs as $sub) {
+                if (isset($completedIds[(int) $sub['id']])) continue;
+                try {
+                    $subscription = json_decode(
+                        service('encrypter')->decrypt(base64_decode($sub['subscription_cipher'], true)),
+                        true, 512, JSON_THROW_ON_ERROR,
+                    );
+                    if (! is_array($subscription)) throw new \DomainException('Invalid push subscription.');
+                    // Old/imported records must be checked again at send time;
+                    // subscription validation alone cannot prevent SSRF.
+                    self::assertTrustedEndpoint((string) ($subscription['endpoint'] ?? ''));
+                    $code = $this->transport
+                        ? ($this->transport)($subscription, $payload)
+                        : $this->post($subscription, $payload);
+                    if (in_array($code, [404, 410], true)) {
+                        $retired[] = (int) $sub['id'];
+                    } elseif ($code >= 200 && $code < 300) {
+                        $successful[] = (int) $sub['id'];
+                    } else {
+                        $all = false;
+                    }
+                } catch (\Throwable $error) {
+                    $all = false;
+                    log_message('warning', 'Push delivery failed for notification {id}.',
+                        ['id' => (int) $row['notification_id']]);
+                }
             }
-            $db->table('push_outbox')->where('id',$row['id'])->update(['attempts'=>(int)$row['attempts']+1,'delivered_at'=>$all?date('Y-m-d H:i:s'):null]);
-            if($all)$sent++;else $failed++;
+
+            // Send outside the transaction, then commit receipts, subscriber
+            // cleanup, retry count and audit atomically. The advisory lock
+            // prevents competing dispatchers from delivering the same row.
+            $db->transBegin();
+            try {
+                foreach ($retired as $id) {
+                    $db->table('push_subscriptions')->where('id', $id)->delete();
+                }
+                foreach ($successful as $id) {
+                    $db->query('INSERT IGNORE INTO push_delivery_receipts (notification_id, subscription_id, delivered_at) VALUES (?,?,?)',
+                        [(int) $row['notification_id'], $id, date('Y-m-d H:i:s')]);
+                }
+                $db->table('push_outbox')->where('id', $row['id'])->update([
+                    'attempts' => (int) $row['attempts'] + 1,
+                    'delivered_at' => $all ? date('Y-m-d H:i:s') : null,
+                ]);
+                (new AuditLogService($db))->record('push_dispatch_attempt', 'notification',
+                    (int) $row['notification_id'], [
+                        'sent_devices' => count($successful), 'retired_devices' => count($retired),
+                        'retry_pending' => ! $all,
+                    ]);
+                if (! $db->transStatus()) throw new \RuntimeException('Push delivery state could not be saved.');
+                $db->transCommit();
+            } catch (\Throwable $error) {
+                $db->transRollback();
+                throw $error;
+            }
+            if ($all) $sent++; else $failed++;
         }
         return compact('sent','failed');
         } finally {
@@ -127,10 +178,33 @@ final class WebPushService
         }
     }
 
+    /** Fail closed for both newly subscribed and previously stored endpoints. */
+    public static function assertTrustedEndpoint(string $endpoint): void
+    {
+        $url = parse_url($endpoint);
+        if (! is_array($url) || ($url['scheme'] ?? '') !== 'https'
+            || ! isset($url['host']) || strlen($endpoint) > 2048
+            || isset($url['user'], $url['pass']) || isset($url['user'])
+            || isset($url['fragment']) || (isset($url['port']) && $url['port'] !== 443)) {
+            throw new \DomainException('Unsupported push provider endpoint.');
+        }
+        $host = strtolower($url['host']);
+        $exact = ['fcm.googleapis.com', 'updates.push.services.mozilla.com',
+            'push.services.mozilla.com', 'web.push.apple.com'];
+        $suffixes = ['.push.apple.com', '.notify.windows.com', '.push.services.mozilla.com'];
+        foreach ($suffixes as $suffix) {
+            if (str_ends_with($host, $suffix)) return;
+        }
+        if (! in_array($host, $exact, true)) {
+            throw new \DomainException('Unsupported push provider endpoint.');
+        }
+    }
+
     private function post(array $subscription,string $message): int
     {
-        $endpoint=(string)$subscription['endpoint'];$url=parse_url($endpoint);
-        if(($url['scheme']??'')!=='https')throw new \DomainException('Invalid push URL.');
+        $endpoint=(string)$subscription['endpoint'];
+        self::assertTrustedEndpoint($endpoint);
+        $url=parse_url($endpoint);
         $origin='https://'.$url['host'].(isset($url['port'])?':'.$url['port']:'');
         $private=base64_decode((string)$this->db()->table('settings')->where('setting_key','webpush_private_encrypted')->get()->getRow('setting_value'),true);
         if(!$private)throw new \RuntimeException('VAPID private key is missing.');

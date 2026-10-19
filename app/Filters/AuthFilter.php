@@ -3,6 +3,7 @@
 namespace App\Filters;
 
 use App\Models\UserModel;
+use App\Services\ApiRequestPolicy;
 use CodeIgniter\Filters\FilterInterface;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -29,7 +30,7 @@ class AuthFilter implements FilterInterface
             $path=trim($request->getUri()->getPath(),'/');
             $setupAllowed=empty($user['totp_secret']) && in_array($path,['settings','settings/totp/start','settings/totp/confirm'],true);
             if (!in_array($path,['two-factor','logout'],true) && !$setupAllowed) {
-                if (str_starts_with($path,'api/'))return service('response')->setStatusCode(403)->setJSON(['success'=>false,'message'=>'Two-factor verification required.','data'=>null,'errors'=>null]);
+                if (ApiRequestPolicy::isApiPath($path))return service('response')->setStatusCode(403)->setJSON(['success'=>false,'message'=>'Two-factor verification required.','data'=>null,'errors'=>null]);
                 return redirect()->to(empty($user['totp_secret'])?'/settings':'/two-factor')->with('error','Verify two-factor authentication to continue.');
             }
         }
@@ -48,7 +49,7 @@ class AuthFilter implements FilterInterface
 
     private function unauthorized(RequestInterface $request, string $message)
     {
-        if ($request->isAJAX() || str_starts_with($request->getUri()->getPath(), 'api/')) {
+        if ($request->isAJAX() || ApiRequestPolicy::isApiPath($request->getUri()->getPath())) {
             return service('response')->setStatusCode(401)->setJSON(['success' => false, 'message' => $message, 'data' => null, 'errors' => null]);
         }
         session()->setFlashdata('error', $message);

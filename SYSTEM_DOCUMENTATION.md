@@ -353,3 +353,20 @@ records field identifiers only for sensitive-only edits. Any failed audit
 write now raises an error. Added unit privacy and MySQL stock-card iterator
 tests. No migration or new environment variable was introduced; live MySQL
 acceptance and Chrome print checks are pending.
+
+### Continuation v8 — API response policy and push delivery audit
+
+`ApiRequestPolicy::isApiPath()` recognizes the complete `api` path segment with
+or without the leading slash and with an installation path prefix. Authentication,
+active-account, and role-denial filters use the same predicate and emit JSON
+errors rather than redirects for API clients without AJAX headers.
+
+`WebPushService` accepts an optional injected HTTP transport for tests. Live
+transports still use encrypted VAPID, with trusted-provider HTTPS endpoint
+validation performed before sending even for existing subscriptions. When an
+outbox item is dispatched, successful per-device receipts, HTTP 404/410
+subscription removal, the delivery/attempt state and the scrubbed
+`push_dispatch_attempt` audit row commit transactionally. A MySQL advisory lock
+prevents simultaneous dispatchers. A power failure between provider acceptance
+and recording the receipt can still cause a resend. The transport-mocked DB
+acceptance tests require Composer and a running MySQL test schema.

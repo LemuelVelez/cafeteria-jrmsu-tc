@@ -95,3 +95,19 @@ Provide authentic ingredient-level nutrient references (edition/food ID, measure
   MySQLi and server unavailable). Physical Chrome/print checks: NOT RUN.
 - New migration / seeder: **none**. No `.env` keys added. Corrections #1,
   #6 and #15 stay **Implemented–untested** / **Partial** as above, not Verified.
+
+## Continuation v8 — mocked push dispatch and JSON authorization (implementation only)
+
+- `WebPushService` accepts a test-only transport closure. Every pending device is
+  individually acknowledged, expired 404/410 subscriptions are removed, and a
+  retry never resends previously acknowledged devices. Successful responses,
+  retirement, outbox attempt count and a PII-free `push_dispatch_attempt` audit
+  are committed on one database connection. Stored endpoints are revalidated
+  against the HTTPS provider allowlist before any HTTP request.
+- `ApiRequestPolicy` is now shared by `AuthFilter`, `ActiveAccountFilter`, and
+  `RoleFilter`. Unauthorized `/api/...` requests return 401/403 JSON even without
+  XMLHttpRequest headers or when deployed under a URL prefix.
+- Added `WebPushEndpointPolicyTest`, `ApiRequestPolicyTest`,
+  `WebPushDispatchDatabaseTest`, and `ApiAuthorizationFeatureTest`. Database and
+  Feature tests are **not verified** without Composer, MySQLi and MySQL.
+- `npm run check` and `./cafe lint` **PASS**.

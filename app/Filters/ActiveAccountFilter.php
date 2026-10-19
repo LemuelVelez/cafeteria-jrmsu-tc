@@ -3,6 +3,7 @@
 namespace App\Filters;
 
 use App\Models\UserModel;
+use App\Services\ApiRequestPolicy;
 use CodeIgniter\Filters\FilterInterface;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -20,7 +21,7 @@ class ActiveAccountFilter implements FilterInterface
             session()->remove('user');
             session()->regenerate(true);
             $path = ltrim($request->getUri()->getPath(), '/');
-            if ($request->isAJAX() || str_starts_with($path, 'api/')) {
+            if ($request->isAJAX() || ApiRequestPolicy::isApiPath($path)) {
                 return service('response')->setStatusCode(403)->setJSON([
                     'success' => false,
                     'message' => 'Your account is not active.',
@@ -41,7 +42,7 @@ class ActiveAccountFilter implements FilterInterface
             session()->remove('user');
             session()->regenerate(true);
             $path = ltrim($request->getUri()->getPath(), '/');
-            if ($request->isAJAX() || str_starts_with($path, 'api/')) {
+            if ($request->isAJAX() || ApiRequestPolicy::isApiPath($path)) {
                 return service('response')->setStatusCode(403)->setJSON([
                     'success' => false,
                     'message' => 'Email verification is required.',

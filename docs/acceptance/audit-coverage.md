@@ -59,8 +59,8 @@ exactly one appropriate audit record and `AuditLogService::scrub()` PII removal.
 | POST | `/rider/deliveries/(:num)/status` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
 | POST | `/staff/orders/(:num)/prepared/(:num)` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
 | POST | `/staff/orders/(:num)/verify-handoff` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
-| POST | `/api/push/subscribe` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
-| POST | `/api/push/unsubscribe` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
+| POST | `/api/push/subscribe` | `push_subscribed` (WebPushService) | **Not run (MySQL unavailable)** |
+| POST | `/api/push/unsubscribe` | `push_unsubscribed` (WebPushService) | **Not run (MySQL unavailable)** |
 | PATCH | `/api/notifications/(:num)/read` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
 | PATCH | `/api/notifications/read-all` | No audit (notification-read acknowledgment; low risk) | **Not run (MySQL unavailable)** |
 | POST | `/api/orders/(:num)/reorder` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
@@ -99,3 +99,11 @@ Routes with audit gaps must be fixed and covered before correction #15 can be re
 - All audit insertions fail closed on a database insert failure; freeform
   notes/reasons/descriptions and personal names are excluded from diff values.
   `tests/Unit/AuditPrivacyTest.php` is added but cannot run without Composer.
+
+### Continuation v8
+
+`WebPushService::flush()` additionally audits `push_dispatch_attempt` per
+notification with sent/retired device counts and retry state. Its updates to
+outbox, subscription deletion and successful delivery receipts are transactional.
+The MySQL test `WebPushDispatchDatabaseTest` covers attempts, retries and expired
+subscriptions, but **was not run** in this environment.
