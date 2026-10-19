@@ -251,3 +251,7 @@ Use `-` for density when the ingredient is bought by mass/pieces and recipes use
 ### Nutrition verification integrity
 
 Admin product edits and API product updates use `NutritionEditPolicy`: changing price, availability, or numerically equivalent nutrition formatting preserves sign-off, but changing manual nutrition resets the status to **Estimated** and clears the verifier. Products with recipe lines cannot have per-serving nutrients overwritten directly; change the ingredient or recipe in **Admin → Costing** instead. Verification recalculates the recipe immediately before a human signs off. Manual ingredient editing requires explicitly entered source-backed nutrients (including actual zero values, not empty defaults), a PhilFCT/USDA reference, and measured density when volume-to-weight conversion is necessary. The eight demo recipes remain blocked without real source inputs.
+
+### Eight-product nutrition source review (pending kitchen measurements)
+
+See [`docs/nutrition/EIGHT_PRODUCT_SOURCE_STATUS.md`](docs/nutrition/EIGHT_PRODUCT_SOURCE_STATUS.md). The offline USDA SR Legacy candidate library and eight-product measurement workbook live under `app/Database/Seeds/data/`. Run `php spark nutrition:references` to audit the reference worksheet. These files do not seed demo nutrition, change products, or replace actual recipe measurements. Nutritional verification stays pending until sourced ingredients and kitchen-approved recipe quantities have been entered.

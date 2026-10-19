@@ -10,7 +10,7 @@ The code-only patch preserves the repository's existing folder structure and onl
 | 2 | Barcode scanning | Implemented–untested | `npm run check` PASS; MySQL barcode lookup and both save endpoints still need tests; scanner hardware outstanding |
 | 3 | QR codes | Implemented–untested | v2 purpose-bound signed QR tokens expire after 48 hours; `SignedOrderQrTest` added; full MySQL/phone acceptance outstanding |
 | 4 | Nutrition display / allergens | Implemented–untested | Structured allergens and Nutrition Facts views changed; migration up/down HTTP tests required |
-| 5 | Reliable nutrition | **Partial** | Strict source CSV loader, idempotent ingredient/recipe seeders, ledger opening, yield/piece conversions, USDA missing-field rejection and unsourced demo cleanup; **source CSVs deliberately contain headers only** pending genuine PhilFCT/USDA references and team-reviewed recipes |
+| 5 | Reliable nutrition | **Partial** | Strict source CSV loader, idempotent ingredient/recipe seeders, ledger opening, yield/piece conversions, USDA missing-field rejection and unsourced demo cleanup; **seeder CSVs still contain headers only**. A separate 20-record USDA SR Legacy desk-reference catalog exists, but actual cafeteria recipes and human sign-off remain missing |
 | 6 | Inventory stock card | Implemented–untested | StockCardService supports ingredient/product ledgers, filters and paging; real 60-row database fixture needed |
 | 7 | Minimum-stock alerts | Implemented–untested | `StockAlertPolicy` now prevents a second zero-stock alert in the same below-threshold episode; recipient/digest MySQL tests still outstanding |
 | 8 | Food costing / profits | Implemented–untested | Missing-recipe statuses, historic snapshots and discount allocation in code; MySQL reconciliation needed |
@@ -134,3 +134,11 @@ Detailed command outputs and blockers are recorded in `docs/acceptance/execution
 ## Execution checkpoint v16 — 2026-10-19
 
 See `docs/acceptance/execution-2026-10-19-v16.md` for the actual command attempts, environment blockers and remaining manual checks. `npm run check` and `./cafe lint` passed; an isolated compatibility runner executed 103 test methods successfully, with three framework-dependent cases unavailable. This **does not** constitute a PHPUnit pass or real MySQL acceptance. Two outdated test contracts were corrected: active-category lookup reflects the validated integer cast, and preparation/stock rules are checked through behavioral policy calls rather than an obsolete handoff column. Nutrition source CSV coverage remains **0/8** and migration rollback, restore and physical-device verification remain blocked. No additional correction is promoted to Verified.
+
+
+## Continuation v17 — traceable USDA candidate records (not production nutrition)
+
+- Added `app/Database/Seeds/data/usda_reference_candidates.csv` containing 20 USDA SR Legacy food IDs and all seven supported per-100-g nutrients, transcribed from the linked GetFoodFacts reproductions of USDA FDC records; added USDA detail URLs for independent checking. These are **candidate food composition records, not verified cafeteria foods**.
+- Added `app/Database/Seeds/data/recipe_measurement_workbook.csv`: all eight demo products have clearly labeled candidate ingredient suggestions and **blank measured quantities, recipe servings, cooking yields, and kitchen sign-off**. Calamansi-specific data and a matching burger bun are among the unresolved items; lemon is expressly **not** used as a calamansi substitute.
+- Added `NutritionReferenceCatalog`, `nutrition:references`, `NutritionReferenceCatalogTest`, and `docs/nutrition/EIGHT_PRODUCT_SOURCE_STATUS.md`. A PHP smoke test reads and validates 20 source candidates and correctly reports 0/8 kitchen-measured recipes. `npm run check` and PHP syntax lint pass; PHPUnit/MySQL acceptance is not runnable here.
+- Existing registry entries, admin-managed data, and seeder CSVs were **not** modified. Correction #5 remains **Partial / Blocked on restaurant measurements and nutrition verification**.
