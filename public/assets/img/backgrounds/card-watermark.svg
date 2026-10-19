@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 660" aria-hidden="true">
+<defs><linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f9fdfd"/><stop offset="1" stop-color="#d8eefa"/></linearGradient>
+<radialGradient id="bloom"><stop stop-color="#68b7b4" stop-opacity=".35"/><stop offset="1" stop-color="#68b7b4" stop-opacity="0"/></radialGradient></defs>
+<rect width="1000" height="660" fill="url(#card)"/>
+<ellipse cx="825" cy="115" rx="330" ry="300" fill="url(#bloom)"/>
+<g fill="none" stroke="#156983" stroke-opacity=".2" stroke-width="9">
+<circle cx="812" cy="90" r="180"/><circle cx="812" cy="90" r="139"/><circle cx="812" cy="90" r="92"/>
+<path d="M85 495c105-95 188-55 245-20M95 547c89-83 181-63 238-20" stroke-linecap="round"/>
+</g><g stroke="#3a9187" fill="none" stroke-width="11" stroke-opacity=".19" stroke-linecap="round">
+<path d="M600 420h165c-6 62-29 98-83 98s-79-36-82-98Z"/><path d="M765 438h43c31 0 33 52-41 62"/>
+<path d="M662 402c-28-33-23-56-7-81M713 402c-28-33-23-56-7-81"/>
+</g></svg>

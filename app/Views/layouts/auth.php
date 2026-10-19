@@ -38,7 +38,7 @@ $authImages = [
     <link rel="dns-prefetch" href="https://images.pexels.com">
     <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/css/app.css') ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/css/app.css') . '?v=20261020b' ?>" rel="stylesheet">
 </head>
 <body class="auth-page">
 <a class="auth-home-button" href="<?= base_url('/') ?>" aria-label="Go to home page">

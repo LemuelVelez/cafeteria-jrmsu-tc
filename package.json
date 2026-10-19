@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node frontend/dev-server.mjs",
     "frontend": "node frontend/dev-server.mjs",
-    "check": "node --check frontend/dev-server.mjs && node --check public/assets/js/app.js && node --check public/assets/js/sidebar-scroll.js && node --check public/assets/js/cart.js && node --check public/assets/js/pos.js && node --check public/assets/js/camera-scan.js && node --check public/assets/vendor/cafeteria-barcode-decoder/decoder.js && node tests/js/barcode-fallback.test.cjs && node tests/js/sidebar-scroll.test.cjs && node tests/js/queue-board.test.cjs"
+    "check": "node --check frontend/dev-server.mjs && node --check public/assets/js/app.js && node --check public/assets/js/sidebar-scroll.js && node --check public/assets/js/cart.js && node --check public/assets/js/pos.js && node --check public/assets/js/camera-scan.js && node --check public/assets/vendor/cafeteria-barcode-decoder/decoder.js && node tests/js/barcode-fallback.test.cjs && node tests/js/sidebar-scroll.test.cjs && node tests/js/queue-board.test.cjs && node tests/js/responsive-backgrounds.test.cjs"
   },
   "engines": {
     "node": ">=18"

@@ -13,7 +13,7 @@
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
     <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/css/app.css') . '?v=20261020' ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/css/app.css') . '?v=20261020b' ?>" rel="stylesheet">
 </head>
 <body>
 <?php

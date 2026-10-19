@@ -22,3 +22,52 @@ html, body { min-height:100%; background:#081524; color:#f7fbff; font-family:sys
 .queue-unlock { position:fixed;bottom:1.2rem;right:1.2rem;z-index:10;font-weight:700;box-shadow:0 0 0 6px #0a203a; }
 @media(max-width:760px) { .queue-board {padding:1rem} .queue-columns{grid-template-columns:1fr} .queue-panel{min-height:12vh} }
 @media(prefers-reduced-motion:reduce) { .queue-flash{animation:none} }
+
+/* Dark, high-contrast imagery covers the TV display without reducing legibility. */
+html, body { width:100%; max-width:100%; overflow-x:clip; }
+body {
+    background-color: #091b2b;
+    background-image: linear-gradient(135deg,rgba(5,19,32,.91),rgba(10,35,49,.91)),
+        url("https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=75"),
+        url("../img/backgrounds/night-pattern.svg");
+    background-size:cover;
+    background-position:center;
+    background-attachment:fixed;
+}
+.queue-board, .queue-header, .queue-controls, .queue-columns, .queue-panel,
+.queue-grid, .queue-brand {min-width:0;max-width:100%;}
+.queue-panel {
+    background-color:#112a3d;
+    background-image:linear-gradient(125deg,rgba(14,37,55,.94),rgba(16,49,58,.92)),
+        url("../img/backgrounds/night-pattern.svg");
+    background-size:cover;
+    background-position:center;
+}
+.queue-calling {
+    background-image:linear-gradient(125deg,rgba(254,219,107,.96),rgba(245,188,63,.93)),
+        url("../img/backgrounds/card-watermark.svg");
+    background-size:cover;
+    background-position:center;
+}
+.queue-calling-number,.queue-number {overflow-wrap:anywhere;max-width:100%;}
+.queue-brand {flex:1 1 320px;}
+.queue-brand h1 {min-width:0;overflow-wrap:anywhere;}
+.queue-controls {flex:0 1 auto;}
+.queue-grid {min-width:0;}
+.queue-controls .btn,.queue-unlock {display:inline-flex;justify-content:center;align-items:center;gap:.5rem;white-space:normal;text-align:center;}
+.queue-controls .bi,.queue-unlock .bi {flex:0 0 auto;line-height:1;}
+.queue-unlock {max-width:calc(100vw - 2rem);}
+@media(max-width:575.98px) {
+    .queue-header {align-items:stretch;}
+    .queue-brand img {width:clamp(40px,12vw,72px);height:auto;flex:0 0 auto;}
+    .queue-controls {justify-content:space-between;}
+    .queue-columns {gap:.85rem;}
+    .queue-panel {padding:clamp(.75rem,3vw,1.5rem);}
+    .queue-calling {padding:1rem .75rem;}
+    .queue-calling-number {font-size:clamp(3.5rem,19vw,9rem);}
+    .queue-grid {gap:.5rem;}
+    .queue-number {font-size:clamp(1.9rem,9vw,3.1rem);min-width:0;}
+    .queue-unlock {right:.65rem;bottom:.65rem;padding:.7rem 1rem;}
+}
+@media print {body,.queue-panel,.queue-calling {background-image:none!important;}}
+@media(max-width:767.98px) { body { background-attachment:scroll; } }

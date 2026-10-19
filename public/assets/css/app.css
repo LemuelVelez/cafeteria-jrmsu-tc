@@ -1935,3 +1935,290 @@ body { min-width: 0; overflow-x: clip; }
     .page-shell .pagination .page-link { padding: .4rem .65rem; }
     .app-topbar .topbar-icon-button { width: 42px; height: 42px; flex-basis: 42px; }
 }
+
+/* Site-wide visual system: layered cafeteria photographs and bundled offline artwork.
+   The white veils keep labels, totals and form values legible on busy photos. */
+:root {
+    --cafe-wallpaper: url("../img/backgrounds/cafeteria-wallpaper.svg");
+    --cafe-card-art: url("../img/backgrounds/card-watermark.svg");
+    --cafe-dark-art: url("../img/backgrounds/night-pattern.svg");
+}
+body:not(.auth-page) {
+    background-color: #ecf3f7;
+    background-image: linear-gradient(160deg, rgba(238,246,250,.90),rgba(247,250,249,.93)),
+        var(--cafe-photo-interior), var(--cafe-wallpaper);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+/* The main panel has its own background on long dashboard pages so every view shares it. */
+.app-main {
+    background-color: #f3f8fa;
+    background-image: linear-gradient(160deg,rgba(239,246,249,.92),rgba(248,251,251,.96)),
+        var(--cafe-photo-interior), var(--cafe-wallpaper);
+    background-size: cover;
+    background-position: center top;
+    background-attachment: fixed;
+}
+.app-sidebar,
+#mobileSidebar {
+    background-color: #092438;
+    background-image: linear-gradient(155deg,rgba(8,29,48,.91),rgba(7,34,46,.88)),var(--cafe-dark-art);
+    background-position: center;
+    background-size: cover;
+}
+.auth-page {
+    background-color: #eef5f7;
+    background-image: linear-gradient(135deg,rgba(240,247,251,.86),rgba(243,249,246,.89)),
+        var(--cafe-photo-interior),var(--cafe-wallpaper);
+    background-size: cover;
+    background-position: center;
+}
+/* Sheets, cards, dropdowns and product descriptions keep photographic detail subtle. */
+:where(.app-main, .auth-page, body) :is(.surface-card:not(.landing-cta):not(.bg-dark), .stat-card, .card:not([class*="text-bg-"]):not(.bg-dark),
+    .product-card, .auth-card, .landing-step-card, .cart-list, .cart-summary,
+    .checkout-items-card, .checkout-details-card, .checkout-summary,
+    .confirmation-dialog-panel, .toast, .accordion-item, .dropdown-menu,
+    .list-group-item, .file-picker-shell) {
+    background-color: rgba(255,255,255,.96);
+    background-image: linear-gradient(115deg,rgba(255,255,255,.965),rgba(255,255,255,.90)),
+        var(--cafe-photo-coffee),var(--cafe-card-art);
+    background-size: cover;
+    background-position: center;
+}
+:where(.app-main, .auth-page, body) .product-card {
+    background-image: linear-gradient(155deg,rgba(255,255,255,.97),rgba(246,251,254,.90)),
+        var(--cafe-photo-food),var(--cafe-card-art);
+}
+:where(.app-main, body) :is(.modal-content, .offcanvas:not(#mobileSidebar), .popover) {
+    background-color: #fff;
+    background-image: linear-gradient(110deg,rgba(255,255,255,.975),rgba(247,252,252,.935)),
+        var(--cafe-photo-interior), var(--cafe-card-art);
+    background-size: cover;
+    background-position: center;
+}
+/* Inner card bodies and sheets need translucent layers, not opaque masks over photographs. */
+:where(.app-main, body) :is(.card-header, .card-footer, .modal-header, .modal-footer,
+    .accordion-button, .checkout-card-header, .cart-list-header, .cart-preview-header,
+    .cart-preview-footer) {
+    background-color: rgba(249,252,254,.88);
+    background-image: linear-gradient(115deg,rgba(255,255,255,.93),rgba(232,244,248,.80)),
+        var(--cafe-card-art);
+    background-size: cover;
+}
+:where(.app-main, body) :is(.card-body, .product-card-body, .dropdown-item, .modal-body,
+    .offcanvas-body, .accordion-body) {
+    background-image: linear-gradient(110deg,rgba(255,255,255,.54),rgba(250,252,254,.46)),
+        var(--cafe-card-art);
+    background-size: cover;
+}
+/* Keep white backgrounds on forms and menu tables, with soft image detail beneath. */
+:where(.page-shell, .auth-card, .modal-content, .public-navbar) :is(.form-control, .form-select, .input-group-text) {
+    background-color: rgba(255,255,255,.96);
+}
+:where(.app-main, body) .table {
+    --bs-table-bg: rgba(255,255,255,.91);
+    --bs-table-striped-bg: rgba(239,246,250,.89);
+    --bs-table-hover-bg: rgba(229,241,246,.88);
+    --bs-table-color: #253b50;
+}
+/* Include the public menu, landing sections and footer in the image-backed design. */
+body:not(.auth-page) :is(.bg-light, .bg-body-tertiary):not(.alert):not(.badge) {
+    background-image: linear-gradient(120deg,rgba(246,250,252,.91),rgba(245,251,249,.92)),
+        var(--cafe-photo-food),var(--cafe-wallpaper);
+    background-size: cover;
+    background-position: center;
+}
+body:not(.auth-page) > footer {
+    background-image: linear-gradient(90deg,rgba(255,255,255,.96),rgba(244,250,252,.92)),var(--cafe-card-art);
+    background-size: cover;
+}
+/* Fallback artwork remains available without network access; no broken background icons. */
+
+/* One icon system for page actions, forms, modals, menus and public navigation. */
+:where(body) :is(.btn, .nav-link, .dropdown-item, .input-group-text,
+    .form-label, .list-group-item, .alert, .badge, .offcanvas-header, .modal-title) > .bi {
+    display: inline-flex;
+    vertical-align: -.12em;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    line-height: 1;
+    width: 1.15em;
+    max-width: 1.5em;
+    text-align: center;
+}
+:where(body) :is(.btn, .topbar-icon-button, .auth-home-button, .stat-icon, .feature-icon,
+    .checkout-card-icon, .settings-icon, .checkout-summary-icon, .file-picker-thumbnail,
+    .confirmation-icon) .bi {
+    line-height: 1;
+    text-align: center;
+    flex-shrink: 0;
+}
+:where(body) :is(.btn, .dropdown-item, .nav-link, .topbar-icon-button) {
+    min-width: 0;
+    max-width: 100%;
+}
+:where(body) :is(.btn, .dropdown-item, .nav-link) { overflow-wrap: anywhere; }
+:where(body) .btn { white-space: normal; text-align: center; }
+:where(body) .btn > :not(.bi) { min-width: 0; }
+:where(body) :is(.topbar-icon-button, .auth-home-button) { flex-shrink: 0; }
+:where(body) :is(.stat-icon, .feature-icon, .settings-icon,
+    .checkout-card-icon, .checkout-summary-icon) { flex-shrink: 0; max-width: 100%; }
+:where(body) :is(.stat-icon, .feature-icon) .bi { font-size: clamp(1.1rem, 2vw, 1.55rem); }
+
+/* Fix flex/grid intrinsic sizing instead of hiding overflowing content. */
+html, body { width: 100%; max-width: 100%; min-width: 0; }
+:where(body) :is(.container, .container-fluid, .row, .col, .card, .card-body,
+    .card-header, .card-footer, .app-main, .page-shell, .surface-card,
+    .stat-card, .product-card, .table-card, .checkout-layout, .checkout-content,
+    .cart-line, .cart-line-main, .pos-line, .pos-line-main, .modal-body,
+    .modal-content, .offcanvas-body, .list-group, .accordion, .tab-content,
+    .tab-pane, .navbar, .navbar-collapse) { min-width: 0; }
+:where(body) :is(.row, .d-flex, .input-group, .btn-group, .page-heading-row,
+    .topbar-actions, .modal-header, .modal-footer) > * { min-width: 0; }
+:where(body) :is(.card, .surface-card, .stat-card, .product-card,
+    .page-shell, .modal-content, .offcanvas, .dropdown-menu, .auth-card,
+    .container, .container-fluid) { max-width: 100%; }
+:where(body) :is(img, video, canvas, svg, iframe) { max-width: 100%; }
+:where(body) :is(.card, .surface-card, .stat-card, .modal-content,
+    .offcanvas-body, .page-shell, .alert, .list-group-item, .dropdown-item,
+    .card-title, h1, h2, h3, h4, h5, h6) { overflow-wrap: anywhere; }
+:where(body) :is(pre, code, .text-break) { white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(body) :is(.table-responsive, .ui-table-scroll) {
+    max-width: 100%; width: 100%; overflow-x: auto; overflow-y: hidden;
+    overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+/* Restores safe scrolling for tables inside rounded, overflow-hidden cards. */
+.table-card > .table-responsive { overflow-x: auto; overflow-y: hidden; }
+:where(body) .table { max-width: 100%; margin-bottom: 0; }
+:where(body) .table :is(td, th) { vertical-align: middle; overflow-wrap: anywhere; }
+:where(body) .table :is(td, th) > :is(.d-flex, form) { min-width: 0; }
+:where(body) .pagination { flex-wrap: wrap; max-width: 100%; gap: .2rem; }
+:where(body) .pagination .page-link { overflow-wrap: anywhere; }
+:where(body) :is(.modal-dialog, .offcanvas, .toast, .dropdown-menu) { max-width: calc(100vw - 1.25rem); }
+:where(body) :is(.dropdown-menu, .notification-dropdown) { overflow-wrap: anywhere; }
+:where(body) .input-group > .form-control,
+:where(body) .input-group > .form-select { min-width: 0; }
+:where(body) .table-actions { max-width: 100%; justify-content: flex-start; }
+
+@media (max-width: 991.98px) {
+    /* The app body must release the desktop sidebar's reserved width. */
+    .app-main { width: 100%; margin-left: 0; }
+    .desktop-topbar { display: none; }
+    .mobile-topbar { display: flex; }
+    .offcanvas .offcanvas-header { gap: .75rem; min-width: 0; }
+    .offcanvas .offcanvas-title { font-size: clamp(.95rem,3.4vw,1.25rem); overflow-wrap: anywhere; }
+    .public-navbar .navbar-brand { min-width: 0; }
+    .public-navbar .navbar-brand span { min-width: 0; overflow-wrap: anywhere; }
+}
+@media (max-width: 767.98px) {
+    .page-shell { padding: clamp(.75rem,2.5vw,1rem); }
+    :where(body) .modal-dialog { max-width: calc(100vw - 1rem); margin: .5rem auto; }
+    :where(body) :is(.modal-body, .modal-header, .modal-footer) { padding: clamp(.75rem, 2.7vw, 1rem); }
+    :where(body) .modal-footer { flex-wrap: wrap; justify-content: stretch; }
+    :where(body) .modal-footer .btn { flex: 1 1 135px; }
+    :where(body) .btn-group:not(.btn-group-vertical) { max-width: 100%; flex-wrap: wrap; }
+    :where(body) .navbar-brand .brand-logo { flex: 0 0 auto; }
+    :where(body) .table-actions { justify-content: flex-start; }
+    /* Stable touch-sized action icons on small screens. */
+    :where(body) :is(.topbar-icon-button, .auth-home-button) { min-width: 42px; min-height: 42px; }
+    :where(body) :is(.stat-icon, .settings-icon, .feature-icon) {
+        width: clamp(38px,10vw,52px);
+        height: clamp(38px,10vw,52px);
+        flex-basis: clamp(38px,10vw,52px);
+    }
+}
+@media (max-width: 399.98px) {
+    :where(body) .page-shell { padding: .65rem; }
+    :where(body) .table-card .table > :not(caption) > * > * { padding: .6rem; }
+    :where(body) .page-heading-action { width: 100%; }
+    :where(body) :is(.card-header, .card-footer) { padding-inline: .75rem; }
+    :where(body) .notification-dropdown { width: calc(100vw - 1rem) !important; }
+    :where(body) .public-navbar .navbar-brand { font-size: .85rem; }
+    :where(body) .public-navbar .navbar-brand .brand-logo { width: 34px; height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+}
+@media print {
+    /* Save ink and preserve legible invoices, receipts, stock sheets and reports. */
+    :where(body) :is(.app-main, .page-shell, .surface-card, .card, .stat-card,
+        .auth-card, .table, .modal-content, .product-card, .list-group-item) {
+        background-image: none !important;
+        background-color: #fff !important;
+    }
+    html, body { background: #fff !important; color: #000 !important; }
+    .table-responsive, .ui-table-scroll { overflow: visible !important; }
+}
+
+/* Cover remaining stand-alone menu/search sections, mini-sheets and public panels. */
+.menu-hero,
+.cart-preview-panel,
+.cart-summary-note,
+.cart-list-card,
+.cart-preview-item,
+.checkout-item-placeholder,
+.confirmation-dialog-panel,
+.auth-card .col-lg-7 {
+    background-image: linear-gradient(120deg,rgba(255,255,255,.96),rgba(247,252,252,.90)),
+        var(--cafe-photo-food),var(--cafe-card-art);
+    background-position: center;
+    background-size: cover;
+}
+body:not(.auth-page) > section.bg-white,
+body:not(.auth-page) > main > section.bg-white {
+    background-image: linear-gradient(125deg,rgba(255,255,255,.97),rgba(242,249,250,.94)),
+        var(--cafe-photo-interior),var(--cafe-wallpaper);
+    background-position: center;
+    background-size: cover;
+}
+/* Preserve the original dark overlay and contrast on the landing call-to-action. */
+.landing-cta.surface-card {
+    background-image: linear-gradient(135deg,rgba(7,32,51,.86),rgba(9,69,64,.80)),
+        url("https://images.unsplash.com/photo-1485182708500-e8f1f318ba72?fm=webp&q=75&w=1600&h=900&fit=crop"),
+        var(--cafe-dark-art);
+    color: #fff;
+    background-size: cover;
+    background-position: center;
+}
+.landing-cta.surface-card .section-title { color: #fff; }
+:where(body) .cart-preview-panel { max-width: calc(100vw - 1rem); }
+:where(body) .form-control, :where(body) .form-select, :where(body) .form-check-label {
+    overflow-wrap: anywhere;
+}
+@media (max-width: 575.98px) {
+    .cart-preview-panel { right: 0; width: min(370px, calc(100vw - 1rem)); }
+    .page-shell .input-group:not(.flex-nowrap) { max-width: 100%; }
+    .page-shell .table-responsive:focus-visible { outline: 2px solid var(--jrmsu-blue); outline-offset: -2px; }
+}
+
+/* Specificity alignment for the pre-existing dashboard/photo styles. */
+.app-main .surface-card:not(.landing-cta),
+.app-main .card:not(.product-card):not(.bg-dark):not([class*="text-bg-"]) {
+    background-image: linear-gradient(120deg,rgba(255,255,255,.975),rgba(255,255,255,.935)),
+        var(--cafe-photo-coffee), var(--cafe-card-art);
+    background-size: cover;
+    background-position: center;
+}
+.dashboard-page {
+    background-image: linear-gradient(180deg,rgba(244,247,251,.91),rgba(244,247,251,.985)),
+        var(--dashboard-photo),var(--cafe-wallpaper);
+}
+.dashboard-page .stat-card {
+    background-image: linear-gradient(125deg,rgba(255,255,255,.96),rgba(248,253,255,.86)),
+        var(--dashboard-photo),var(--cafe-card-art) !important;
+}
+.dashboard-page .surface-card:not(.landing-cta) {
+    background-image: linear-gradient(120deg,rgba(255,255,255,.975),rgba(252,253,255,.90)),
+        var(--dashboard-photo),var(--cafe-card-art);
+}
+.dashboard-page .dashboard-hero {
+    background-image: linear-gradient(100deg,rgba(7,27,47,.93),rgba(13,54,69,.82) 60%,rgba(14,63,66,.54)),
+        var(--dashboard-photo),var(--cafe-dark-art);
+}
+
+@media (max-width: 767.98px) {
+    body:not(.auth-page), .app-main, .auth-page { background-attachment: scroll; }
+}

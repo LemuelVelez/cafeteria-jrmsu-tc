@@ -5,7 +5,7 @@
 <link rel="icon" href="<?= esc(base_url('favicon.ico'),'attr') ?>">
 <link rel="stylesheet" href="<?= esc(base_url('assets/vendor/bootstrap/bootstrap.min.css'),'attr') ?>">
 <link rel="stylesheet" href="<?= esc(base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css'),'attr') ?>">
-<link rel="stylesheet" href="<?= esc(base_url('assets/css/queue-board.css'),'attr') ?>">
+<link rel="stylesheet" href="<?= esc(base_url('assets/css/queue-board.css') . '?v=20261020b','attr') ?>">
 </head><body><?= $this->renderSection('content') ?>
 <script src="<?= esc(base_url('assets/vendor/bootstrap/bootstrap.bundle.min.js'),'attr') ?>"></script>
 <script src="<?= esc(base_url('assets/js/image-fallback.js'),'attr') ?>"></script>
