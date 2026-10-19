@@ -44,4 +44,50 @@ final class StockCardService
             $type!==''?[$id,$end,$begin,$type]:[$id,$end,$begin])->getResultArray();
         return compact('rows','opening','closing','total','page','perPage','from','to','type','ledger','id');
     }
+
+    /**
+     * Iterate the complete filtered movement history, not just the current UI page.
+     * A single window query computes balances across ALL movement types before
+     * applying the requested type and date filters.
+     *
+     * @return \Generator<int, array<string, mixed>>
+     */
+    public function exportRows(string $ledger, int $id, string $from, string $to, string $type = ''): \Generator
+    {
+        if (! in_array($ledger, ['product', 'ingredient'], true) || $id < 0
+            || $from > $to || ($type !== '' && ! preg_match('/^[a-z_]{1,32}$/', $type))) {
+            throw new \DomainException('Invalid stock card export.');
+        }
+        foreach ([$from, $to] as $date) {
+            $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+            if (! $parsed || $parsed->format('Y-m-d') !== $date) {
+                throw new \DomainException('Invalid stock card date.');
+            }
+        }
+        if ($id === 0) {
+            return;
+        }
+        $table = $ledger === 'product' ? 'inventory_movements' : 'ingredient_movements';
+        $column = $ledger === 'product' ? 'product_id' : 'ingredient_id';
+        $conditions = $type === '' ? '' : ' AND x.movement_type=?';
+        $args = [$id, $to . ' 23:59:59', $from . ' 00:00:00'];
+        if ($type !== '') {
+            $args[] = $type;
+        }
+        $result = $this->db()->query("SELECT x.* FROM (
+              SELECT m.*, u.name user_name,
+                SUM(m.quantity) OVER (PARTITION BY m.{$column} ORDER BY m.created_at,m.id ROWS UNBOUNDED PRECEDING) running_balance
+              FROM {$table} m LEFT JOIN users u ON u.id=m.user_id
+              WHERE m.{$column}=? AND m.created_at<=?
+            ) x WHERE x.created_at>=?{$conditions}
+            ORDER BY x.created_at ASC,x.id ASC", $args);
+        try {
+            while (($row = $result->getUnbufferedRow('array')) !== null) {
+                yield $row;
+            }
+        } finally {
+            $result->freeResult();
+        }
+    }
+
 }

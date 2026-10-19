@@ -331,3 +331,25 @@ The inventory stock card uses 25 rows/page and preserves ledger, date and moveme
 type filters. Report CSV files include order, profit and delivery summary metrics to
 reconcile with on-screen totals. All database-backed acceptance and browser print
 verification remain pending on a MySQL-enabled environment.
+
+
+### Continuation v7 — stock-card completeness and atomic profile audit
+
+`StockCardService::exportRows()` returns a chronological generator of all
+filtered movements with ledger running balances calculated across all movement
+types before the date/type filters. `InventoryController::stockCardExport()`
+uses it for full CSV exports; `stockCardPrint()` passes the generator to
+`admin/inventory/stock_card_print` so browser printing is not limited to the
+normal 25-row pager. Admin and cashier `stock-card/print` routes are GET-only;
+cashier stock edits remain unavailable. The normal pager preserves the same
+filter query parameters. Exports include a UTF-8 BOM and formula escaping.
+
+`Account\SettingController` saves profile edits and avatar removal within a
+single DB transaction that includes its `AuditLogService` event. Old avatar
+media deletion follows successful commit, and failed updates clean up new
+uploads. `AuditLogService::scrub()` excludes user names and free-text notes,
+comments, reasons and descriptions from JSON diff payloads; `recordChange()`
+records field identifiers only for sensitive-only edits. Any failed audit
+write now raises an error. Added unit privacy and MySQL stock-card iterator
+tests. No migration or new environment variable was introduced; live MySQL
+acceptance and Chrome print checks are pending.

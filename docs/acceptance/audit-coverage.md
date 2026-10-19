@@ -86,3 +86,16 @@ Audit verification is **Blocked** until the real MySQL environment and CI4 test 
 checks deletion approval's single audit and financial retention. Both are MySQL-blocked.
 
 Routes with audit gaps must be fixed and covered before correction #15 can be reported Verified.
+
+
+### Continuation v7 (implementation only)
+
+- `POST /settings/profile` → `profile_changed`: now a transactionally coupled,
+  PII-redacted diff including avatar-only changes (`AuditPrivacyTest` confirms
+  safe JSON scrubbing; HTTP/MySQL test remains **not run**).
+- `POST /settings/avatar/remove` → `avatar_removed`: newly audited in the same
+  transaction as removal; old media is deleted after commit; HTTP/MySQL test
+  remains **not run**.
+- All audit insertions fail closed on a database insert failure; freeform
+  notes/reasons/descriptions and personal names are excluded from diff values.
+  `tests/Unit/AuditPrivacyTest.php` is added but cannot run without Composer.

@@ -187,3 +187,28 @@ The inventory stock card uses 25 rows/page and preserves ledger, date and moveme
 type filters. Report CSV files include order, profit and delivery summary metrics to
 reconcile with on-screen totals. All database-backed acceptance and browser print
 verification remain pending on a MySQL-enabled environment.
+
+
+### Full-range stock card printing and audit privacy (continuation v7)
+
+Admin and cashier stock cards remain read-only for the cashier, with 25 rows per
+browser page. **Print full stock card** opens a separate print-ready page that
+iterates every movement within the selected ledger/date/type filters, rather
+than printing the current 25-row page. CSV download uses the same full-range
+iterator and includes opening and closing balances, generated-by metadata,
+movement counts and spreadsheet-formula-safe cells. Pagination retains stock
+card filters. Chrome/Chromium 131+ is needed to print page numbers from
+`reports-print.css`.
+
+Account profile and avatar-removal changes now commit **together with their
+single audit entry**. Existing avatar media is deleted only after commit;
+failed transactions roll back and newly uploaded images are cleaned up. Audit
+diffs redact customer names, addresses and unstructured free-text (including
+notes, descriptions and reasons). When a sensitive field alone changes, the
+audit records the changed *field name* but never its value. Audit insert errors
+now fail the transaction instead of being ignored.
+
+`StockCardExportDatabaseTest` and `AuditPrivacyTest` add regression coverage.
+PHP syntax and JavaScript checks pass locally; Composer, PHP MySQLi and a real
+MySQL database are still required to execute the MySQL-based acceptance tests
+and manually verify printed page numbering.

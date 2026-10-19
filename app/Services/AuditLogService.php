@@ -22,8 +22,22 @@ class AuditLogService
                 $diff[$key] = ['before' => $old[$key] ?? null, 'after' => $value];
             }
         }
-        if ($diff !== []) {
-            $this->record($action, $entity, $id, ['changes' => $diff], $userId);
+        // Sensitive edits still need an audit event, but their before/after
+        // text must never appear in audit_logs.details_json.
+        $redactedChanges = [];
+        foreach ($after as $key => $value) {
+            if (! array_key_exists($key, $old) && ! array_key_exists($key, $new)
+                && (! array_key_exists($key, $before) || $before[$key] !== $value)) {
+                $redactedChanges[] = (string) $key;
+            }
+        }
+        if ($diff !== [] || $redactedChanges !== []) {
+            $details = ['changes' => $diff];
+            if ($redactedChanges !== []) {
+                // Only field names; scrub excludes private field values.
+                $details['redacted_fields_changed'] = $redactedChanges;
+            }
+            $this->record($action, $entity, $id, $details, $userId);
         }
     }
 
@@ -31,7 +45,7 @@ class AuditLogService
     public static function scrub(array $details): array
     {
         foreach ($details as $key => $value) {
-            if (preg_match('/password|passphrase|secret|token|credential|authorization|email|phone|address|otp|totp|recovery|api.?key|ip.?device/i', (string) $key)) {
+            if (preg_match('/password|passphrase|secret|token|credential|authorization|email|phone|address|otp|totp|recovery|api.?key|ip.?device|(^|_)name$|note|comment|reason|description|supplier|avatar/i', (string) $key)) {
                 unset($details[$key]);
             } elseif (is_array($value)) {
                 $details[$key] = self::scrub($value);
@@ -60,9 +74,13 @@ class AuditLogService
             'created_at' => date('Y-m-d H:i:s'),
         ];
         if ($this->db) {
-            $this->db->table('audit_logs')->insert($row);
+            if (! $this->db->table('audit_logs')->insert($row)) {
+                throw new \RuntimeException('Unable to persist audit event.');
+            }
             return;
         }
-        (new AuditLogModel())->insert($row);
+        if (! (new AuditLogModel())->insert($row)) {
+            throw new \RuntimeException('Unable to persist audit event.');
+        }
     }
 }

@@ -52,6 +52,7 @@ $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static f
     $routes->get('inventory', 'Admin\InventoryController::index');
     $routes->get('inventory/stock-card', 'Admin\InventoryController::stockCard');
     $routes->get('inventory/stock-card/export', 'Admin\InventoryController::stockCardExport');
+    $routes->get('inventory/stock-card/print', 'Admin\InventoryController::stockCardPrint');
     $routes->post('inventory/stock-in', 'Admin\InventoryController::stockIn');
     $routes->post('inventory/stock-out', 'Admin\InventoryController::stockOut');
     $routes->post('inventory/count', 'Admin\InventoryController::count');
@@ -108,6 +109,7 @@ $routes->group('cashier', ['filter' => ['auth', 'active', 'role:cashier']], stat
     $routes->get('inventory', 'Admin\InventoryController::index');
     $routes->get('inventory/stock-card', 'Admin\InventoryController::stockCard');
     $routes->get('inventory/stock-card/export', 'Admin\InventoryController::stockCardExport');
+    $routes->get('inventory/stock-card/print', 'Admin\InventoryController::stockCardPrint');
     $routes->get('pos', 'Cashier\\PosController::index');
     $routes->get('orders', 'Cashier\\OrderController::index');
     $routes->post('orders/(:num)/status', 'Cashier\\OrderController::status/$1');

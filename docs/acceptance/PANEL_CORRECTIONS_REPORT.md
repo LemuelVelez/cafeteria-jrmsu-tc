@@ -75,3 +75,23 @@ Provide authentic ingredient-level nutrient references (edition/food ID, measure
 - Corrected CI4 stock-card pager arguments to `(currentPage, perPage, totalRows)`. Expanded `PanelDatabaseCorrectionsTest` with second/third page checks and stable opening/closing balances.
 - Profit, order and delivery CSV exports now append the matching on-screen summary figures. `CustomerController::revealPhone` refuses PII release when its audit transaction fails; push unsubscription also checks its transaction status.
 - `SignedOrderQrTest` and updated `PanelCorrectionsTest` exercise signing, cross-purpose rejection, tampering and exact expiry boundaries without MySQL. **These PHPUnit tests require Composer and could not run here.** CLI-only QR smoke checks, PHP lint and JavaScript checks were run separately. Full MySQL HTTP, reports, printed PDFs, and device acceptance still pending; no status is upgraded to Verified.
+
+
+## Continuation v7 — full-range stock card and PII-safe audit (not MySQL-verified)
+
+- Stock cards now preserve filters in the normal 25-row pager. CSV export and
+  dedicated admin/cashier print routes iterate **all** selected movements,
+  without the former silent 50,000-row cap or current-page print truncation.
+  The print page uses the existing local Bootstrap and print CSS. New
+  `StockCardExportDatabaseTest` checks 60 movements, CSV/print iterator
+  completeness, stable running balance, and invalid query rejection.
+- Account profile and avatar removal now use same-connection transactions
+  with an audit write that must succeed. File cleanup is after commit. Audit
+  text scrubbing covers names, freeform reasons, descriptions, supplier data,
+  comments and notes. Sensitive-only edits write only changed field *names*.
+  `AuditPrivacyTest` covers recursive redaction.
+- `./cafe lint`: PASS; `npm run check`: PASS; direct audit-scrubbing PHP smoke
+  check: PASS. PHPUnit and full MySQL stock-card/role tests: BLOCKED (Composer,
+  MySQLi and server unavailable). Physical Chrome/print checks: NOT RUN.
+- New migration / seeder: **none**. No `.env` keys added. Corrections #1,
+  #6 and #15 stay **Implemented–untested** / **Partial** as above, not Verified.

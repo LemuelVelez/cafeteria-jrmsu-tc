@@ -83,28 +83,40 @@ class SettingController extends BaseController
             $data['email_verified_at'] = null;
         }
 
+        $db = db_connect();
+        $db->transBegin();
         try {
-            if (! $model->update((int) $user['id'], $data)) {
-                $media->delete($newAvatarPath);
-
-                return redirect()->to('/settings')->withInput()->with('errors', $model->errors());
+            $locked = $db->query('SELECT * FROM users WHERE id=? FOR UPDATE', [(int) $user['id']])->getRowArray();
+            if (! $locked) {
+                throw new \DomainException('Account not found.');
             }
+            if (! $model->update((int) $user['id'], $data)) {
+                throw new \DomainException(implode(' ', $model->errors()) ?: 'Unable to update profile.');
+            }
+            (new AuditLogService($db))->recordChange('profile_changed', 'user', (int) $user['id'],
+                array_intersect_key($user, $data), $data, (int) $user['id']);
+            if (! $db->transStatus()) {
+                throw new \RuntimeException('Profile or audit could not be saved.');
+            }
+            $db->transCommit();
         } catch (Throwable $exception) {
-            $media->delete($newAvatarPath);
-            log_message('error', 'Profile update failed for user {userId}: {message}', [
-                'userId' => $user['id'],
-                'message' => $exception->getMessage(),
-            ]);
-
+            $db->transRollback();
+            if ($newAvatarPath !== null) {
+                $media->delete($newAvatarPath);
+            }
+            log_message('error', 'Profile update failed for user {userId}', ['userId' => $user['id']]);
             return redirect()->to('/settings')->withInput()->with('error', 'The profile could not be updated.');
         }
 
         if ($newAvatarPath !== null && ! empty($user['avatar'])) {
-            $media->delete((string) $user['avatar']);
+            // Media deletion occurs only after profile and audit commit.
+            try {
+                $media->delete((string) $user['avatar']);
+            } catch (Throwable $error) {
+                log_message('warning', 'Old avatar cleanup failed for user {id}', ['id' => (int) $user['id']]);
+            }
         }
 
-        (new AuditLogService())->recordChange('profile_changed','user',(int)$user['id'],
-            ['name'=>$user['name'],'email'=>$user['email']],['name'=>$data['name'],'email'=>$data['email']]);
         $updatedUser = array_merge($user, $data);
         if ($requiresEmailVerification) {
             $sent = false;
@@ -169,15 +181,32 @@ class SettingController extends BaseController
             return redirect()->to('/settings')->with('success', 'The default cafeteria logo is already in use.');
         }
 
-        $model = new UserModel();
-        if (! $model->update((int) $user['id'], ['avatar' => null])) {
-            return redirect()->to('/settings')->with('errors', $model->errors());
+        $db = db_connect();
+        $db->transBegin();
+        try {
+            $locked = $db->query('SELECT avatar FROM users WHERE id=? FOR UPDATE', [(int) $user['id']])->getRowArray();
+            if (! $locked) {
+                throw new \DomainException('Account not found.');
+            }
+            if (! $db->table('users')->where('id', (int) $user['id'])->update(['avatar' => null])) {
+                throw new \RuntimeException('Could not update profile photo.');
+            }
+            (new AuditLogService($db))->record('avatar_removed', 'user', (int) $user['id'], [], (int) $user['id']);
+            if (! $db->transStatus()) {
+                throw new \RuntimeException('Avatar removal audit failed.');
+            }
+            $db->transCommit();
+        } catch (Throwable $error) {
+            $db->transRollback();
+            return redirect()->to('/settings')->with('error', 'The profile photo could not be removed.');
         }
-
-        (new MediaStorageService())->delete((string) $user['avatar']);
+        try {
+            (new MediaStorageService())->delete((string) $locked['avatar']);
+        } catch (Throwable $error) {
+            log_message('warning', 'Profile photo cleanup failed for user {id}', ['id' => (int) $user['id']]);
+        }
         $user['avatar'] = null;
         $this->refreshSessionUser($user);
-
         return redirect()->to('/settings')->with('success', 'Profile photo removed. The cafeteria logo is now your default avatar.');
     }
 
