@@ -23,3 +23,6 @@
 # Local nutrition catalog import lockfiles; never source or commit these.
 /app/Database/Seeds/data/*.csv.lock
 /app/Database/Seeds/data/.populate.lock
+
+# Keep the auto-generated application encryption key out of source control.
+/writable/.encryption-key

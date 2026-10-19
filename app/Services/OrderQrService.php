@@ -66,7 +66,9 @@ class OrderQrService
     private function key(): string
     {
         // Fail closed; never sign with a hardcoded, publicly predictable key.
-        $key = (string) env('encryption.key', '');
+        // Use the same key as the field-encryption service, including a persisted
+        // auto-generated key when encryption.key is not set in .env.
+        $key = (string) config(\Config\Encryption::class)->key;
         if ($key === '') {
             throw new \RuntimeException('Configure encryption.key before using order verification.');
         }
