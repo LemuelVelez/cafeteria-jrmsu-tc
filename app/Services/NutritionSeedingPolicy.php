@@ -12,7 +12,7 @@ final class NutritionSeedingPolicy
     private const NUTRITION_SEEDERS = ['IngredientSeeder', 'RecipeSeeder'];
 
     /**
-     * @return 'normal'|'deferred'|'invalid_record'
+     * @return 'normal'|'deferred'|'legacy_deferred'
      */
     public static function disposition(string $seeder, bool $catalogReady, bool $recorded): string
     {
@@ -20,13 +20,16 @@ final class NutritionSeedingPolicy
             return 'normal';
         }
 
-        // Never trust an old seeder_runs marker when the nutrition source is
-        // missing. Correct previously seeded records with a new migration.
-        if ($recorded && ! $catalogReady) {
-            return 'invalid_record';
+        // Legacy installations may have recorded a placeholder nutrition
+        // seeder before the catalog was available. Preserve its registry row
+        // but do not treat that marker as proof of sourced nutrition data.
+        // The original seeder must not be replayed; correct that existing
+        // installation with an append-only data migration when sources arrive.
+        if (! $catalogReady) {
+            return $recorded ? 'legacy_deferred' : 'deferred';
         }
 
-        return $catalogReady ? 'normal' : 'deferred';
+        return 'normal';
     }
 
     public static function completed(int $missingSeeders, int $deferredNutrition, bool $strict): bool

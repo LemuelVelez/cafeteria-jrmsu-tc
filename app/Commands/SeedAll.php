@@ -62,6 +62,8 @@ class SeedAll extends BaseCommand
 
             $this->step('🔎', sprintf('Checking %d registered seeder(s)...', count($seeders)), 'cyan');
             $pending = [];
+            // Map of deferred seeder name to whether a legacy registry marker
+            // already exists. Do not alter historical seeder_runs records.
             $deferredNutrition = [];
             // Nutrition seeders must be released together. Importing a partial
             // ingredient catalog would record an irreversible registry marker
@@ -78,14 +80,14 @@ class SeedAll extends BaseCommand
 
                 $record = $this->seederRun($db, $seeder);
                 $decision = NutritionSeedingPolicy::disposition($seeder, $catalog['ready'], $record !== null);
-                if ($decision === 'invalid_record') {
-                    throw new RuntimeException($seeder . ' has a seeder_runs marker but its source catalog is incomplete. '
-                        . 'Apply an append-only source-data migration; do not delete or replay the registry marker.');
-                }
-                if ($decision === 'deferred') {
-                    $deferredNutrition[] = $seeder;
-                    CLI::write(sprintf('   ⏸️  [%d/%d] %s — DEFERRED (sourced nutrition catalog incomplete)',
-                        $position, count($seeders), $seeder), 'yellow');
+                if ($decision === 'deferred' || $decision === 'legacy_deferred') {
+                    $hasLegacyMarker = $decision === 'legacy_deferred';
+                    $deferredNutrition[$seeder] = $hasLegacyMarker;
+                    CLI::write(sprintf('   ⏸️  [%d/%d] %s — DEFERRED (%s)',
+                        $position, count($seeders), $seeder,
+                        $hasLegacyMarker
+                            ? 'historical seeder_runs marker preserved; sourced nutrition catalog incomplete'
+                            : 'sourced nutrition catalog incomplete; not recorded'), 'yellow');
                     continue;
                 }
 
@@ -166,8 +168,8 @@ class SeedAll extends BaseCommand
             $this->step('🔐', 'Final verification: checking all non-deferred seeders...', 'cyan');
             $missing = [];
             foreach ($seeders as $seeder) {
-                if (in_array($seeder, $deferredNutrition, true)) {
-                    CLI::write('   ⏸️  Deferred, not recorded: ' . $seeder, 'yellow');
+                if (array_key_exists($seeder, $deferredNutrition)) {
+                    CLI::write('   ⏸️  Deferred, ' . ($deferredNutrition[$seeder] ? 'legacy marker preserved: ' : 'not recorded: ') . $seeder, 'yellow');
                     continue;
                 }
                 if ($this->seederRun($db, $seeder) === null) {
@@ -195,11 +197,15 @@ class SeedAll extends BaseCommand
                     CLI::write('   ...and ' . (count($catalog['errors']) - 12) . ' more issues.', 'yellow');
                 }
                 CLI::write('   Run php spark nutrition:catalog-audit; import actual sources and measured recipes before claiming nutrition is complete.', 'yellow');
+                if (in_array(true, $deferredNutrition, true)) {
+                    CLI::write('   Historical nutrition seeder marker(s) remain unchanged. Once sourced data is available,', 'yellow');
+                    CLI::write('   apply an append-only source-data migration; do not delete registry markers or replay seeders.', 'yellow');
+                }
                 if (! NutritionSeedingPolicy::completed(0, count($deferredNutrition), $strict)) {
                     CLI::error('Strict seeding requires all registered seeders to be verified. Nutrition is still pending.');
                     return EXIT_ERROR;
                 }
-                CLI::write('✅ Core seeding successful; nutrition seeding remains pending (not recorded).', 'green');
+                CLI::write('✅ Core seeding successful; nutrition seeding remains pending and unverified.', 'green');
                 return EXIT_SUCCESS;
             }
 

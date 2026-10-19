@@ -24,11 +24,22 @@ final class NutritionSeedingPolicyTest extends TestCase
         self::assertSame('normal', NutritionSeedingPolicy::disposition('RecipeSeeder', true, false));
     }
 
-    public function testRecordedNutritionSeedersWithMissingSourceNeverAppearComplete(): void
+    public function testHistoricalNutritionMarkersAreDeferredWithoutBeingTreatedAsComplete(): void
     {
         foreach (['IngredientSeeder', 'RecipeSeeder'] as $seeder) {
-            self::assertSame('invalid_record', NutritionSeedingPolicy::disposition($seeder, false, true));
+            self::assertSame('legacy_deferred', NutritionSeedingPolicy::disposition($seeder, false, true));
         }
+        self::assertSame('normal', NutritionSeedingPolicy::disposition('UserSeeder', false, true));
+        self::assertFalse(NutritionSeedingPolicy::completed(0, 2, true));
+        self::assertTrue(NutritionSeedingPolicy::completed(0, 2, false));
+    }
+
+    public function testReadyCatalogDoesNotBypassDatabaseVerificationForHistoricalMarkers(): void
+    {
+        // A recorded seeder with a complete catalog must still be checked via
+        // DatabaseSeeder::isSatisfied() by SeedAll before it can be skipped.
+        self::assertSame('normal', NutritionSeedingPolicy::disposition('IngredientSeeder', true, true));
+        self::assertSame('normal', NutritionSeedingPolicy::disposition('RecipeSeeder', true, true));
     }
 
     public function testCoreSeedCanSucceedWhileStrictAcceptanceRefusesIncompleteNutrition(): void
