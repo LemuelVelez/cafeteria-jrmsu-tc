@@ -272,7 +272,7 @@ questions**. This invokes the existing migration-aware, registry-tracked seeder:
 on a fresh database it populates demo users, categories, the eight menu products,
 ledgered opening stock, add-ons, settings, promotion, and notifications. It is
 safe to rerun because registered seeders skip existing data without overwriting
-administrator entries. It verifies that the core seeders are satisfied.
+administrator entries. It checks the core `seeder_runs` records and verifies that all eight menu products exist. It does not recheck mutable demo fixtures (such as one-time welcome notifications), which may legitimately change after initial seeding.
 
 **Nutrition remains separate:** no command can derive actual cafeteria recipe
 amounts, packaging costs, kitchen approval, or food composition from the menu

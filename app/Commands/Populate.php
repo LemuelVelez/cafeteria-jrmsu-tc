@@ -4,6 +4,7 @@ namespace App\Commands;
 
 use App\Database\Seeds\DatabaseSeeder;
 use App\Services\DemoProductNutritionCatalog;
+use App\Services\DemoPopulationReadiness;
 use App\Services\NutritionLookupService;
 use App\Services\NutritionPopulateService;
 use CodeIgniter\CLI\BaseCommand;
@@ -58,7 +59,7 @@ class Populate extends BaseCommand
 
             $ready = $this->readyNutritionCount();
 
-            CLI::write('Demo menu and opening stock: 8/8 products ready.', 'green');
+            CLI::write('Core demo seed records and 8/8 demo products are present; existing stock is unchanged.', 'green');
             if ($ready < count(DemoProductNutritionCatalog::SEEDERS)) {
                 CLI::write('Nutrition recipes: ' . $ready . '/8 approved source catalogs. Missing recipes remain DEFERRED, not fabricated.', 'yellow');
                 CLI::write('No measurements or kitchen approvals were invented or edited.', 'yellow');
@@ -78,20 +79,33 @@ class Populate extends BaseCommand
         return $this->call('seed');
     }
 
-    /** Verify the actual demo data, not merely a zero exit code. */
+    /**
+     * SeedAll treats a historical seeder_runs marker as applied. Match that
+     * contract here, and independently verify that the eight demo menu rows
+     * exist. Rechecking isSatisfied() for every seeder would disagree with
+     * SeedAll after legitimate admin edits (e.g. new users who never received
+     * the original demo_ready notification), reporting a false failure.
+     */
     protected function coreSeedIsReady(): bool
     {
         $db = db_connect();
-        foreach (DatabaseSeeder::SEEDERS as $seeder) {
-            if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)
-                || DemoProductNutritionCatalog::slugForSeeder($seeder) !== null) {
-                continue; // Unapproved nutritional measurements are not demo data.
-            }
-            if (! DatabaseSeeder::isSatisfied($seeder, $db)) {
-                return false;
-            }
+        if (! $db->tableExists('seeder_runs') || ! $db->tableExists('products')) {
+            return false;
         }
-        return true;
+        $recorded = array_column(
+            $db->table('seeder_runs')->select('seeder_name')->get()->getResultArray(),
+            'seeder_name',
+        );
+        $productSlugs = array_column(
+            $db->table('products')
+                ->select('slug')
+                ->whereIn('slug', array_values(DemoProductNutritionCatalog::SEEDERS))
+                ->get()->getResultArray(),
+            'slug',
+        );
+        return DemoPopulationReadiness::isReady(
+            DatabaseSeeder::SEEDERS, $recorded, $productSlugs,
+        );
     }
 
     protected function readyNutritionCount(): int

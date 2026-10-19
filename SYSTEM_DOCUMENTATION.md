@@ -399,8 +399,9 @@ The Spark seed preflight and direct `DatabaseSeeder::run()` both withhold **both
 
 `App\Commands\Populate` now defaults to a non-interactive call to the
 existing migration-aware `seed` command. This respects the seeder registry,
-applies safe demo defaults and verifies all non-nutrition seeders in the
-application database. Existing administrator data and the source CSV files
+applies safe demo defaults, checks core `seeder_runs` markers, and
+verifies that all eight demo products exist. This matches `SeedAll` semantics:
+legitimate edits to mutable demo fixtures do not make population falsely fail. Existing administrator data and the source CSV files
 remain unchanged. It does not create fabricated nutrition values or sign-offs;
 unsigned nutrition recipes remain DEFERRED and UNVERIFIED.
 
