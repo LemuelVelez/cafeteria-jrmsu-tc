@@ -32,6 +32,7 @@ Usage:
   cafe db refresh            Rebuild and reseed the database
   cafe db backup             Create a verified gzip database backup
   cafe db restore FILE       Restore an existing verified backup
+  cafe db restore-check      Verify a backup in a disposable scratch database
   cafe test                  Run PHPUnit tests
   cafe lint                  Run PHP and JavaScript syntax checks
   cafe install-command       Install cafe into ~/.local/bin
@@ -211,6 +212,10 @@ case "$command_name:$subcommand" in
     db:backup)
         ensure_php_dependencies
         php spark db:backup
+        ;;
+    db:restore-check)
+        ensure_php_dependencies
+        php spark db:restore-check
         ;;
     db:restore)
         ensure_php_dependencies

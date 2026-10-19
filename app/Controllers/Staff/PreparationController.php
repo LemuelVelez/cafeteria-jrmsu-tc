@@ -60,7 +60,9 @@ class PreparationController extends BaseController
             } elseif ($order['status']!=='ready_for_pickup' || !in_array($role,['cashier','admin'],true)) {
                 throw new \DomainException('Pickup is verified at the counter by cashier or admin.');
             }
-            if (!service('throttler')->check('handoff-'.$id.'-'.$this->request->getIPAddress(),5,MINUTE)) {
+            // Tie the limit to the order, stage and authenticated actor, not the IP.
+            // Rotating networks must not permit unlimited four-digit guesses.
+            if (!service('throttler')->check('handoff-'.$id.'-'.$stage.'-'.$actorId,5,MINUTE)) {
                 throw new \DomainException('Too many verification attempts; try again later.');
             }
             $token=trim((string)$this->request->getPost('token'));

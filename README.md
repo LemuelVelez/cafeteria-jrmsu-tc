@@ -54,6 +54,7 @@ cafe db seed
 cafe db refresh
 cafe db backup
 cafe db restore writable/backups/<verified-file>.sql.gz
+cafe db restore-check
 cafe test
 cafe lint
 php spark inventory:reconcile
@@ -138,8 +139,8 @@ On an existing installation, **back up the database** and configure a sufficient
 - **Menu** at `/menu` is publicly accessible. Admin → Settings → Printable poster opens A4/A6 QR poster. Receipts show QR and a 4-digit pickup code. Staff mark all lines prepared before **Ready for Pickup**, and verify an order QR/code before hand-off.
 - Admin → **Reports**: sales, orders, inventory, popular/slow products, deliveries, profit (historical item cost snapshots), low stock, and audit. Print from the browser or choose **Print → Save as PDF**; the application does not bundle a server-side PDF library.
 - Account Settings: enrollment in local RFC 6238 TOTP, notification email preferences, log out other sessions, customer data export and deletion request. Admin Settings can require admin TOTP. Approve customer deletion at `/admin/privacy/deletion-requests` (financial orders retained and contact data anonymized).
-- `php spark db:backup` and `cafe db backup` create checksum-protected gzip backups under `writable/backups/`; `php spark db:restore FILENAME` and `cafe db restore FILENAME` verify checksum, require confirmation, and create a pre-restore backup. Never serve this directory publicly.
-- Staff attendance exists at `/attendance` and is **disabled** unless Admin → Settings enables `attendance_enabled` after panel approval. Admin `/admin/attendance` manages shifts/rates and print/CSV estimated wages; Admin → Reports also has a gated attendance tab. Overtime and night premiums are editable database settings, not imposed legal constants.
+- `php spark db:backup` and `cafe db backup` create checksum-protected gzip backups under `writable/backups/`; `php spark db:restore FILENAME` and `cafe db restore FILENAME` verify checksum, require confirmation, and create a pre-restore backup. Never serve this directory publicly. Run `cafe db restore-check` (or `php spark db:restore-check`) during a quiet maintenance window to create a new verified backup, restore it into **only** the absent `<database>_restore_check` schema, compare key table counts, and automatically remove the scratch schema. The command refuses an existing scratch schema and requires the `mysql` client plus MySQL CREATE/DROP DATABASE privileges; it does not overwrite the original database. Backup retention chooses distinct daily, weekly and monthly snapshots.
+- Staff attendance exists at `/attendance` and is **disabled** unless Admin → Settings enables `attendance_enabled` after panel approval. Admin `/admin/attendance` manages shifts/rates and print/CSV estimated wages; Admin → Reports also has a gated attendance tab. Overtime and night premiums are editable database settings, not imposed legal constants. Shift edits validate real 24-hour times and grace periods, same-day rate edits do not duplicate entries, and wage CSVs neutralize spreadsheet formulas.
 
 **Operational verification:** Install Composer dependencies and configure MySQL before running `cafe db refresh`, `cafe test`, `cafe lint`, `npm run check`, and `php spark inventory:reconcile`; then test migration rollback/reapply and a restore drill against a disposable database. This archive was prepared without Composer vendor packages or a running MySQL server, so full database integration tests, fresh-seed success and rollback could not be executed here. Do not deploy to production without those checks.
 

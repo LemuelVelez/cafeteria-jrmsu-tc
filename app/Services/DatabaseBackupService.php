@@ -77,22 +77,64 @@ final class DatabaseBackupService
         $names=array_filter(array_map('basename',glob(self::DIRECTORY.'cafeteria-*.sql.gz')?:[]));rsort($names);
         return array_map(static fn($n)=>['name'=>$n,'size'=>filesize(self::DIRECTORY.$n),'valid'=>self::checksum(self::DIRECTORY.$n)],$names);
     }
+    /**
+     * Daily, weekly and monthly snapshots use distinct dates. Prefer the newest
+     * file per period; old same-day files must not consume weekly/monthly slots.
+     * This pure selector makes retention behavior testable without a database.
+     *
+     * @param list<string> $filenames
+     * @return list<string>
+     */
+    public static function retainedNames(array $filenames, int $daily, int $weekly, int $monthly): array
+    {
+        $files = array_values(array_unique($filenames));
+        rsort($files, SORT_STRING);
+        $selected = [];
+        $days = [];
+        $weeks = [];
+        $months = [];
+        $metadata = [];
+        foreach ($files as $name) {
+            if (! preg_match('/^cafeteria-(\d{8})-(\d{6})-[a-f0-9]{6}\.sql\.gz$/D', $name, $matches)) continue;
+            $date = \DateTimeImmutable::createFromFormat('!Ymd-His', $matches[1] . '-' . $matches[2]);
+            $errors = \DateTimeImmutable::getLastErrors();
+            if (! $date || ($errors !== false && ($errors['error_count'] || $errors['warning_count']))) continue;
+            $metadata[$name] = [
+                'day' => $date->format('Y-m-d'),
+                'week' => $date->format('o-W'),
+                'month' => $date->format('Y-m'),
+            ];
+        }
+        foreach (['day' => max(1, $daily), 'week' => max(0, $weekly), 'month' => max(0, $monthly)] as $period => $limit) {
+            $picked = 0;
+            foreach ($metadata as $name => $date) {
+                if ($picked >= $limit) break;
+                if (isset($selected[$name]) || isset($days[$date['day']])) continue;
+                if ($period !== 'day' && isset($weeks[$date['week']])) continue;
+                if ($period === 'month' && isset($months[$date['month']])) continue;
+                $selected[$name] = true;
+                $days[$date['day']] = true;
+                $weeks[$date['week']] = true;
+                $months[$date['month']] = true;
+                $picked++;
+            }
+        }
+        return array_keys($selected);
+    }
+
     public function retention(): void
     {
-        $keepDaily=max(1,(int)$this->setting('backup_keep_daily','7'));
-        $keepWeekly=max(0,(int)$this->setting('backup_keep_weekly','4'));
-        $keepMonthly=max(0,(int)$this->setting('backup_keep_monthly','6'));
-        $days=[];$weeks=[];$months=[];
-        foreach($this->files() as $file){
-            $name=$file['name'];$date=\DateTimeImmutable::createFromFormat('!Ymd-His',substr($name,10,15));
-            if(!$date)continue;
-            $daily=$date->format('Y-m-d');$week=$date->format('o-W');$month=$date->format('Y-m');
-            if(!isset($days[$daily])&&count($days)<$keepDaily)$days[$daily]=$name;
-            elseif(!isset($weeks[$week])&&count($weeks)<$keepWeekly)$weeks[$week]=$name;
-            elseif(!isset($months[$month])&&count($months)<$keepMonthly)$months[$month]=$name;
+        $keepDaily = max(1, (int) $this->setting('backup_keep_daily', '7'));
+        $keepWeekly = max(0, (int) $this->setting('backup_keep_weekly', '4'));
+        $keepMonthly = max(0, (int) $this->setting('backup_keep_monthly', '6'));
+        $files = $this->files();
+        $keep = self::retainedNames(array_column($files, 'name'), $keepDaily, $keepWeekly, $keepMonthly);
+        foreach ($files as $file) {
+            if (! in_array($file['name'], $keep, true)) {
+                @unlink(self::DIRECTORY . $file['name']);
+                @unlink(self::DIRECTORY . $file['name'] . '.sha256');
+            }
         }
-        $keep=array_merge(array_values($days),array_values($weeks),array_values($months));
-        foreach($this->files() as $file)if(!in_array($file['name'],$keep,true)){@unlink(self::DIRECTORY.$file['name']);@unlink(self::DIRECTORY.$file['name'].'.sha256');}
     }
     private function setting(string $key, string $fallback): string
     {

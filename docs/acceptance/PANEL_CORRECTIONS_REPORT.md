@@ -19,10 +19,10 @@ The code-only patch preserves the repository's existing folder structure and onl
 | 11 | Notifications | Implemented–untested | Push/email mocked behavior and real device check required |
 | 12 | Printable reports | Implemented–untested | Explicit orders CSV whitelist and formula neutralization; CSV/accounting DB tests and Chrome PDF page-number verification needed |
 | 13 | Stock deduction | Implemented–untested | Transactional product and ingredient writer calls, fail-fast on missing recipe; concurrency and cancellation tests needed |
-| 14 | Backups | **Partial** | Credential-file escaping and port in code; backup/restore and retention drill not run |
+| 14 | Backups | Implemented–untested | `db:restore-check` disposable-schema import, checksum/row-count verification, cleanup and duplicate-safe retention; unit policy tests added; real MySQL restore/permissions drill not run |
 | 15 | Audit logs | **Partial** | CLI-safe audit and diff viewer changed; see `audit-coverage.md`: no completed route-by-route MySQL proof |
 | 16 | Rider hand-off | Implemented–untested | Separate customer-only delivery QR scope (kitchen/dispatch QR cannot mark Delivered), stage checks, rider ticket access controls; added `DeliveryQrSeparationDatabaseTest`, MySQL tests still blocked |
-| 17 | Attendance | Implemented–untested | Flag/shift/rate DB tests outstanding |
+| 17 | Attendance | Implemented–untested | Strict time/rate/date validation, event-specific audits, formula-safe exports and `AttendanceInputPolicyTest` wage examples; database and role-filter tests outstanding |
 
 ## Executed checks
 
@@ -53,3 +53,11 @@ Provide authentic ingredient-level nutrient references (edition/food ID, measure
 - Below-threshold stock notifications trigger once per episode; admin delivery orders cannot be marked `completed` as pickup. Audit CSV neutralizes formula prefixes.
 - Added PHPUnit `OrderSecurityPolicyTest`, `OrderTransitionMatrixTest`, and MySQL-tagged `DeliveryQrSeparationDatabaseTest`; latter cannot be run here.
 - `./cafe lint` and `npm run check`: passed after these modifications.
+
+## Continuation v4 — changed code and verification remaining
+
+- `app/Services/BackupRestoreDrillService.php`, `app/Commands/DatabaseRestoreCheck.php`, `cafe`: new `db:restore-check` command, refuses to overwrite a pre-existing scratch schema, validates the backup checksum, imports into `<db>_restore_check`, compares 16 important table counts, audits its success, and drops only the scratch schema it created. Real MySQL restore results are **blocked** here.
+- `app/Services/DatabaseBackupService.php`: deterministic distinct daily/weekly/monthly retention. Added `BackupRetentionTest` and `BackupRestoreDrillTest` (policy and tampering).
+- `app/Controllers/Attendance/AttendanceController.php`, `app/Services/AttendanceInputPolicy.php`: validates shift times, grace, employee and wage inputs; serializes edits, avoids same-day rate duplicates, adds auditable diffs, and sanitizes exported wage CSV. Added `AttendanceInputPolicyTest` with worked payroll examples.
+- `app/Controllers/Staff/PreparationController.php`: hand-off throttling is now per order/stage/actor, resistant to network-address rotation.
+- Ran `npm run check` and `./cafe lint` locally after the changes. PHPUnit and CLI restore-check require Composer/MySQL and are **not verified**. No new environment variable or migration was introduced.

@@ -3,6 +3,7 @@ namespace App\Controllers\Attendance;
 use App\Controllers\BaseController;
 use App\Services\AttendanceService;
 use App\Services\AuditLogService;
+use App\Services\AttendanceInputPolicy;
 class AttendanceController extends BaseController
 {
     private function admin(): bool {return (session()->get('user')['role']??'')==='admin';}
@@ -37,23 +38,51 @@ class AttendanceController extends BaseController
     public function rate()
     {
         return $this->saveAdmin('attendance_pay_rates',['user_id'=>(int)$this->request->getPost('user_id'),
-            'hourly_rate'=>(float)$this->request->getPost('hourly_rate'),'effective_from'=>date('Y-m-d')]);
+            'hourly_rate'=>$this->request->getPost('hourly_rate'),'effective_from'=>date('Y-m-d')]);
     }
     private function saveAdmin(string $table,array $values)
     {
         if (!$this->admin())return redirect()->to('/attendance');
         $db=db_connect();$db->transBegin();
         try {
-            if($values['user_id']<1)throw new \DomainException('Invalid employee.');
-            if($table==='attendance_shifts'){
-                if($values['weekday']<1||$values['weekday']>7||!preg_match('/^\d\d:\d\d$/',$values['start_time'])||!preg_match('/^\d\d:\d\d$/',$values['end_time']))throw new \DomainException('Invalid shift schedule.');
-                $existing=$db->table($table)->where(['user_id'=>$values['user_id'],'weekday'=>$values['weekday']])->get()->getRowArray();
-                if($existing)$db->table($table)->where('id',$existing['id'])->update($values);else $db->table($table)->insert($values);
-            }else{
-                if($values['hourly_rate']<0)throw new \DomainException('Invalid hourly rate.');
-                $db->table($table)->insert($values);
+            // Lock staff to serialize concurrent shift/rate edits for the same employee.
+            $staff = $db->query('SELECT id, role, status FROM users WHERE id=? FOR UPDATE',
+                [$values['user_id']])->getRowArray();
+            if ($values['user_id'] < 1 || ! $staff || ($staff['status'] ?? '') !== 'active'
+                || ! in_array($staff['role'], ['admin', 'cashier', 'rider'], true)) {
+                throw new \DomainException('Choose an active staff employee.');
             }
-            (new AuditLogService($db))->record('attendance_settings_change','user',$values['user_id'],['fields'=>array_keys($values)]);
+            $audit = new AuditLogService($db);
+            if ($table === 'attendance_shifts') {
+                AttendanceInputPolicy::validateShift((int) $values['weekday'],
+                    $values['start_time'], $values['end_time'], (int) $values['grace_minutes']);
+                $existing = $db->table($table)->where(['user_id' => $values['user_id'],
+                    'weekday' => $values['weekday']])->get()->getRowArray();
+                if ($existing) {
+                    $db->table($table)->where('id', $existing['id'])->update($values);
+                    $audit->recordChange('attendance_shift_changed', 'attendance_shift', (int) $existing['id'],
+                        array_intersect_key($existing, $values), $values, (int) session()->get('user')['id']);
+                } else {
+                    $db->table($table)->insert($values);
+                    $audit->record('attendance_shift_created', 'attendance_shift', (int) $db->insertID(),
+                        ['weekday' => $values['weekday'], 'user_id' => $values['user_id']], (int) session()->get('user')['id']);
+                }
+            } else {
+                $values['hourly_rate'] = AttendanceInputPolicy::hourlyRate($values['hourly_rate']);
+                $existing = $db->table($table)->where(['user_id' => $values['user_id'],
+                    'effective_from' => $values['effective_from']])->orderBy('id', 'DESC')->get()->getRowArray();
+                if ($existing) {
+                    $db->table($table)->where('id', $existing['id'])->update($values);
+                    $audit->recordChange('attendance_rate_changed', 'attendance_pay_rate', (int) $existing['id'],
+                        ['hourly_rate' => (float) $existing['hourly_rate']],
+                        ['hourly_rate' => (float) $values['hourly_rate']], (int) session()->get('user')['id']);
+                } else {
+                    $db->table($table)->insert($values);
+                    $audit->record('attendance_rate_created', 'attendance_pay_rate', (int) $db->insertID(),
+                        ['user_id' => $values['user_id'], 'effective_from' => $values['effective_from']],
+                        (int) session()->get('user')['id']);
+                }
+            }
             if(!$db->transStatus())throw new \RuntimeException('Unable to save payroll settings.');
             $db->transCommit();return redirect()->to('/admin/attendance')->with('success','Attendance settings saved.');
         }catch(\Throwable $e){$db->transRollback();return redirect()->to('/admin/attendance')->with('error',$e->getMessage());}
@@ -62,14 +91,17 @@ class AttendanceController extends BaseController
     {
         if(!$this->admin())return redirect()->to('/attendance');
         $new=(string)$this->request->getPost('at');$reason=trim((string)$this->request->getPost('reason'));
-        if (!$reason || !\DateTimeImmutable::createFromFormat('Y-m-d\TH:i',$new))return redirect()->to('/admin/attendance')->with('error','Valid time and correction reason required.');
+        if ($reason === '') return redirect()->to('/admin/attendance')->with('error','Correction reason required.');
+        try { $correctedAt = AttendanceInputPolicy::correctedAt($new); }
+        catch (\DomainException $error) { return redirect()->to('/admin/attendance')->with('error',$error->getMessage()); }
         $db=db_connect();$db->transBegin();
         try{
             $old=$db->query('SELECT * FROM attendance_punches WHERE id=? FOR UPDATE',[$id])->getRowArray();
             if(!$old)throw new \DomainException('Punch not found.');
-            $values=['at'=>str_replace('T',' ',$new).':00','edited_by'=>session()->get('user')['id'],'edit_reason'=>$reason];
+            $values=['at'=>$correctedAt,'edited_by'=>session()->get('user')['id'],'edit_reason'=>$reason];
             $db->table('attendance_punches')->where('id',$id)->update($values);
             (new AuditLogService($db))->recordChange('attendance_correction','attendance_punch',$id,['at'=>$old['at']],['at'=>$values['at']]);
+            if (! $db->transStatus()) throw new \RuntimeException('Unable to save correction.');
             $db->transCommit();return redirect()->to('/admin/attendance')->with('success','Corrected.');
         }catch(\Throwable $e){$db->transRollback();return redirect()->to('/admin/attendance')->with('error',$e->getMessage());}
     }
@@ -80,8 +112,17 @@ class AttendanceController extends BaseController
         if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$from)||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$to)||$from>$to)return redirect()->to('/admin/attendance')->with('error','Invalid date range.');
         $rows=(new \App\Services\ReportService())->attendance($from,$to);
         if($this->request->getGet('format')==='csv'){
-            $f=fopen('php://temp','w+');if($rows){fputcsv($f,array_keys($rows[0]));foreach($rows as $row)fputcsv($f,$row);}rewind($f);$csv=stream_get_contents($f);fclose($f);
-            return $this->response->setHeader('Content-Type','text/csv')->setHeader('Content-Disposition','attachment; filename="wage-estimates.csv"')->setBody($csv?:'');
+            $f=fopen('php://temp','w+');fwrite($f,"\xEF\xBB\xBF");
+            $csvRow = static function(array $cells) use ($f): void {
+                fputcsv($f,array_map([\App\Controllers\Admin\ReportController::class,'safeCsvCell'],$cells),',','"','');
+            };
+            $csvRow(['Report','Attendance wage estimates']);
+            $csvRow(['Date range',$from.' to '.$to]);
+            $csvRow(['Generated at',date('Y-m-d H:i:s')]);
+            $csvRow([]);
+            if($rows){$csvRow(array_keys($rows[0]));foreach($rows as $row)$csvRow(array_values($row));}
+            rewind($f);$csv=stream_get_contents($f);fclose($f);
+            return $this->response->setHeader('Content-Type','text/csv; charset=UTF-8')->setHeader('Content-Disposition','attachment; filename="wage-estimates.csv"')->setBody($csv?:'');
         }
         return $this->render('attendance/report',['title'=>'Wage estimate','rows'=>$rows,'from'=>$from,'to'=>$to]);
     }
