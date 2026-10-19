@@ -16,3 +16,10 @@
   header {margin-bottom:18px;break-after:avoid;}
   footer {border-top:1px solid #ccc;padding-top:20px;page-break-inside:avoid;}
 }
+@media print {
+  .report-stat-grid { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .report-stat { min-height: 0 !important; padding: 8px !important; break-inside: avoid; }
+  .report-stat-value { font-size: 14pt !important; }
+  .report-chart-card .chart-box { height: 220px !important; }
+  .report-tabs-scroll, .report-toolbar { display: none !important; }
+}

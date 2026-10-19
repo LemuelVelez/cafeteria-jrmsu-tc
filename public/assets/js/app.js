@@ -8,42 +8,39 @@
     window.cafeteriaUrl = (path = '') => new URL(String(path).replace(/^\/+/, ''), appBaseUrl).toString();
 
     const fieldIcon = (field) => {
-        const name = `${field.name || ''} ${field.id || ''} ${field.getAttribute('placeholder') || ''}`.toLowerCase();
+        // Never infer semantics from placeholders: examples may contain "to" or "date".
+        const override = field.dataset.icon;
+        if (override && /^bi-[a-z0-9-]+$/.test(override)) return override;
+        const name = `${field.name || ''} ${field.id || ''}`
+            .replace(/([a-z])([A-Z])/g, '$1 $2')
+            .replace(/[_\-]+/g, ' ')
+            .toLowerCase();
         const type = (field.getAttribute('type') || '').toLowerCase();
-
         const namedIcons = [
-            [/password/, 'bi-lock'],
-            [/email/, 'bi-envelope'],
-            [/phone|contact|tel/, 'bi-telephone'],
-            [/address|location|landmark/, 'bi-geo-alt'],
-            [/customer|user|rider|name/, 'bi-person'],
-            [/category/, 'bi-tags'],
-            [/price|fee|amount|total|payment/, 'bi-cash-coin'],
-            [/stock|quantity|qty/, 'bi-box-seam'],
-            [/promo|coupon|discount|code/, 'bi-ticket-perforated'],
-            [/rating|review/, 'bi-star'],
-            [/status|enabled|available/, 'bi-toggle-on'],
-            [/sort|order/, 'bi-sort-numeric-down'],
-            [/date|from|to/, 'bi-calendar-event'],
-            [/time|hours/, 'bi-clock'],
-            [/image|photo|media/, 'bi-image'],
-            [/description|comment|notes|instructions/, 'bi-card-text'],
-            [/search/, 'bi-search'],
+            [/\bpassword\b/, 'bi-lock'],
+            [/\bemail\b/, 'bi-envelope'],
+            [/\b(phone|contact|tel)\b/, 'bi-telephone'],
+            [/\b(address|location|landmark)\b/, 'bi-geo-alt'],
+            [/\b(customer|user|rider|name)\b/, 'bi-person'],
+            [/\bcategory\b/, 'bi-tags'],
+            [/\b(price|fee|amount|total|payment)\b/, 'bi-cash-coin'],
+            [/\b(stock|quantity|qty)\b/, 'bi-box-seam'],
+            [/\b(promo|coupon|discount|code)\b/, 'bi-ticket-perforated'],
+            [/\b(rating|review)\b/, 'bi-star'],
+            [/\b(status|enabled|available)\b/, 'bi-toggle-on'],
+            [/\b(sort|order)\b/, 'bi-sort-numeric-down'],
+            [/\b(date|from|to)\b/, 'bi-calendar-event'],
+            [/\b(time|hours)\b/, 'bi-clock'],
+            [/\b(image|photo|media)\b/, 'bi-image'],
+            [/\b(description|comment|notes|instructions)\b/, 'bi-card-text'],
+            [/\bsearch\b/, 'bi-search'],
         ];
-
         const matched = namedIcons.find(([pattern]) => pattern.test(name));
         if (matched) return matched[1];
-
         return {
-            email: 'bi-envelope',
-            password: 'bi-lock',
-            tel: 'bi-telephone',
-            date: 'bi-calendar-event',
-            time: 'bi-clock',
-            number: 'bi-123',
-            file: 'bi-image',
-            search: 'bi-search',
-        }[type] || (field.tagName === 'SELECT' ? 'bi-list-ul' : field.tagName === 'TEXTAREA' ? 'bi-card-text' : 'bi-pencil');
+            email: 'bi-envelope', password: 'bi-lock', tel: 'bi-telephone',
+            number: 'bi-123', search: 'bi-search',
+        }[type] || (field.tagName === 'TEXTAREA' ? 'bi-card-text' : 'bi-pencil');
     };
 
     const enhanceFormFields = () => {
@@ -51,7 +48,7 @@
         document.querySelectorAll(selector).forEach((field) => {
             if (
                 field.closest('.input-group, .field-icon')
-                || field.matches('[type="hidden"], [type="checkbox"], [type="radio"], [type="range"], [type="file"], .form-control-sm, .form-select-sm, [data-no-icon], [data-quantity], [data-cart-qty], [data-pos-qty]')
+                || field.matches('select, [type="hidden"], [type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="date"], [type="time"], [type="datetime-local"], .form-control-sm, .form-select-sm, [data-no-icon], [data-quantity], [data-cart-qty], [data-pos-qty]')
             ) return;
 
             const wrapper = document.createElement('div');
@@ -397,7 +394,7 @@
                 if (iconClass) button.setAttribute('aria-label', accessibleLabels[iconClass]);
             }
 
-            if (existingIcon || button.matches('.btn-close, [data-no-icon]')) return;
+            if (existingIcon || button.matches('.btn-close, [data-no-icon], [aria-label]:not([data-auto-icon])')) return;
             const iconName = buttonIcon(button.textContent.trim());
             if (!iconName) return;
 
@@ -410,6 +407,8 @@
 
     const enhanceResponsiveTables = () => {
         document.querySelectorAll('.table-responsive table').forEach((table) => {
+            // Data-heavy admin reports scroll inside their cards instead of becoming mobile tiles.
+            if (table.closest('.report-page, .audit-page')) return;
             table.classList.add('responsive-table');
             const headings = [...table.querySelectorAll('thead th')].map((heading) => heading.textContent.trim());
             table.querySelectorAll('tbody tr').forEach((row) => {
