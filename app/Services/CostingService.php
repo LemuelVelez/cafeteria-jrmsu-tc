@@ -31,8 +31,11 @@ class CostingService
     /** Convert a weighed or measured recipe line into an edible mass. */
     public static function nutrientQuantity(float $quantity, string $unit, float $gramsPerMl, ?float $gramsPerPiece = null): float
     {
-        if (!is_finite($gramsPerMl) || $gramsPerMl <= 0 || $gramsPerMl > 25) {
-            throw new \DomainException('Liquid density must be greater than zero and at most 25 g/mL.');
+        // Density is required for volume, not for weighed or piece-count lines.
+        // Zero is an explicit sentinel for "not measured", never an assumed 1 g/mL.
+        if (in_array($unit, ['ml', 'l'], true)
+            && (! is_finite($gramsPerMl) || $gramsPerMl <= 0 || $gramsPerMl > 25)) {
+            throw new \DomainException('Measured liquid density is required for volume nutrition.');
         }
         return match ($unit) {
             'g' => $quantity,
@@ -50,6 +53,12 @@ class CostingService
     public static function ingredientUnits(float $quantity, string $from, string $to, float $density, ?float $gramsPerPiece): float
     {
         if (self::unitFamily($from) === self::unitFamily($to)) return self::convert($quantity, $from, $to);
+        // Mass-to-piece conversions need grams_per_piece, but no density.
+        // Crossing a volume boundary must have an actual measured density.
+        if ((self::unitFamily($from) === 'volume' || self::unitFamily($to) === 'volume')
+            && (! is_finite($density) || $density <= 0 || $density > 25)) {
+            throw new \DomainException('Measured liquid density is required for volume conversions.');
+        }
         $mass = match ($from) {
             'g' => $quantity, 'kg' => $quantity * 1000,
             'ml' => $quantity * $density, 'l' => $quantity * 1000 * $density,
@@ -57,7 +66,6 @@ class CostingService
                 : throw new \DomainException('Grams per piece required for mixed-unit recipe.'),
             default => throw new \DomainException('Unknown recipe unit.'),
         };
-        if ($density <= 0 || $density > 25) throw new \DomainException('Liquid density must be positive.');
         return match ($to) {
             'g' => $mass, 'kg' => $mass / 1000,
             'ml' => $mass / $density, 'l' => $mass / (1000 * $density),

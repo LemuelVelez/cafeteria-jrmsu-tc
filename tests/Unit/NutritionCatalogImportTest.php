@@ -73,7 +73,9 @@ final class NutritionCatalogImportTest extends TestCase
             [array_replace($this->food(), ['dataType' => 'Branded']), $this->inputs()],
             [array_replace($this->food(), ['foodNutrients' => []]), $this->inputs()],
             [$this->food(), array_replace($this->inputs(), ['cost_per_unit' => ''])],
-            [$this->food(), array_replace($this->inputs(), ['density_g_per_ml' => ''])],
+            [$this->food(), array_replace($this->inputs(), [
+                'purchase_unit' => 'ml', 'density_g_per_ml' => '',
+            ])],
             [$this->food(), array_replace($this->inputs(), ['purchase_unit' => 'pcs'])],
         ];
         foreach ($cases as [$food, $inputs]) {
@@ -85,6 +87,31 @@ final class NutritionCatalogImportTest extends TestCase
             }
         }
         self::assertSame([], SourcedRecipeCatalog::read($this->ingredients, SourcedRecipeCatalog::INGREDIENT_COLUMNS));
+    }
+
+    public function testMassOnlyFoodsRequireNoInventedDensity(): void
+    {
+        $withoutDensity = array_replace($this->inputs(), ['density_g_per_ml' => '']);
+        NutritionCatalogImport::addIngredient($this->ingredients, $this->food(), $withoutDensity);
+        $record = SourcedRecipeCatalog::read($this->ingredients, SourcedRecipeCatalog::INGREDIENT_COLUMNS)[0];
+        self::assertSame('0', $record['density_g_per_ml']);
+        self::assertSame('USDA FDC #123456 (Foundation)', $record['source_reference']);
+        NutritionCatalogImport::addRecipe($this->ingredients, $this->recipes, $this->recipe());
+        self::assertCount(1, SourcedRecipeCatalog::read($this->recipes, SourcedRecipeCatalog::RECIPE_COLUMNS));
+    }
+
+    public function testVolumeRecipeCannotUseUnmeasuredDensity(): void
+    {
+        NutritionCatalogImport::addIngredient($this->ingredients, $this->food(),
+            array_replace($this->inputs(), ['density_g_per_ml' => '']));
+        $before = file_get_contents($this->recipes);
+        $this->expectException(\DomainException::class);
+        try {
+            NutritionCatalogImport::addRecipe($this->ingredients, $this->recipes,
+                array_replace($this->recipe(), ['unit' => 'ml']));
+        } finally {
+            self::assertSame($before, file_get_contents($this->recipes));
+        }
     }
 
     public function testDuplicateImportDoesNotAlterOriginalCsv(): void

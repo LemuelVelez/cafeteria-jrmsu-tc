@@ -78,9 +78,9 @@ final class NutritionCatalogImport
                 $found = true;
                 CostingService::ingredientUnits((float) $line['quantity'], $line['unit'],
                     $record['purchase_unit'], (float) $record['density_g_per_ml'], $record['grams_per_piece']);
-                if ($line['unit'] === 'pcs' && $record['nutrient_basis'] === '100g') {
-                    CostingService::nutrientQuantity((float) $line['quantity'], 'pcs', 1,
-                        $record['grams_per_piece']);
+                if ($record['nutrient_basis'] === '100g') {
+                    CostingService::nutrientQuantity((float) $line['quantity'], (string) $line['unit'],
+                        (float) $record['density_g_per_ml'], $record['grams_per_piece']);
                 }
                 break;
             }

@@ -55,6 +55,30 @@ final class SourcedRecipeCatalogTest extends TestCase
         self::assertSame(['calories' => 100.0], CostingService::perServingNutrients(['calories' => 400], 4));
     }
 
+    public function testUnmeasuredDensityDoesNotCreateSyntheticConversions(): void
+    {
+        $dry = SourcedRecipeCatalog::ingredient($this->ingredient([
+            'density_g_per_ml' => '',
+        ]));
+        self::assertSame(0.0, $dry['density_g_per_ml']);
+        self::assertEqualsWithDelta(125.0, CostingService::nutrientQuantity(125, 'g', 0), 0.000001);
+        self::assertEqualsWithDelta(100.0, CostingService::nutrientQuantity(2, 'pcs', 0, 50), 0.000001);
+        self::assertEqualsWithDelta(0.1, CostingService::ingredientUnits(2, 'pcs', 'kg', 0, 50), 0.000001);
+        self::assertEqualsWithDelta(4.0, CostingService::ingredientUnits(200, 'g', 'pcs', 0, 50), 0.000001);
+        foreach ([
+            static fn () => CostingService::nutrientQuantity(100, 'ml', 0),
+            static fn () => CostingService::ingredientUnits(200, 'ml', 'g', 0, null),
+            static fn () => CostingService::ingredientUnits(200, 'g', 'ml', 0, null),
+        ] as $conversion) {
+            try {
+                $conversion();
+                self::fail('Unknown liquid density must not be assumed to equal water.');
+            } catch (\DomainException $expected) {
+                self::assertNotSame('', $expected->getMessage());
+            }
+        }
+    }
+
     public function testRecipeRejectsFractionalServingsAndUnknownUnits(): void
     {
         $valid = [

@@ -19,3 +19,6 @@
 
 /writable/backups/*
 !/writable/backups/.gitkeep
+
+# Local nutrition catalog import lockfiles; never source or commit these.
+/app/Database/Seeds/data/*.csv.lock

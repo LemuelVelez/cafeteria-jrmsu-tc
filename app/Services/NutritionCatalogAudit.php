@@ -76,8 +76,9 @@ final class NutritionCatalogAudit
                     CostingService::ingredientUnits((float) $line['quantity'], (string) $line['unit'],
                         (string) $ingredient['purchase_unit'], (float) $ingredient['density_g_per_ml'],
                         $ingredient['grams_per_piece'] === null ? null : (float) $ingredient['grams_per_piece']);
-                    if ($line['unit'] === 'pcs' && $ingredient['nutrient_basis'] === '100g') {
-                        CostingService::nutrientQuantity((float) $line['quantity'], 'pcs', 1,
+                    if ($ingredient['nutrient_basis'] === '100g') {
+                        CostingService::nutrientQuantity((float) $line['quantity'], (string) $line['unit'],
+                            (float) $ingredient['density_g_per_ml'],
                             $ingredient['grams_per_piece'] === null ? null : (float) $ingredient['grams_per_piece']);
                     }
                 } catch (\DomainException $error) {

@@ -53,6 +53,18 @@ final class NutritionCatalogAuditTest extends TestCase
         self::assertContains('Invalid measured unit conversion: chicken-adobo-rice / Synthetic ingredient', $result['errors']);
     }
 
+    public function testUnknownDensityIsValidForWeighedFoodButBlocksVolumeRecipes(): void
+    {
+        $dry = array_replace($this->ingredient(), ['density_g_per_ml' => 0.0]);
+        $massRecipes = array_map($this->recipe(...), NutritionCatalogAudit::DEMO_PRODUCT_SLUGS);
+        $ready = NutritionCatalogAudit::assess([$dry], $massRecipes);
+        self::assertTrue($ready['ready']);
+        $massRecipes[0]['unit'] = 'ml';
+        $blocked = NutritionCatalogAudit::assess([$dry], $massRecipes);
+        self::assertFalse($blocked['ready']);
+        self::assertContains('Invalid measured unit conversion: chicken-adobo-rice / Synthetic ingredient', $blocked['errors']);
+    }
+
     public function testPartiallyPreparedCatalogMustNotBeSeeded(): void
     {
         // One complete ingredient record does not authorize recording a one-time

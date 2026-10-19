@@ -87,7 +87,18 @@ final class SourcedRecipeCatalog
             'sugar_g', 'fiber_g', 'sodium_mg', 'reorder_level', 'opening_stock'] as $field) {
             $values[$field] = self::number($row, $field, 0, 10000000);
         }
-        $values['density_g_per_ml'] = self::number($row, 'density_g_per_ml', 0.0001, 25);
+        // A density is not a nutrient and cannot be inferred for dry foods.
+        // Zero means *not measured* and is valid only when no volume conversion
+        // is used; CostingService refuses any volume-to-mass calculation then.
+        $density = trim((string) ($row['density_g_per_ml'] ?? ''));
+        if ($density === '' || preg_match('/^0(?:\.0+)?$/', $density) === 1) {
+            if (in_array($unit, ['ml', 'l'], true) && $basis === '100g') {
+                throw new \DomainException('Measured density_g_per_ml is required for volume-purchased food: ' . $name);
+            }
+            $values['density_g_per_ml'] = 0.0;
+        } else {
+            $values['density_g_per_ml'] = self::number($row, 'density_g_per_ml', 0.0001, 25);
+        }
         $grams = trim((string) ($row['grams_per_piece'] ?? ''));
         $values['grams_per_piece'] = $grams === '' ? null : self::number($row, 'grams_per_piece', 0.0001, 100000);
         // For a 100g nutrient basis, piece-based recipes cannot be calculated

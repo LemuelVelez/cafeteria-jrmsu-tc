@@ -13,7 +13,7 @@ final class NutritionIngredientImport extends BaseCommand
     protected $group = 'Cafeteria';
     protected $name = 'nutrition:ingredient-import';
     protected $description = 'Import sourced USDA nutrient data into ingredients.csv using operator-supplied measurements and costs.';
-    protected $usage = 'nutrition:ingredient-import <FDC_ID> <NAME> <UNIT> <COST> <DENSITY> <GRAMS_PER_PIECE_OR_DASH> <REORDER_LEVEL> <OPENING_STOCK>';
+    protected $usage = 'nutrition:ingredient-import <FDC_ID> <NAME> <UNIT> <COST> <DENSITY_OR_DASH> <GRAMS_PER_PIECE_OR_DASH> <REORDER_LEVEL> <OPENING_STOCK>';
 
     public function run(array $params): int
     {
@@ -27,7 +27,7 @@ final class NutritionIngredientImport extends BaseCommand
                 'name' => (string) $params[1],
                 'purchase_unit' => (string) $params[2],
                 'cost_per_unit' => (string) $params[3],
-                'density_g_per_ml' => (string) $params[4],
+                'density_g_per_ml' => $params[4] === '-' ? '' : (string) $params[4],
                 'grams_per_piece' => $params[5] === '-' ? '' : (string) $params[5],
                 'reorder_level' => (string) $params[6],
                 'opening_stock' => (string) $params[7],
