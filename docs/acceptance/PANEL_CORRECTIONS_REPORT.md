@@ -6,7 +6,7 @@ The code-only patch preserves the repository's existing folder structure and onl
 
 | # | Correction | Status | Evidence / next acceptance task |
 |---|---|---|---|
-| 1 | Security / customer information | Implemented–untested | API order fields now whitelisted to avoid leaking `request_token`/code hashes and mask completed rider contact; unit behavior added, real-DB role/session tests still needed |
+| 1 | Security / customer information | Implemented–untested | Restricted API fields and newly whitelisted customer data export, audited on one connection; privacy anonymization scrubs order notes, messages, and tokens while preserving accounting; `CustomerPrivacyProjectionTest` and MySQL-required `CustomerPrivacyDatabaseTest` added |
 | 2 | Barcode scanning | Implemented–untested | `npm run check` PASS; MySQL barcode lookup and both save endpoints still need tests; scanner hardware outstanding |
 | 3 | QR codes | Implemented–untested | HMAC and expiry database tests and phone-scan check outstanding |
 | 4 | Nutrition display / allergens | Implemented–untested | Structured allergens and Nutrition Facts views changed; migration up/down HTTP tests required |
@@ -61,3 +61,9 @@ Provide authentic ingredient-level nutrient references (edition/food ID, measure
 - `app/Controllers/Attendance/AttendanceController.php`, `app/Services/AttendanceInputPolicy.php`: validates shift times, grace, employee and wage inputs; serializes edits, avoids same-day rate duplicates, adds auditable diffs, and sanitizes exported wage CSV. Added `AttendanceInputPolicyTest` with worked payroll examples.
 - `app/Controllers/Staff/PreparationController.php`: hand-off throttling is now per order/stage/actor, resistant to network-address rotation.
 - Ran `npm run check` and `./cafe lint` locally after the changes. PHPUnit and CLI restore-check require Composer/MySQL and are **not verified**. No new environment variable or migration was introduced.
+
+## Continuation v5 — customer privacy code and remaining verification
+
+- `CustomerDataExportService`: explicit SQL field allowlists for owned profile, orders, items, payments and reviews, normalized purchase add-ons; private request/verification tokens, raw password/TOTP fields, internal unit costs and transaction references are not returned. Existing field encryption is used for contact/address columns, including legacy plaintext. `GET /settings/data/export` sends `no-store` and `nosniff` headers and audits the export transactionally.
+- `CustomerDataDeletionService`: atomic customer anonymization and single audit row, including optional delivery/item/status/issue notes, review comments, stored push subscriptions, notification content, and auth tokens. Financial amounts/orders/payments remain for accounting; old sessions are invalidated. After commit, removes the old avatar via `MediaStorageService`.
+- `CustomerPrivacyProjectionTest` (PHPUnit unit), `CustomerPrivacyDatabaseTest` (MySQL group) test export allowlist, ownership, deletion isolation, retention and audit uniqueness. Pure-logic whitelist smoke check, `npm run check`, and `./cafe lint`: **PASS**. MySQL/Composer unavailable: tests remain **Implemented–untested**, not Verified.

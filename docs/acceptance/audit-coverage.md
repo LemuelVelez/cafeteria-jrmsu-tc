@@ -20,7 +20,7 @@ exactly one appropriate audit record and `AuditLogService::scrub()` PII removal.
 | POST | `/settings/totp/confirm` | two_factor_enabled | **Not run (MySQL unavailable)** |
 | POST | `/settings/notifications/preferences` | notification_preferences_updated | **Not run (MySQL unavailable)** |
 | POST | `/settings/sessions/logout-others` | sessions_revoked | **Not run (MySQL unavailable)** |
-| POST | `/settings/data/delete-request` | data_deletion_requested | **Not run (MySQL unavailable)** |
+| POST | `/settings/data/delete-request` | account_deletion_requested | **Not run (MySQL unavailable)** |
 | POST | `/settings/avatar/remove` | avatar_removed | **Not run (MySQL unavailable)** |
 | POST | `/admin/inventory/stock-in` | inventory_movement | **Not run (MySQL unavailable)** |
 | POST | `/admin/inventory/stock-out` | inventory_movement | **Not run (MySQL unavailable)** |
@@ -35,7 +35,7 @@ exactly one appropriate audit record and `AuditLogService::scrub()` PII removal.
 | POST | `/admin/costing/recipe` | recipe_changed | **Not run (MySQL unavailable)** |
 | POST | `/admin/costing/ingredient/stock-in` | ingredient_inventory_movement | **Not run (MySQL unavailable)** |
 | POST | `/admin/costing/verify/(:num)` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
-| POST | `/admin/privacy/deletion-requests/(:num)/approve` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
+| POST | `/admin/privacy/deletion-requests/(:num)/approve` | personal_data_deletion_approved (`CustomerDataDeletionService`; `CustomerPrivacyDatabaseTest`) | **Not run (MySQL unavailable)** |
 | POST | `/admin/backups` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
 | POST | `/admin/products` | product_created / product_updated | **Not run (MySQL unavailable)** |
 | POST | `/admin/products/(:num)` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
@@ -79,4 +79,10 @@ exactly one appropriate audit record and `AuditLogService::scrub()` PII removal.
 | POST | `/admin/attendance/correct/(:num)` | **Audit gap: inspect implementation** | **Not run (MySQL unavailable)** |
 
 Audit verification is **Blocked** until the real MySQL environment and CI4 test bootstrap are available.
+`GET /settings/data/export` is also an audited privacy event despite being a GET: 
+`CustomerDataExportService` emits `personal_data_export` in the export transaction;
+`CustomerPrivacyDatabaseTest::testExportContainsOnlyOwnedOrdersAndAuditsOnce` checks it.
+`CustomerPrivacyDatabaseTest::testApprovalScrubsPersonalFieldsButKeepsFinancialRecordsAndOneAudit`
+checks deletion approval's single audit and financial retention. Both are MySQL-blocked.
+
 Routes with audit gaps must be fixed and covered before correction #15 can be reported Verified.

@@ -163,3 +163,9 @@ Report page numbering using `@page` margin boxes requires Chromium/Chrome **131 
 Customer order pages render a *delivery-only QR* while a delivery is out for delivery; the rider may scan that QR or use the customer-provided four-digit delivery code. The kitchen-ticket QR is not valid delivery evidence. The delivery-only QR expires as soon as the status changes, and the signed token is never returned from the order API. Order API responses whitelist public fields and hide customer contact from riders after completion. Rider ticket and QR verification pages enforce assigned-rider access.
 
 Stock threshold alerts are once per crossing from above to at/below the reorder level, not repeated at zero; restock above the limit re-arms them. Database and device acceptance checks remain outstanding.
+
+### Customer data privacy exports and deletion
+
+Authenticated customers can download their own data via **Settings → Export data**. The JSON includes only whitelisted profile fields, order history, order items, payments (without merchant transaction references), and reviews. Internal token/code hashes, audit records, delivery verification evidence, and cost snapshots are never exported. Exports are audited and use no-store HTTP headers.
+
+When an admin approves a customer deletion request, a single transaction anonymizes account details, clears optional order/line-item/status/issue notes and review comments, removes push subscriptions, notifications and login/reset tokens, and invalidates old sessions. Historical financial orders and payments remain for reconciliation. Stored avatar media is deleted after the database commit. The relevant tests are `tests/Unit/CustomerPrivacyProjectionTest.php` and `tests/Database/CustomerPrivacyDatabaseTest.php` (requires the configured isolated MySQL test database).
