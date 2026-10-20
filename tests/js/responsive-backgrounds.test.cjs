@@ -23,4 +23,12 @@ for (const name of ['main', 'public', 'auth']) {
 }
 assert.match(fs.readFileSync(path.join(root, 'app/Views/layouts/display.php'), 'utf8'), /queue-board\.css/);
 assert.match(fs.readFileSync(path.join(root, 'app/Views/customer/orders/receipt.php'), 'utf8'), /table-responsive/);
+// Mobile navigation must remain legible even when shared sheets use image-backed backgrounds.
+const mainLayout = fs.readFileSync(path.join(root, 'app/Views/layouts/main.php'), 'utf8');
+assert.doesNotMatch(mainLayout, /class="offcanvas offcanvas-start text-bg-dark"[^>]*id="mobileSidebar"/);
+assert.match(css, /#mobileSidebar \.offcanvas-body\s*\{[^}]*background-image:\s*linear-gradient\(/s);
+assert.match(css, /#mobileSidebar \.app-sidebar \.nav-link\s*\{[^}]*color:\s*#253b53/s);
+assert.match(css, /#mobileSidebar \.app-sidebar \.nav-link\.active\s*\{[^}]*color:\s*#083969/s);
+assert.match(css, /#mobileSidebar \.offcanvas-body \.text-white-50\s*\{[^}]*!important/s);
+assert.match(css, /#mobileSidebar \.offcanvas-body \.btn-outline-light\s*\{[^}]*color:\s*#164c7a/s);
 console.log('Responsive backgrounds and image assets tests passed.');

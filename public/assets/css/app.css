@@ -1874,8 +1874,6 @@ body { min-width: 0; overflow-x: clip; }
 .offcanvas:not(#mobileSidebar) .offcanvas-header {
     background: linear-gradient(95deg,rgba(255,255,255,.90),rgba(235,245,255,.78));
 }
-/* The mobile sidebar is deliberately dark, not a white modal sheet. */
-#mobileSidebar { background-image: linear-gradient(150deg,#102a43,#071a2e); }
 
 /* Role-specific hero photography on every dashboard. */
 .dashboard-page { --dashboard-photo: var(--cafe-photo-interior); min-height: calc(100vh - 92px);
@@ -1954,7 +1952,7 @@ body { min-width: 0; overflow-x: clip; }
 .app-sidebar .nav-link .badge { flex: 0 0 auto; }
 #mobileSidebar { width: min(340px, 92vw); max-width: 100%; }
 #mobileSidebar .offcanvas-body { min-height: 0; overscroll-behavior: contain; }
-#mobileSidebar .app-sidebar { min-width: 0; }
+#mobileSidebar .app-sidebar { min-width: 0; min-height: auto; background: transparent; }
 
 .app-main {
     width: calc(100% - var(--sidebar-width));
@@ -2077,6 +2075,76 @@ body:not(.auth-page) {
         var(--cafe-card-art);
     background-size: cover;
 }
+/* Mobile navigation uses its own light palette; the persistent desktop sidebar stays dark.
+   Scope every override to the drawer so the shared image-backed body rule cannot
+   wash out links or user actions. */
+#mobileSidebar {
+    --bs-offcanvas-color: #253b53;
+    color: #253b53;
+    background-color: #f8fbff;
+    background-image: none;
+}
+#mobileSidebar .offcanvas-header {
+    color: #fff;
+    background-color: #102a43;
+    border-bottom-color: #31516b !important;
+}
+#mobileSidebar .offcanvas-body {
+    color: #253b53;
+    background-color: #f8fbff;
+    background-image: linear-gradient(160deg, #f8fbff 0%, #edf5fd 100%);
+}
+#mobileSidebar .app-sidebar .nav-link {
+    color: #253b53;
+    border-color: transparent;
+    background: transparent;
+}
+#mobileSidebar .app-sidebar .sidebar-nav-icon {
+    color: #15599b;
+    background: #e4f0ff;
+    border-color: #c8dff8;
+}
+#mobileSidebar .app-sidebar .nav-link:hover,
+#mobileSidebar .app-sidebar .nav-link:focus-visible {
+    color: #103f70;
+    background: #e4effb;
+    border-color: #bad4f0;
+}
+#mobileSidebar .app-sidebar .nav-link.active {
+    color: #083969;
+    background: linear-gradient(90deg, #cfe4fc, #e9f4ff);
+    border-color: #a6cbee;
+    box-shadow: inset 4px 0 0 #2563eb;
+}
+#mobileSidebar .app-sidebar .nav-link.active .sidebar-nav-icon,
+#mobileSidebar .app-sidebar .nav-link:hover .sidebar-nav-icon,
+#mobileSidebar .app-sidebar .nav-link:focus-visible .sidebar-nav-icon {
+    color: #08457d;
+    background: #fff;
+    border-color: #9fc5ed;
+}
+#mobileSidebar .app-sidebar .nav-link:focus-visible {
+    outline: 2px solid #1d4ed8;
+    outline-offset: 2px;
+}
+#mobileSidebar .offcanvas-body .border-top { border-color: #c5d8ea !important; }
+#mobileSidebar .offcanvas-body .text-white-50 { color: #52687f !important; }
+#mobileSidebar .offcanvas-body .btn-outline-light {
+    color: #164c7a;
+    background: #fff;
+    border-color: #5b86ae;
+}
+#mobileSidebar .offcanvas-body .btn-outline-light:hover,
+#mobileSidebar .offcanvas-body .btn-outline-light:focus-visible {
+    color: #fff;
+    background: #164c7a;
+    border-color: #164c7a;
+}
+#mobileSidebar .offcanvas-body .btn-outline-light:focus-visible {
+    outline: 2px solid #1d4ed8;
+    outline-offset: 2px;
+}
+
 /* Keep white backgrounds on forms and menu tables, with soft image detail beneath. */
 :where(.page-shell, .auth-card, .modal-content, .public-navbar) :is(.form-control, .form-select, .input-group-text) {
     background-color: rgba(255,255,255,.96);

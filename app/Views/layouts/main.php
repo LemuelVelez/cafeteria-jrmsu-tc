@@ -40,7 +40,7 @@ $nav = static function (array $items, string $path): string {
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>?v=2">
     <link href="<?= base_url('assets/vendor/bootstrap/bootstrap.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/css/app.css') . '?v=20261020c' ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/css/app.css') . '?v=20261020d' ?>" rel="stylesheet">
     <?= $this->renderSection('styles') ?>
 </head>
 <?php $cartOwnerId = (int) ($currentUser['id'] ?? 0); ?>
@@ -59,10 +59,10 @@ $nav = static function (array $items, string $path): string {
         <form action="<?= base_url('logout') ?>" method="post" data-confirm="Sign out of your account?" data-confirm-title="Sign out" data-confirm-label="Sign out" data-confirm-class="btn-danger"><?= csrf_field() ?><button class="btn btn-outline-light w-100" type="submit"><i class="bi bi-box-arrow-right me-2"></i>Sign out</button></form>
     </div>
 </aside>
-<div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
+<div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
     <div class="offcanvas-header border-bottom border-secondary"><div class="d-flex align-items-center gap-2"><img class="brand-logo" src="<?= base_url('assets/img/jrmsu-cafeteria-logo.webp') ?>" alt="Logo"><h5 class="offcanvas-title" id="mobileSidebarLabel">JRMSU-TC Cafeteria</h5></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
     <div class="offcanvas-body d-flex flex-column" data-mobile-sidebar-scroll>
-        <nav aria-label="Mobile navigation" class="app-sidebar position-static d-flex flex-column p-0 w-100" style="min-height:auto;background:transparent;"><?= $nav($items, $path) ?></nav>
+        <nav aria-label="Mobile navigation" class="app-sidebar position-static d-flex flex-column p-0 w-100"><?= $nav($items, $path) ?></nav>
         <div class="d-flex align-items-center gap-3 mt-auto pt-4 mb-3 border-top border-secondary-subtle">
             <img class="sidebar-user-avatar" src="<?= esc(user_avatar_url($user['avatar'] ?? null), 'attr') ?>" alt="<?= esc($user['name'] ?? 'User', 'attr') ?> avatar">
             <div class="min-w-0"><div class="fw-semibold text-truncate"><?= esc($user['name'] ?? 'User') ?></div><small class="text-white-50 text-capitalize"><?= esc($role) ?></small></div>
