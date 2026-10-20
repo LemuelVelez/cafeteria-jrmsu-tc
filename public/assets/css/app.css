@@ -2409,3 +2409,18 @@ body:not(.auth-page) > main > section.bg-white {
 @media (max-width: 767.98px) {
     body:not(.auth-page), .app-main, .auth-page { background-attachment: scroll; }
 }
+
+/* Product-level stock gauges: matching accessible text accompanies every color. */
+.stock-level { min-width: 140px; max-width: 225px; color: #15803d; }
+.stock-level--green { color: #15803d; }
+.stock-level--yellow { color: #9a6700; }
+.stock-level--red, .stock-level--empty { color: #b42318; }
+.stock-level__track { appearance: none; display: block; width: 100%; height: .65rem; margin-bottom: .25rem; border: 0; border-radius: 99px; overflow: hidden; background: #e5e7eb; color: currentColor; }
+.stock-level__track::-webkit-progress-bar { background: #e5e7eb; border-radius: 99px; }
+.stock-level__track::-webkit-progress-value { background: currentColor; border-radius: 99px; }
+.stock-level__track::-moz-progress-bar { background: currentColor; border-radius: 99px; }
+.stock-level__description { font-size: .8rem; color: var(--bs-body-color, #343a40); white-space: normal; }
+.stock-level-key { display: inline-block; padding: .2rem .55rem; border: 1px solid currentColor; border-radius: 99px; font-size: .8rem; font-weight: 600; }
+.stock-warning { line-height: 1.7; }
+
+.stock-dashboard-link-card { position: relative; }

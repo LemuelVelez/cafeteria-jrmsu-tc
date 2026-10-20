@@ -12,7 +12,7 @@
     };
     const resetForm = () => {
         form.reset(); form.action = form.dataset.baseAction;
-        form.elements.is_available.checked = true; form.elements.reorder_level.value = 5;
+        form.elements.is_available.checked = true; form.elements.reorder_level.value = 5; form.elements.max_stock.value = 50;
         form.querySelectorAll('input[name="allergen_ids[]"]').forEach((checkbox) => { checkbox.checked = false; });
         const legacy = form.querySelector('[data-legacy-allergens]');
         if (legacy) legacy.textContent = '';
@@ -22,7 +22,7 @@
     document.querySelectorAll('[data-edit-product]').forEach((button) => button.addEventListener('click', () => {
         const product = JSON.parse(button.dataset.editProduct || '{}');
         form.action = `${form.dataset.baseAction}/${product.id}`;
-        ['name','category_id','description','price','sku','barcode','reorder_level',...nutritionFields].forEach((name) => { if (form.elements[name]) form.elements[name].value = product[name] ?? ''; });
+        ['name','category_id','description','price','sku','barcode','reorder_level','max_stock',...nutritionFields].forEach((name) => { if (form.elements[name]) form.elements[name].value = product[name] ?? ''; });
         form.elements.image.value = '';
         form.elements.image_url.value = /^https:\/\//i.test(String(product.image || '')) ? product.image : ''; 
         ['is_available','is_featured','is_healthy_choice'].forEach((name) => { form.elements[name].checked = Number(product[name]) === 1; });

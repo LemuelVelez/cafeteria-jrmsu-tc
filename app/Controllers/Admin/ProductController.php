@@ -20,6 +20,7 @@ class ProductController extends BaseController
         (new \App\Services\AllergenService())->attach($products);
         return $this->render('admin/products/index', [
             'products' => $products,
+            'stockSettings' => \App\Services\StockLevelPolicy::settings(),
             'allergenOptions' => (new \App\Services\AllergenService())->options(),
             'categories' => (new CategoryModel())->where('is_active', 1)->orderBy('name')->findAll(),
         ]);
@@ -57,6 +58,12 @@ class ProductController extends BaseController
             return redirect()->to('/admin/products')->withInput()->with('error', 'Initial stock must be zero or greater.');
         }
 
+        $reorder = filter_var($this->request->getPost('reorder_level'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        $par = filter_var($this->request->getPost('max_stock'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($reorder === false || $par === false || $par < $reorder) {
+            return redirect()->to('/admin/products')->withInput()->with('error', 'Full stock must be at least 1 and no less than the reorder level.');
+        }
+
         $data = [
             'category_id' => (int) $categoryId,
             'name' => trim((string) $this->request->getPost('name')),
@@ -65,7 +72,8 @@ class ProductController extends BaseController
             'barcode' => $barcode,
             'description' => trim((string) $this->request->getPost('description')),
             'price' => $this->request->getPost('price'),
-            'reorder_level' => $this->request->getPost('reorder_level') === '' ? 5 : $this->request->getPost('reorder_level'),
+            'reorder_level' => $reorder,
+            'max_stock' => $par,
             'serving_size' => $this->nullablePost('serving_size'),
             'calories' => $this->nullablePost('calories'),
             'protein_g' => $this->nullablePost('protein_g'),

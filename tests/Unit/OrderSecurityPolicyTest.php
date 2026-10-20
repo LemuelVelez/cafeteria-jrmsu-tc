@@ -43,14 +43,18 @@ final class OrderSecurityPolicyTest extends TestCase
         self::assertArrayNotHasKey('delivery_address',OrderApiPresenter::present($row,['role'=>'rider','id'=>6]));
     }
 
-    public function testOneThresholdAlertUntilRestockedAboveReorder(): void
+    public function testLevelAlertsRearmWhenRestocked(): void
     {
-        self::assertFalse(StockAlertPolicy::crossed(null,4,5));
-        self::assertTrue(StockAlertPolicy::crossed(6,5,5));
-        self::assertFalse(StockAlertPolicy::crossed(5,0,5));
-        self::assertFalse(StockAlertPolicy::crossed(0,0,5));
-        self::assertTrue(StockAlertPolicy::crossed(10,0,5));
-        self::assertTrue(StockAlertPolicy::crossed(8,5,5));
-        self::assertFalse(StockAlertPolicy::crossed(4,8,5));
+        self::assertNull(StockAlertPolicy::transition(null, 5, 5, 100));
+        self::assertSame('stock_half', StockAlertPolicy::transition(80, 50, 5, 100));
+        self::assertNull(StockAlertPolicy::transition(50, 49, 5, 100));
+        self::assertSame('low_stock', StockAlertPolicy::transition(49, 25, 5, 100));
+        self::assertNull(StockAlertPolicy::transition(25, 20, 5, 100));
+        self::assertSame('out_of_stock', StockAlertPolicy::transition(20, 0, 5, 100));
+        self::assertNull(StockAlertPolicy::transition(0, 0, 5, 100));
+        self::assertNull(StockAlertPolicy::transition(5, 80, 5, 100));
+        self::assertSame('stock_half', StockAlertPolicy::transition(80, 50, 5, 100));
+        self::assertNull(StockAlertPolicy::transition(80, 50, 5, 100, 50, 25, false));
+        self::assertSame('low_stock', StockAlertPolicy::transition(50, 25, 5, 100, 50, 25, false));
     }
 }

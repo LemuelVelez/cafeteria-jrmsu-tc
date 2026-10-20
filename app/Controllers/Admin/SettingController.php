@@ -22,6 +22,7 @@ class SettingController extends BaseController
         'backup_keep_daily', 'backup_keep_weekly', 'backup_keep_monthly',
         'attendance_overtime_premium', 'attendance_night_differential',
         'notification_read_retention_days', 'inventory_ingredient_tracking_enabled', 'low_stock_email_digest', 'web_push_enabled',
+        'inventory_level_yellow_percent', 'inventory_level_red_percent', 'inventory_alert_half_enabled',
         'queue_board_enabled', 'queue_sound_enabled', 'queue_voice_enabled', 'queue_ready_hide_minutes', 'queue_number_prefix',
     ];
 
@@ -53,6 +54,9 @@ class SettingController extends BaseController
             'inventory_ingredient_tracking_enabled' => 'required|in_list[0,1]',
             'low_stock_email_digest' => 'required|in_list[0,1]',
             'web_push_enabled' => 'required|in_list[0,1]',
+            'inventory_level_yellow_percent' => 'required|integer|greater_than_equal_to[1]|less_than_equal_to[99]',
+            'inventory_level_red_percent' => 'required|integer|greater_than_equal_to[1]|less_than_equal_to[99]',
+            'inventory_alert_half_enabled' => 'required|in_list[0,1]',
             'queue_board_enabled' => 'required|in_list[0,1]',
             'queue_sound_enabled' => 'required|in_list[0,1]',
             'queue_voice_enabled' => 'required|in_list[0,1]',
@@ -62,6 +66,10 @@ class SettingController extends BaseController
             return redirect()->to('/admin/settings')
                 ->withInput()
                 ->with('errors', $this->validator->getErrors());
+        }
+
+        if ((int) $this->request->getPost('inventory_level_red_percent') >= (int) $this->request->getPost('inventory_level_yellow_percent')) {
+            return redirect()->to('/admin/settings')->withInput()->with('error', 'The red stock threshold must be lower than the yellow threshold.');
         }
 
         $model = new SettingModel();

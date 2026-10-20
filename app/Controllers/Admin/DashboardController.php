@@ -19,10 +19,11 @@ class DashboardController extends BaseController
             'revenue' => (float)($today['sales']['net_sales'] ?? 0),
             'customers' => (new UserModel())->where('role', 'customer')->countAllResults(),
             'products' => (new ProductModel())->where('is_available', 1)->countAllResults(),
-            'lowStock' => (int)$today['lowStockCount'],
+            'redStock' => $today['stockLevels']['red'],
+            'yellowStock' => $today['stockLevels']['yellow'],
         ];
         $recentOrders = array_slice($orders->detailed(), 0, 8);
         $dailyRevenue = $orders->select('DATE(created_at) day, COALESCE(SUM(total),0) revenue')->where('payment_status', 'paid')->where('created_at >=', date('Y-m-d 00:00:00', strtotime('-6 days')))->groupBy('DATE(created_at)')->orderBy('day')->findAll();
-        return $this->render('admin/dashboard', compact('stats', 'recentOrders', 'dailyRevenue') + ['todayStatuses' => $today['statuses']]);
+        return $this->render('admin/dashboard', compact('stats', 'recentOrders', 'dailyRevenue') + ['todayStatuses' => $today['statuses'], 'stockWarnings' => $today['stockLevels']['warnings']]);
     }
 }

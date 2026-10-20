@@ -25,10 +25,18 @@ final class QueueFeedService
             if (in_array($order['status'] ?? '', ['confirmed','preparing'], true)) {
                 $preparing[] = $label;
             } elseif (($order['status'] ?? '') === 'ready_for_pickup' && ! empty($order['ready_at'])) {
-                $readyAt = new \DateTimeImmutable((string) $order['ready_at'], $zone);
+                try {
+                    $readyAt = new \DateTimeImmutable((string) $order['ready_at'], $zone);
+                    $calledAt = ! empty($order['queue_called_at'])
+                        ? new \DateTimeImmutable((string) $order['queue_called_at'], $zone) : $readyAt;
+                } catch (\Throwable $badTime) {
+                    // Malformed historical timestamps must not take the whole public display offline.
+                    log_message('warning', '[QueueBoard] Skipping invalid queue timestamp: {detail}', [
+                        'detail' => 'Queue ' . (int) ($order['queue_number'] ?? 0) . ': ' . get_class($badTime) . ' at ' . $badTime->getFile() . ':' . $badTime->getLine(),
+                    ]);
+                    continue;
+                }
                 if ($readyAt > $now || $readyAt < $now->modify('-' . $hideMinutes . ' minutes')) continue;
-                $calledAt = ! empty($order['queue_called_at'])
-                    ? new \DateTimeImmutable((string) $order['queue_called_at'], $zone) : $readyAt;
                 $ready[] = ['number' => $label, 'called_at' => $calledAt->format(DATE_ATOM), 'calls' => (int) ($order['queue_call_count'] ?? 0)];
             }
         }

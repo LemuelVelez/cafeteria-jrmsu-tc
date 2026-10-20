@@ -37,6 +37,26 @@ final class QueueAndMenuImageTest extends TestCase
         self::assertSame(['P-042', 'P-043'], array_column($custom['ready'], 'number'));
     }
 
+    public function testMalformedReadyTimestampCannotBlackoutAHealthyQueue(): void
+    {
+        $now = new \DateTimeImmutable('2026-10-20 12:00:00', new \DateTimeZone('Asia/Manila'));
+        $template = ['queue_date' => '2026-10-20', 'order_type' => 'pickup', 'status' => 'ready_for_pickup',
+            'queue_number' => 1, 'ready_at' => 'not a timestamp', 'queue_call_count' => 1];
+        $valid = array_replace($template, ['queue_number' => 2, 'ready_at' => '2026-10-20 11:55:00']);
+        $result = QueueFeedService::present([$template, $valid], false, false, $now, 30, '');
+        self::assertSame(['002'], array_column($result['ready'], 'number'));
+        self::assertArrayNotHasKey('error', $result);
+    }
+
+    public function testQueueDiagnosticsIncludeEveryRuntimeDependency(): void
+    {
+        $file = file_get_contents(dirname(__DIR__, 2) . '/app/Commands/QueueCheck.php');
+        foreach (['Database connection', 'Five queue columns', 'queue_counters table',
+            'writable/cache storage', 'CAFETERIA_TIMEZONE', 'QueueFeedService::feed()'] as $check) {
+            self::assertStringContainsString($check, $file);
+        }
+    }
+
     public function testEverySeededProductHasAnAllowlistedHttpsImage(): void
     {
         $catalog = config(\Config\MenuImages::class);

@@ -18,7 +18,9 @@ class DashboardController extends BaseController
             'summary' => $summary,
             'recentOrders' => array_slice($orders->detailed(['orders.cashier_id' => $userId]), 0, 8),
             'pendingCount' => $orders->whereIn('status', ['pending', 'confirmed', 'preparing'])->countAllResults(),
-            'lowStockCount' => (int)$today['lowStockCount'],
+            'redStockCount' => $today['stockLevels']['red'],
+            'yellowStockCount' => $today['stockLevels']['yellow'],
+            'stockWarnings' => $today['stockLevels']['warnings'],
             'todayStatuses' => $today['statuses'],
         ]);
     }

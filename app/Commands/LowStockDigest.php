@@ -4,6 +4,7 @@ use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use App\Services\AccountEmailService;
 use App\Services\AuditLogService;
+use App\Services\StockLevelPolicy;
 
 class LowStockDigest extends BaseCommand
 {
@@ -20,7 +21,9 @@ class LowStockDigest extends BaseCommand
             $today=date('Y-m-d');
             $last=(string)($db->table('settings')->where('setting_key','low_stock_digest_last_at')->get()->getRow('setting_value')??'');
             if($last===$today){CLI::write('Digest already sent today.');return;}
-            $products=$db->table('products')->select('name,stock,max_stock')->where('deleted_at',null)->where('stock <= reorder_level',null,false)->orderBy('name')->get()->getResultArray();
+            $all=$db->table('products')->select('name,stock,reorder_level,max_stock')->where('deleted_at',null)->orderBy('name')->get()->getResultArray();
+            $stockSettings=StockLevelPolicy::settings($db);
+            $products=array_values(array_filter($all,static fn(array $p):bool=>in_array(StockLevelPolicy::forProduct($p,$stockSettings)['level'],['red','empty'],true)));
             if (!$products){CLI::write('No low-stock products to report.');return;}
             $recipients=$db->table('users')->select('id,email')->whereIn('role',['admin','cashier'])->where('status','active')->get()->getResultArray();
             $mail=new AccountEmailService();$sent=0;

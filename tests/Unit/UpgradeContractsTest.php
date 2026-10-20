@@ -87,8 +87,8 @@ final class UpgradeContractsTest extends TestCase
         self::assertSame([], \App\Services\OrderService::allowedTransitions($order, $other));
         $order['status'] = 'delivered';
         self::assertSame([], \App\Services\OrderService::allowedTransitions($order, $assigned));
-        self::assertTrue(\App\Services\StockAlertPolicy::crossed(6, 5, 5));
-        self::assertFalse(\App\Services\StockAlertPolicy::crossed(5, 4, 5));
+        self::assertSame('low_stock', \App\Services\StockAlertPolicy::transition(50, 5, 5, 100));
+        self::assertNull(\App\Services\StockAlertPolicy::transition(5, 4, 5, 100));
         // Recording/reading the dispatch stage and ledger requires the
         // corresponding database tests, not a source-string assertion.
     }

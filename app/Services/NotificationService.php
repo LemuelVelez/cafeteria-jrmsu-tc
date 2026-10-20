@@ -77,19 +77,22 @@ class NotificationService
 
     public function lowStock(array $product): void
     {
-        $stock = (int) ($product['stock'] ?? 0);
-        $level = (int) ($product['reorder_level'] ?? 5);
         $previous = $product['previous_stock'] ?? null;
-        // One alert per below-threshold episode; restocking above reorder re-arms it.
-        // Reaching zero while already below threshold must NOT notify a second time.
         if ($previous === null) return;
-        $crossed = StockAlertPolicy::crossed((int) $previous, $stock, $level);
-        if (! $crossed) return;
-        $becameZero = $stock === 0;
-        $type = $becameZero ? 'out_of_stock' : 'low_stock';
+        $settings = StockLevelPolicy::settings($this->db());
+        $stock = (int) ($product['stock'] ?? 0);
+        // Each new worse level is a distinct episode, including red -> empty.
+        // Restocking to a better level re-arms subsequent transitions.
+        $type = StockAlertPolicy::transition((int) $previous, $stock,
+            (int) ($product['reorder_level'] ?? 5), (int) ($product['max_stock'] ?? 0),
+            $settings['inventory_level_yellow_percent'], $settings['inventory_level_red_percent'],
+            $settings['inventory_alert_half_enabled'] === 1);
+        if ($type === null) return;
+        $titles = ['stock_half' => 'Stock at half level', 'low_stock' => 'Low stock', 'out_of_stock' => 'Out of stock'];
         foreach ($this->staffUsers(['admin', 'cashier']) as $staff) {
             $link = $staff['role'] === 'cashier' ? '/cashier/inventory' : '/admin/inventory';
-            $this->insert((int) $staff['id'], null, $type, $becameZero ? 'Out of stock' : 'Low stock', ($product['name'] ?? 'Product') . ' has ' . $stock . ' unit(s) remaining.', $link);
+            $this->insert((int) $staff['id'], null, $type, $titles[$type],
+                ($product['name'] ?? 'Product') . ' has ' . $stock . ' unit(s) remaining.', $link);
         }
     }
 

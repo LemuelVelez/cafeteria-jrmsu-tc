@@ -197,7 +197,14 @@ class AccountEmailService
     {
         if (!$products || empty($staff['email']))return false;
         $rows=[];
-        foreach($products as $p)$rows[]=esc($p['name']).': '.(int)$p['stock'].' remaining; reorder '.max(0,(int)$p['max_stock']-(int)$p['stock']);
+        $settings = StockLevelPolicy::settings();
+        foreach ($products as $p) {
+            $level = StockLevelPolicy::forProduct($p, $settings);
+            if (! in_array($level['level'], ['red', 'empty'], true)) continue;
+            $rows[] = esc($p['name']) . ': ' . esc($level['label']) . ' · ' . (int) $p['stock']
+                . '/' . (int) $p['max_stock'] . ' remaining; reorder ' . max(0, (int) $p['max_stock'] - (int) $p['stock']);
+        }
+        if (! $rows) return false;
         $body='<h2>Daily cafeteria low-stock report</h2><p>'.esc(date('Y-m-d')).'</p><ul><li>'.implode('</li><li>',$rows).'</li></ul>';
         return $this->send((string)$staff['email'],'Daily low-stock report', $body,strip_tags(str_replace('</li>',"\n",$body)));
     }

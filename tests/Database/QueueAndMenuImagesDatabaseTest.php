@@ -67,6 +67,52 @@ final class QueueAndMenuImagesDatabaseTest extends DatabaseTestCase
         self::assertSame([], (new QueueFeedService($db))->feed(30, true, true)['preparing']);
     }
 
+    public function testQueueSchemaAndServiceOperateOnTheTestConnection(): void
+    {
+        $db = db_connect('tests');
+        foreach (['queue_number','queue_date','ready_at','queue_called_at','queue_call_count'] as $field) {
+            self::assertTrue($db->fieldExists($field, 'orders'), $field);
+        }
+        self::assertTrue($db->tableExists('queue_counters'));
+        self::assertArrayHasKey('generated_at', (new QueueFeedService($db))->feed(30, false, false));
+    }
+
+    public function testStockHalfRedAndEmptyNotificationsFollowLedgerTransitions(): void
+    {
+        $db = db_connect('tests');
+        $productId = (int) $db->table('products')->where('slug', 'crispy-fries')->get()->getRow('id');
+        $actor = $this->actor('admin');
+        $db->table('products')->where('id', $productId)->update(['max_stock' => 100, 'reorder_level' => 10]);
+        $db->table('settings')->where('setting_key', 'inventory_alert_half_enabled')->update(['setting_value' => '1']);
+        $inventory = new \App\Services\InventoryService($db);
+        $alerts = new \App\Services\NotificationService($db);
+        foreach ([80, 50, 49, 10, 0, 80, 50] as $quantity) {
+            $db->transBegin();
+            try {
+                $updated = $inventory->count($productId, $quantity, (int) $actor['id'], 'Regression stock count');
+                $alerts->lowStock($updated);
+                self::assertTrue($db->transStatus());
+                $db->transCommit();
+            } catch (\Throwable $exception) {
+                $db->transRollback();
+                throw $exception;
+            }
+        }
+        $types = $db->table('notifications')->select('type')->where('user_id', $actor['id'])
+            ->whereIn('type', ['stock_half', 'low_stock', 'out_of_stock'])->get()->getResultArray();
+        $counts = array_count_values(array_column($types, 'type'));
+        self::assertSame(2, $counts['stock_half'] ?? 0); // A restock re-armed yellow.
+        self::assertSame(1, $counts['low_stock'] ?? 0);
+        self::assertSame(1, $counts['out_of_stock'] ?? 0);
+        $db->table('settings')->where('setting_key', 'inventory_alert_half_enabled')->update(['setting_value' => '0']);
+        $db->transBegin();
+        $alerts->lowStock($inventory->count($productId, 80, (int) $actor['id'], 'Restock test'));
+        $alerts->lowStock($inventory->count($productId, 50, (int) $actor['id'], 'No yellow alert'));
+        $db->transCommit();
+        self::assertSame(2, $db->table('notifications')->where('user_id', $actor['id'])
+            ->where('type', 'stock_half')->countAllResults());
+    }
+
     public function testImageMigrationNeverOverwritesUploadedImage(): void
     {
         $db = db_connect('tests');

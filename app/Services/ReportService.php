@@ -62,7 +62,10 @@ SQL, [$from, $to])->getResultArray();
     {
         // Reconstruct the balance at the end of the selected day from immutable movements.
         // Reorder and par levels are the current thresholds; their history is not recorded.
-        return $this->db()->query("SELECT p.id,p.name,p.sku,COALESCE(t.balance,0) stock,p.reorder_level,p.max_stock,GREATEST(0,p.max_stock-COALESCE(t.balance,0)) suggested_reorder FROM products p LEFT JOIN (SELECT product_id,SUM(quantity) balance FROM inventory_movements WHERE created_at < ? GROUP BY product_id) t ON t.product_id=p.id WHERE p.deleted_at IS NULL AND (p.created_at IS NULL OR p.created_at < ?) AND COALESCE(t.balance,0)<=p.reorder_level ORDER BY stock,p.name",[$to.' 23:59:59.999999',$to.' 23:59:59.999999'])->getResultArray();
+        $rows = $this->db()->query("SELECT p.id,p.name,p.sku,COALESCE(t.balance,0) stock,p.reorder_level,p.max_stock,GREATEST(0,p.max_stock-COALESCE(t.balance,0)) suggested_reorder FROM products p LEFT JOIN (SELECT product_id,SUM(quantity) balance FROM inventory_movements WHERE created_at < ? GROUP BY product_id) t ON t.product_id=p.id WHERE p.deleted_at IS NULL AND (p.created_at IS NULL OR p.created_at < ?) ORDER BY stock,p.name",[$to.' 23:59:59.999999',$to.' 23:59:59.999999'])->getResultArray();
+        $settings = StockLevelPolicy::settings($this->db());
+        return array_values(array_filter($rows, static fn (array $p): bool =>
+            in_array(StockLevelPolicy::forProduct($p, $settings)['level'], ['red', 'empty'], true)));
     }
 
     /** Payroll estimates are in the admin reports and staff attendance view only when enabled. */
@@ -135,7 +138,7 @@ SQL, [$from, $to])->getResultArray();
     public function inventory(string $from, string $to): array
     {
         $db = $this->db();
-        $products = $db->query('SELECT id, name, sku, stock, reorder_level, price, stock * price stock_value FROM products WHERE deleted_at IS NULL ORDER BY name')->getResultArray();
+        $products = $db->query('SELECT id, name, sku, stock, reorder_level, max_stock, price, stock * price stock_value FROM products WHERE deleted_at IS NULL ORDER BY name')->getResultArray();
         $movements = $db->query(
             "SELECT product_id, movement_type, SUM(quantity) quantity FROM inventory_movements WHERE DATE(created_at) >= ? AND DATE(created_at) <= ? GROUP BY product_id, movement_type",
             [$from, $to],
@@ -157,11 +160,12 @@ SQL, [$from, $to])->getResultArray();
             $product['closing_stock'] = $product['opening_stock'] + $periodMovement;
         }
         unset($product);
+        $stockSettings = StockLevelPolicy::settings($db);
         return [
             'products' => $products,
             'movements' => $summary,
-            'lowStock' => array_values(array_filter($products, static fn (array $p): bool => (int) $p['stock'] > 0 && (int) $p['stock'] <= (int) $p['reorder_level'])),
-            'outOfStock' => array_values(array_filter($products, static fn (array $p): bool => (int) $p['stock'] === 0)),
+            'lowStock' => array_values(array_filter($products, static fn (array $p): bool => StockLevelPolicy::forProduct($p, $stockSettings)['level'] === 'red')),
+            'outOfStock' => array_values(array_filter($products, static fn (array $p): bool => StockLevelPolicy::forProduct($p, $stockSettings)['level'] === 'empty')),
         ];
     }
 
@@ -212,8 +216,11 @@ SQL, [$from, $to])->getResultArray();
         $today = date('Y-m-d');
         $sales = $this->sales($today, $today)['summary'];
         $statuses = $this->db()->query('SELECT status, COUNT(*) count FROM orders WHERE DATE(created_at)=? GROUP BY status', [$today])->getResultArray();
-        $low = (int) $this->db()->query('SELECT COUNT(*) count FROM products WHERE deleted_at IS NULL AND stock <= reorder_level')->getRow('count');
-        return ['sales' => $sales, 'statuses' => $statuses, 'lowStockCount' => $low];
+        $products = $this->db()->table('products')->select('id,name,stock,reorder_level,max_stock')
+            ->where('deleted_at', null)->get()->getResultArray();
+        $levels = StockLevelPolicy::summary($products, StockLevelPolicy::settings($this->db()));
+        return ['sales' => $sales, 'statuses' => $statuses,
+            'lowStockCount' => $levels['red'] + $levels['empty'], 'stockLevels' => $levels];
     }
 
     private function db(): BaseConnection

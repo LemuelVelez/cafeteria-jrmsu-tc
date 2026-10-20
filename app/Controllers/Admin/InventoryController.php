@@ -8,6 +8,7 @@ use App\Models\ProductModel;
 use App\Services\AuditLogService;
 use App\Services\InventoryService;
 use App\Services\NotificationService;
+use App\Services\StockLevelPolicy;
 use Throwable;
 
 class InventoryController extends BaseController
@@ -20,9 +21,25 @@ class InventoryController extends BaseController
         $movements = [];
         $balances = db_connect()->query("SELECT product_id, COALESCE(SUM(quantity),0) ledger_balance FROM inventory_movements GROUP BY product_id")->getResultArray();
         $balancesById = array_column($balances, 'ledger_balance', 'product_id');
+        $settings = StockLevelPolicy::settings();
+        $products = (new ProductModel())->withCategory();
+        $summary = StockLevelPolicy::summary($products, $settings);
+        $level = (string) $this->request->getGet('level');
+        if (! in_array($level, ['all', 'green', 'yellow', 'red', 'empty'], true)) $level = 'all';
+        // Urgent stock must come first, even when the user is viewing all products.
+        usort($products, static function (array $a, array $b) use ($settings): int {
+            $severity = ['empty' => 0, 'red' => 1, 'yellow' => 2, 'green' => 3];
+            $first = StockLevelPolicy::forProduct($a, $settings)['level'];
+            $second = StockLevelPolicy::forProduct($b, $settings)['level'];
+            return ($severity[$first] <=> $severity[$second]) ?: strcmp($a['name'], $b['name']);
+        });
+        $visible = $level === 'all' ? $products : array_values(array_filter($products,
+            static fn (array $p): bool => StockLevelPolicy::forProduct($p, $settings)['level'] === $level));
         return $this->render('admin/inventory/index', ['balancesById' => $balancesById,
             'title' => 'Inventory',
-            'products' => (new ProductModel())->withCategory(),
+            'products' => $visible,
+            'allProducts' => $products,
+            'stockSettings' => $settings, 'stockSummary' => $summary, 'levelFilter' => $level,
             'movements' => $movements,
             'selectedProductId' => $productId,
             'canEdit' => $role === 'admin',
