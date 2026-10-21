@@ -77,14 +77,25 @@ final class DemoRecipePreviewSeeder extends Seeder
         if (! $db->tableExists('products') || ! $db->tableExists('product_recipes')) {
             return 0;
         }
-        $products = $db->table('products')->whereIn('slug', array_keys(self::EXAMPLES))
+
+        // Read once rather than issuing another round trip for every product.
+        $products = $db->table('products')
+            ->whereIn('slug', array_keys(self::EXAMPLES))
             ->get()->getResultArray();
+        if ($products === []) {
+            return 0;
+        }
+        $recipeIds = array_fill_keys(array_map('intval', array_column(
+            $db->table('product_recipes')
+                ->select('product_id')->distinct()
+                ->whereIn('product_id', array_column($products, 'id'))
+                ->get()->getResultArray(),
+            'product_id',
+        )), true);
         $covered = 0;
         foreach ($products as $product) {
-            if (! $db->table('product_recipes')->where('product_id', $product['id'])->countAllResults()) {
-                continue;
-            }
-            if (trim((string) ($product['serving_size'] ?? '')) === '') {
+            if (! isset($recipeIds[(int) $product['id']])
+                || trim((string) ($product['serving_size'] ?? '')) === '') {
                 continue;
             }
             foreach (array_keys(self::EXAMPLES[$product['slug']]['nutrition']) as $field) {
@@ -103,18 +114,34 @@ final class DemoRecipePreviewSeeder extends Seeder
             throw new RuntimeException('Synthetic demo recipes must never be seeded in production.');
         }
 
+        $total = count(self::EXAMPLES);
         $created = 0;
         $existing = 0;
-        $this->db->transBegin();
-        try {
-            $costing = new CostingService($this->db);
-            $allergenService = new AllergenService($this->db);
-            $allergenOptions = $allergenService->options();
-            $allergens = array_column($allergenOptions, 'id', 'code');
-            $names = array_column($allergenOptions, 'name', 'code');
-            $audit = new AuditLogService($this->db);
-            $now = date('Y-m-d H:i:s');
-            foreach (self::EXAMPLES as $slug => $sample) {
+        CLI::write(sprintf('DemoRecipePreviewSeeder: inspecting %d products (synthetic examples only).', $total), 'cyan');
+        CLI::write('Checking database access and configuring a short MySQL lock wait...', 'cyan');
+        $this->limitLockWait();
+
+        // Do not hold an eight-product transaction open over dozens of remote
+        // database calls. A product is committed atomically and can be safely
+        // skipped on a retry if the process is interrupted halfway through.
+        CLI::write('Loading allergen reference data...', 'cyan');
+        $costing = new CostingService($this->db);
+        $allergenService = new AllergenService($this->db);
+        $allergenOptions = $allergenService->options();
+        $allergens = array_column($allergenOptions, 'id', 'code');
+        $names = array_column($allergenOptions, 'name', 'code');
+        $audit = new AuditLogService($this->db);
+
+        foreach (self::EXAMPLES as $slug => $sample) {
+            $index = $created + $existing + 1;
+            CLI::write(sprintf('   [%d/%d] %s: checking product and recipe...', $index, $total, $sample['label']), 'yellow');
+
+            if (! $this->db->transBegin()) {
+                throw new RuntimeException('Unable to begin demo recipe transaction for ' . $slug);
+            }
+            try {
+                // Lock only the current product, and release that lock before
+                // processing the next one. MySQL's lock-wait limit is set above.
                 $product = $this->db->query('SELECT * FROM products WHERE slug = ? FOR UPDATE', [$slug])->getRowArray();
                 if ($product === null) {
                     throw new RuntimeException('Seed the core products before adding demo recipes: ' . $slug);
@@ -122,25 +149,31 @@ final class DemoRecipePreviewSeeder extends Seeder
                 $productId = (int) $product['id'];
                 if ($this->db->table('product_recipes')->where('product_id', $productId)->countAllResults()) {
                     ++$existing; // Never replace a kitchen/admin recipe.
+                    if (! $this->db->transStatus()) {
+                        throw new RuntimeException('Could not inspect existing recipe for ' . $slug);
+                    }
+                    if (! $this->db->transCommit()) {
+                        throw new RuntimeException('Could not commit existing-recipe check for ' . $slug);
+                    }
+                    CLI::write(sprintf('   [%d/%d] %s: existing recipe preserved.', $index, $total, $sample['label']), 'green');
                     continue;
                 }
                 if ($product['nutrition_status'] === 'verified' || $product['nutrition_verified_by'] !== null
                     || $product['nutrition_verified_at'] !== null || $product['nutrition_source'] === 'recipe_sourced') {
                     throw new RuntimeException('Refusing to change verified nutrition for ' . $slug);
                 }
-                // A synthetic whole-serving ingredient, not an ingredient list or a
-                // kitchen measurement. Its empty source_reference yields recipe_unverified.
+
+                // This is one made-up whole-serving ingredient, NOT a real
+                // ingredient list or authenticated kitchen measurement.
                 $name = 'DEMO ONLY - ' . $sample['label'] . ' (synthetic serving)';
                 $ingredient = $this->db->table('ingredients')->where('name', $name)->get()->getRowArray();
                 if ($ingredient === null) {
-                    // Preserve every pre-existing non-NULL nutrient value. The
-                    // synthetic recipe is chosen to reproduce those values through
-                    // CostingService; only missing values use the demo example.
                     $ingredientData = $sample['nutrition'];
                     foreach ($ingredientData as $field => $value) {
                         $perServing = $product[$field] === null ? $value : (float) $product[$field];
                         $ingredientData[$field] = $perServing * max(1, (int) $product['recipe_servings']);
                     }
+                    $now = date('Y-m-d H:i:s');
                     $ingredientData += [
                         'name' => $name, 'purchase_unit' => 'g', 'cost_per_unit' => 0,
                         'supplier' => 'DEMO ONLY - not an actual supplier or purchase price',
@@ -160,7 +193,8 @@ final class DemoRecipePreviewSeeder extends Seeder
                         throw new RuntimeException('Unable to insert demo ingredient cost history.');
                     }
                 } else {
-                    if ($ingredient['source_reference'] !== null || ! str_starts_with((string) $ingredient['supplier'], 'DEMO ONLY')) {
+                    if ($ingredient['source_reference'] !== null
+                        || ! str_starts_with((string) $ingredient['supplier'], 'DEMO ONLY')) {
                         throw new RuntimeException('Existing ingredient is not a demo placeholder: ' . $name);
                     }
                     $ingredientId = (int) $ingredient['id'];
@@ -196,21 +230,48 @@ final class DemoRecipePreviewSeeder extends Seeder
                         }
                     }
                 }
+                CLI::write(sprintf('   [%d/%d] %s: calculating nutrition...', $index, $total, $sample['label']), 'cyan');
                 $costing->refreshNutrition($productId);
                 $audit->record('unverified_demo_recipe_seeded', 'product', $productId, [
                     'synthetic' => true, 'approved' => false, 'ingredient_count' => 1,
                 ]);
+                if (! $this->db->transStatus()) {
+                    throw new RuntimeException('The demo recipe seed transaction failed for ' . $slug);
+                }
+                if (! $this->db->transCommit()) {
+                    throw new RuntimeException('Could not commit demo recipe for ' . $slug);
+                }
                 ++$created;
+                CLI::write(sprintf('   [%d/%d] %s: demo recipe saved.', $index, $total, $sample['label']), 'green');
+            } catch (Throwable $error) {
+                $this->db->transRollback();
+                throw new RuntimeException(sprintf(
+                    'Demo recipe %d/%d (%s) failed: %s. Earlier completed products remain saved; rerun php spark seed to resume.',
+                    $index, $total, $slug, $error->getMessage(),
+                ), 0, $error);
             }
-            if (! $this->db->transStatus()) {
-                throw new RuntimeException('The demo recipe seed transaction failed.');
-            }
-            $this->db->transCommit();
-        } catch (Throwable $error) {
-            $this->db->transRollback();
-            throw $error;
         }
+
+        CLI::write('Verifying all eight demo recipes...', 'cyan');
         CLI::write(sprintf('Unverified demo recipes: %d/%d available; %d created, %d existing left unchanged.',
-            self::coverage($this->db), count(self::EXAMPLES), $created, $existing));
+            self::coverage($this->db), $total, $created, $existing));
+    }
+
+    /** Fail promptly instead of waiting for MySQL's long default InnoDB lock timeout. */
+    private function limitLockWait(): void
+    {
+        if ($this->db->DBDriver !== 'MySQLi') {
+            return;
+        }
+        // This changes only the current CLI connection, not a global database setting.
+        // A failure to configure the limit should not silently turn into a hang.
+        try {
+            if ($this->db->query('SET SESSION innodb_lock_wait_timeout = 10') === false
+                || $this->db->query('SET SESSION lock_wait_timeout = 10') === false) {
+                throw new RuntimeException('MySQL rejected the session lock-wait limits.');
+            }
+        } catch (Throwable $error) {
+            throw new RuntimeException('Cannot configure MySQL lock-wait timeout: ' . $error->getMessage(), 0, $error);
+        }
     }
 }
