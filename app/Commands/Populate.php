@@ -61,8 +61,8 @@ class Populate extends BaseCommand
 
             CLI::write('Core demo seed records and 8/8 demo products are present; existing stock is unchanged.', 'green');
             if ($ready < count(DemoProductNutritionCatalog::SEEDERS)) {
-                CLI::write('Nutrition recipes: ' . $ready . '/8 approved source catalogs. Missing recipes remain DEFERRED, not fabricated.', 'yellow');
-                CLI::write('No measurements or kitchen approvals were invented or edited.', 'yellow');
+                CLI::write('Optional kitchen-approved recipe sources: ' . $ready . '/8; missing recipes were not seeded.', 'cyan');
+                CLI::write('No measurements or kitchen approvals were invented or edited.', 'cyan');
             } else {
                 CLI::write('Approved source catalogs: 8/8. See seed output for database verification.', 'green');
             }
@@ -104,7 +104,7 @@ class Populate extends BaseCommand
             'slug',
         );
         return DemoPopulationReadiness::isReady(
-            DatabaseSeeder::SEEDERS, $recorded, $productSlugs,
+            DatabaseSeeder::requiredSeeders(), $recorded, $productSlugs,
         );
     }
 
@@ -160,7 +160,7 @@ class Populate extends BaseCommand
             }
         }
         CLI::write('Done: ' . $saved . ' recipe(s) populated, ' . $skipped . ' skipped.', 'green');
-        CLI::write('Run php spark populate to seed any newly approved recipes.', 'cyan');
+        CLI::write('Run php spark seed to import newly approved recipes.', 'cyan');
         return EXIT_SUCCESS;
     }
 

@@ -55,6 +55,41 @@ class DatabaseSeeder extends Seeder
     }
 
     /**
+     * Legacy bulk imports stay in SEEDERS for recognition/history only. The
+     * independent product seeders supersede them and may never be replayed.
+     * Missing kitchen-approved recipes are OPTIONAL for standard application
+     * setup; strict acceptance still requires all eight.
+     *
+     * @return list<string>
+     */
+    public static function requiredSeeders(): array
+    {
+        return array_values(array_filter(self::SEEDERS, static fn (string $seeder): bool =>
+            ! isset(DemoProductNutritionCatalog::SEEDERS[$seeder])
+            && ! in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)));
+    }
+
+    /**
+     * Select approved independent recipes without marking missing recipes as
+     * applied. The two legacy bulk seeders are never selected, even in strict
+     * mode: previous seeder_runs entries remain untouched.
+     *
+     * @param list<string> $readySlugs
+     * @return list<string>
+     */
+    public static function runnableSeeders(array $readySlugs, bool $strict = false): array
+    {
+        $allowed = array_fill_keys($readySlugs, true);
+        return array_values(array_filter(self::SEEDERS, static function (string $seeder) use ($allowed, $strict): bool {
+            if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)) {
+                return false;
+            }
+            $slug = DemoProductNutritionCatalog::slugForSeeder($seeder);
+            return $slug === null || $strict || isset($allowed[$slug]);
+        }));
+    }
+
+    /**
      * Files that have neither a default registry entry nor a deliberate
      * manual-only exception must still fail the seeding preflight.
      *
@@ -115,19 +150,19 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // The test framework can call this directly. Apply each product only
-        // after its kitchen worksheet is approved. Legacy bulk seeders stay
-        // disabled: the eight custom seeders cover the same data and avoid
-        // double-importing recipes or overwriting existing administrator edits.
+        // Direct CodeIgniter seeding must match the normal CLI selection:
+        // required application data plus only explicitly kitchen-approved
+        // individual recipes. Never run either deprecated bulk seeder.
         $ingredients = IngredientSeeder::rows();
         $recipes = RecipeSeeder::rows();
         $worksheet = DemoProductNutritionCatalog::worksheet();
-        foreach (self::SEEDERS as $seeder) {
-            if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)) continue;
-            $slug = DemoProductNutritionCatalog::slugForSeeder($seeder);
-            if ($slug !== null && ! DemoProductNutritionCatalog::assess($slug, $ingredients, $recipes, $worksheet)['ready']) {
-                continue;
+        $ready = [];
+        foreach (DemoProductNutritionCatalog::SEEDERS as $slug) {
+            if (DemoProductNutritionCatalog::assess($slug, $ingredients, $recipes, $worksheet)['ready']) {
+                $ready[] = $slug;
             }
+        }
+        foreach (self::runnableSeeders($ready) as $seeder) {
             $this->call($seeder);
         }
     }

@@ -5,9 +5,7 @@ namespace App\Commands;
 use App\Database\Seeds\DatabaseSeeder;
 use App\Database\Seeds\IngredientSeeder;
 use App\Database\Seeds\RecipeSeeder;
-use App\Services\NutritionCatalogAudit;
 use App\Services\DemoProductNutritionCatalog;
-use App\Services\NutritionSeedingPolicy;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\Database\BaseConnection;
@@ -25,8 +23,8 @@ class SeedAll extends BaseCommand
     public function run(array $params): int
     {
         try {
-            // `seed` sets up the usable application. `seed strict` is for
-            // acceptance checks and refuses any deferred nutrition seeder.
+            // Standard setup includes required seeders and only approved
+            // recipes. Strict mode additionally requires every demo recipe.
             if (array_diff($params, ['strict']) !== []) {
                 CLI::error('Usage: php spark ' . $this->usage);
                 return EXIT_ERROR;
@@ -46,8 +44,8 @@ class SeedAll extends BaseCommand
                 throw new RuntimeException('Seeder tracking table is missing. Run php spark migrate first.');
             }
 
-            $seeders = DatabaseSeeder::seeders();
-            if ($seeders === []) {
+            $registered = DatabaseSeeder::seeders();
+            if ($registered === []) {
                 CLI::write('✨ No registered seeders. Nothing to run.', 'green');
                 return EXIT_SUCCESS;
             }
@@ -61,24 +59,28 @@ class SeedAll extends BaseCommand
                 throw new RuntimeException('Every application seeder must be registered or explicitly manual-only in DatabaseSeeder.');
             }
 
-            $this->step('🔎', sprintf('Checking %d registered seeder(s)...', count($seeders)), 'cyan');
-            $pending = [];
-            // Map of deferred seeder name to whether a legacy registry marker
-            // already exists. Do not alter historical seeder_runs records.
-            $deferredNutrition = [];
-            // Nutrition seeders must be released together. Importing a partial
-            // ingredient catalog would record an irreversible registry marker
-            // before the team finishes the other product recipes.
             $sourceRows = IngredientSeeder::rows();
             $recipeRows = RecipeSeeder::rows();
-            $catalog = NutritionCatalogAudit::assess($sourceRows, $recipeRows);
             $worksheet = DemoProductNutritionCatalog::worksheet();
-            $approvedRecipes = 0;
-            foreach (DemoProductNutritionCatalog::SEEDERS as $productSlug) {
-                if (DemoProductNutritionCatalog::assess($productSlug, $sourceRows, $recipeRows, $worksheet)['ready']) {
-                    $approvedRecipes++;
+            $readySlugs = [];
+            foreach (DemoProductNutritionCatalog::SEEDERS as $slug) {
+                if (DemoProductNutritionCatalog::assess($slug, $sourceRows, $recipeRows, $worksheet)['ready']) {
+                    $readySlugs[] = $slug;
                 }
             }
+            $approvedRecipes = count($readySlugs);
+            $requiredRecipes = count(DemoProductNutritionCatalog::SEEDERS);
+            if ($strict && $approvedRecipes !== $requiredRecipes) {
+                CLI::error(sprintf('Strict nutrition acceptance is not ready: %d/%d signed, measured recipes.',
+                    $approvedRecipes, $requiredRecipes));
+                CLI::write('Enter authentic kitchen-approved quantities in ingredients.csv, recipes.csv', 'yellow');
+                CLI::write('and recipe_measurement_workbook.csv; run php spark nutrition:catalog-audit.', 'yellow');
+                return EXIT_ERROR;
+            }
+
+            $seeders = DatabaseSeeder::runnableSeeders($readySlugs, $strict);
+            $this->step('🔎', sprintf('Checking %d applicable seeder(s)...', count($seeders)), 'cyan');
+            $pending = [];
             $skipped = 0;
 
             foreach ($seeders as $index => $seeder) {
@@ -90,41 +92,15 @@ class SeedAll extends BaseCommand
 
                 $record = $this->seederRun($db, $seeder);
                 $productSlug = DemoProductNutritionCatalog::slugForSeeder($seeder);
-                if ($productSlug !== null) {
-                    $product = DemoProductNutritionCatalog::assess($productSlug, $sourceRows, $recipeRows, $worksheet);
-                    if (! $product['ready']) {
-                        $deferredNutrition[$seeder] = $record !== null;
-                        CLI::write(sprintf('   ⏸️  [%d/%d] %s — DEFERRED (no approved, measured recipe for %s)',
-                            $position, count($seeders), $seeder, $productSlug), 'yellow');
-                        continue;
-                    }
-                }
-                // The independent product seeders now own recipe and ingredient
-                // imports. Old bulk markers are kept for history, never replayed.
-                // Once all eight items are seeded, satisfied legacy records may
-                // be adopted or skipped normally.
-                $legacy = in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true);
-                $legacyReady = $catalog['ready'] && (! $legacy || DatabaseSeeder::isSatisfied($seeder, $db));
-                $decision = NutritionSeedingPolicy::disposition($seeder, $legacyReady, $record !== null);
-                if ($decision === 'deferred' || $decision === 'legacy_deferred') {
-                    $hasLegacyMarker = $decision === 'legacy_deferred';
-                    $deferredNutrition[$seeder] = $hasLegacyMarker;
-                    CLI::write(sprintf('   ⏸️  [%d/%d] %s — DEFERRED (%s)',
-                        $position, count($seeders), $seeder,
-                        $hasLegacyMarker
-                            ? 'historical seeder_runs marker preserved; sourced nutrition catalog incomplete'
-                            : 'sourced nutrition catalog incomplete; not recorded'), 'yellow');
-                    continue;
-                }
 
                 if ($record !== null) {
-                    // An old release could have recorded a placeholder as seeded.
-                    // Registry markers cannot be replayed or overwritten: require
-                    // an append-only data migration for newly sourced records.
-                    if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)
-                        && ! DatabaseSeeder::isSatisfied($seeder, $db)) {
-                        throw new RuntimeException($seeder . ' has a seeder_runs marker but sourced data is incomplete. '
-                            . 'Add an append-only sourced data migration; never silently replay a recorded seeder.');
+                    // A recipe seeder marker is not enough: an approved product
+                    // must still match its sourced database recipe. Never
+                    // overwrite previously applied administrative changes.
+                    if ($productSlug !== null && ! DatabaseSeeder::isSatisfied($seeder, $db)) {
+                        throw new RuntimeException($seeder . ' was previously recorded, but the approved '
+                            . 'recipe does not match the database. Reconcile it with an audited '
+                            . 'append-only correction; automatic replay is unsafe.');
                     }
                     $skipped++;
                     CLI::write(sprintf(
@@ -191,13 +167,9 @@ class SeedAll extends BaseCommand
             }
 
             CLI::newLine();
-            $this->step('🔐', 'Final verification: checking all non-deferred seeders...', 'cyan');
+            $this->step('🔐', 'Final verification: checking all applicable seeders...', 'cyan');
             $missing = [];
             foreach ($seeders as $seeder) {
-                if (array_key_exists($seeder, $deferredNutrition)) {
-                    CLI::write('   ⏸️  Deferred, ' . ($deferredNutrition[$seeder] ? 'legacy marker preserved: ' : 'not recorded: ') . $seeder, 'yellow');
-                    continue;
-                }
                 if ($this->seederRun($db, $seeder) === null) {
                     $missing[] = $seeder;
                     CLI::write('   ❌ Pending: ' . $seeder, 'red');
@@ -211,30 +183,12 @@ class SeedAll extends BaseCommand
                 return EXIT_ERROR;
             }
 
-            if ($deferredNutrition !== []) {
-                CLI::newLine();
-                CLI::write(sprintf('⚠️  Core database seeding completed; %d nutrition seeder(s) remain DEFERRED and UNVERIFIED.',
-                    count($deferredNutrition)), 'yellow');
-                CLI::write(sprintf('   Signed and sourced demo recipe coverage: %d/%d.',
-                    $approvedRecipes, count(DemoProductNutritionCatalog::SEEDERS)), 'yellow');
-                foreach (array_slice($catalog['errors'], 0, 12) as $issue) {
-                    CLI::write('   - ' . $issue, 'yellow');
-                }
-                if (count($catalog['errors']) > 12) {
-                    CLI::write('   ...and ' . (count($catalog['errors']) - 12) . ' more issues.', 'yellow');
-                }
-                CLI::write('   Approve measured recipe lines and enter sourced ingredients in the CSVs, then rerun php spark seed.', 'yellow');
-                CLI::write('   Each approved recipe is now handled by its own independent, registry-tracked seeder.', 'yellow');
-                if (in_array(true, $deferredNutrition, true)) {
-                    CLI::write('   Historical nutrition seeder markers remain unchanged. Newly approved products', 'yellow');
-                    CLI::write('   use their own seeders; corrections to previously seeded data require an append-only migration.', 'yellow');
-                }
-                if (! NutritionSeedingPolicy::completed(0, count($deferredNutrition), $strict)) {
-                    CLI::error('Strict seeding requires all registered seeders to be verified. Nutrition is still pending.');
-                    return EXIT_ERROR;
-                }
-                CLI::write('✅ Core seeding successful; nutrition seeding remains pending and unverified.', 'green');
-                return EXIT_SUCCESS;
+            CLI::newLine();
+            CLI::write(sprintf('Approved demo recipes eligible for import: %d/%d.',
+                $approvedRecipes, $requiredRecipes), 'cyan');
+            if ($approvedRecipes < $requiredRecipes) {
+                CLI::write('Missing recipes are optional for application setup and have NOT been seeded.', 'cyan');
+                CLI::write('For recipe validation: php spark nutrition:catalog-audit', 'cyan');
             }
 
             CLI::newLine();
