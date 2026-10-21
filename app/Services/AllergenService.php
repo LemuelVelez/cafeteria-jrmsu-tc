@@ -33,14 +33,19 @@ final class AllergenService
             ->whereIn('id', $verifierIds)->get()->getResultArray(), 'name', 'id') : [];
         // Present only sourced recipe references, never infer provenance from nutrient values.
         $sources = [];
-        foreach ($this->db()->table('product_recipes r')->select('r.product_id,i.source_reference')
+        $demoRecipes = [];
+        foreach ($this->db()->table('product_recipes r')->select('r.product_id,i.name,i.source_reference')
             ->join('ingredients i', 'i.id=r.ingredient_id')
             ->whereIn('r.product_id', $ids)->get()->getResultArray() as $row) {
             $source = trim((string) ($row['source_reference'] ?? ''));
             if ($source !== '') $sources[(int)$row['product_id']][$source] = $source;
+            if (str_starts_with((string) $row['name'], 'DEMO ONLY - ')) {
+                $demoRecipes[(int) $row['product_id']] = true;
+            }
         }
         foreach ($products as &$product) {
             $product['nutrition_verifier_name'] = $verifiers[(int) ($product['nutrition_verified_by'] ?? 0)] ?? null;
+            $product['is_demo_recipe'] = isset($demoRecipes[(int) $product['id']]);
             // A manually edited estimate must not claim the ingredients' USDA/PhilFCT
             // sources as evidence for those manually entered totals.
             $recipeDerived = in_array((string) ($product['nutrition_source'] ?? ''),

@@ -27,6 +27,9 @@ class DatabaseSeeder extends Seeder
         'IcedSpanishLatteSeeder',
         'HotAmericanoSeeder',
         'CalamansiJuiceSeeder',
+        // Populate incomplete core menu recipes with visibly unverified DEMO
+        // previews only outside production, after any real approved recipes.
+        'DemoRecipePreviewSeeder',
         'IngredientSeeder',
         'RecipeSeeder',
         'SettingSeeder',
@@ -67,7 +70,8 @@ class DatabaseSeeder extends Seeder
     {
         return array_values(array_filter(self::SEEDERS, static fn (string $seeder): bool =>
             ! isset(DemoProductNutritionCatalog::SEEDERS[$seeder])
-            && ! in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)));
+            && ! in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)
+            && ($seeder !== 'DemoRecipePreviewSeeder' || ENVIRONMENT !== 'production')));
     }
 
     /**
@@ -82,7 +86,8 @@ class DatabaseSeeder extends Seeder
     {
         $allowed = array_fill_keys($readySlugs, true);
         return array_values(array_filter(self::SEEDERS, static function (string $seeder) use ($allowed, $strict): bool {
-            if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)) {
+            if (in_array($seeder, ['IngredientSeeder', 'RecipeSeeder'], true)
+                || ($seeder === 'DemoRecipePreviewSeeder' && ENVIRONMENT === 'production')) {
                 return false;
             }
             $slug = DemoProductNutritionCatalog::slugForSeeder($seeder);
@@ -131,6 +136,7 @@ class DatabaseSeeder extends Seeder
             'IcedSpanishLatteSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'iced-spanish-latte'),
             'HotAmericanoSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'hot-americano'),
             'CalamansiJuiceSeeder' => DemoProductNutritionCatalog::isSatisfied($db, 'calamansi-juice'),
+            'DemoRecipePreviewSeeder' => DemoRecipePreviewSeeder::coverage($db) === count(DemoRecipePreviewSeeder::EXAMPLES),
             'IngredientSeeder' => self::ingredientSeedIsSatisfied($db),
             'RecipeSeeder' => self::recipeSeedIsSatisfied($db),
             'SettingSeeder' => self::hasAllValues($db, 'settings', 'setting_key', [

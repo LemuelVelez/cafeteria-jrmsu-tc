@@ -3,6 +3,7 @@
 namespace App\Commands;
 
 use App\Database\Seeds\DatabaseSeeder;
+use App\Database\Seeds\DemoRecipePreviewSeeder;
 use App\Services\DemoProductNutritionCatalog;
 use App\Services\DemoPopulationReadiness;
 use App\Services\NutritionLookupService;
@@ -60,11 +61,15 @@ class Populate extends BaseCommand
             $ready = $this->readyNutritionCount();
 
             CLI::write('Core demo seed records and 8/8 demo products are present; existing stock is unchanged.', 'green');
+            $demoRecipes = DemoRecipePreviewSeeder::coverage(db_connect());
+            CLI::write('Demo product recipes populated: ' . $demoRecipes . '/8.',
+                $demoRecipes === 8 ? 'green' : 'yellow');
+            if ($demoRecipes === 8) {
+                CLI::write('No missing demo recipes; any synthetic previews are unverified.', 'green');
+            }
+            CLI::write('Kitchen-approved recipe sources: ' . $ready . '/8.', 'cyan');
             if ($ready < count(DemoProductNutritionCatalog::SEEDERS)) {
-                CLI::write('Optional kitchen-approved recipe sources: ' . $ready . '/8; missing recipes were not seeded.', 'cyan');
-                CLI::write('No measurements or kitchen approvals were invented or edited.', 'cyan');
-            } else {
-                CLI::write('Approved source catalogs: 8/8. See seed output for database verification.', 'green');
+                CLI::write('No kitchen measurements or approvals were fabricated.', 'cyan');
             }
             return EXIT_SUCCESS;
         } catch (\Throwable $error) {

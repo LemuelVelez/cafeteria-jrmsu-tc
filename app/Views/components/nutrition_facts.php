@@ -6,6 +6,9 @@ $verifiedAt = $product['nutrition_verified_at'] ?? null;
 ?>
 <section class="nutrition-panel" aria-label="Nutrition facts per serving">
     <h3 class="h5 fw-bold border-bottom border-dark border-3 pb-2">Nutrition Facts</h3>
+    <?php if (!empty($product['is_demo_recipe'])): ?>
+        <p class="small text-warning-emphasis" role="note">Demo-only nutrition, ingredients, and allergens. These values are fictional placeholders, not measured or kitchen-approved. Confirm actual allergens with the kitchen.</p>
+    <?php endif; ?>
     <p class="small mb-2">Serving size: <?= esc($product['serving_size'] ?: 'Not specified') ?></p>
     <?php foreach (['calories'=>'Calories', 'protein_g'=>'Protein (g)', 'carbohydrates_g'=>'Carbohydrates (g)', 'fat_g'=>'Total fat (g)', 'sugar_g'=>'Sugar (g)', 'fiber_g'=>'Fiber (g)', 'sodium_mg'=>'Sodium (mg)'] as $key=>$label): ?>
         <div class="d-flex justify-content-between border-bottom py-1"><span><?= esc($label) ?></span><strong><?= $product[$key] === null ? '—' : esc((string) $product[$key]) ?></strong></div>

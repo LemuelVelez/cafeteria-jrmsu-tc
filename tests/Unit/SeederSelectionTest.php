@@ -11,7 +11,8 @@ final class SeederSelectionTest extends TestCase
     public function testDefaultSeedingFinishesWithNoKitchenApprovedRecipes(): void
     {
         self::assertSame(DatabaseSeeder::requiredSeeders(), DatabaseSeeder::runnableSeeders([]));
-        self::assertCount(7, DatabaseSeeder::requiredSeeders());
+        self::assertCount(8, DatabaseSeeder::requiredSeeders());
+        self::assertContains('DemoRecipePreviewSeeder', DatabaseSeeder::requiredSeeders());
         self::assertNotContains('IngredientSeeder', DatabaseSeeder::runnableSeeders([]));
         self::assertNotContains('RecipeSeeder', DatabaseSeeder::runnableSeeders([]));
     }

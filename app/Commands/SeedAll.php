@@ -3,6 +3,7 @@
 namespace App\Commands;
 
 use App\Database\Seeds\DatabaseSeeder;
+use App\Database\Seeds\DemoRecipePreviewSeeder;
 use App\Database\Seeds\IngredientSeeder;
 use App\Database\Seeds\RecipeSeeder;
 use App\Services\DemoProductNutritionCatalog;
@@ -184,11 +185,19 @@ class SeedAll extends BaseCommand
             }
 
             CLI::newLine();
-            CLI::write(sprintf('Approved demo recipes eligible for import: %d/%d.',
+            $demoCoverage = DemoRecipePreviewSeeder::coverage($db);
+            CLI::write(sprintf('Demo product recipes populated: %d/%d.',
+                $demoCoverage, $requiredRecipes), $demoCoverage === $requiredRecipes ? 'green' : 'yellow');
+            if ($demoCoverage === $requiredRecipes) {
+                CLI::write('No missing demo recipes. Any synthetic previews are not actual kitchen recipes.', 'green');
+            } else {
+                CLI::write('Missing demo product recipes: ' . ($requiredRecipes - $demoCoverage) . '.', 'yellow');
+            }
+            CLI::write(sprintf('Independently kitchen-approved source recipes: %d/%d.',
                 $approvedRecipes, $requiredRecipes), 'cyan');
             if ($approvedRecipes < $requiredRecipes) {
-                CLI::write('Missing recipes are optional for application setup and have NOT been seeded.', 'cyan');
-                CLI::write('For recipe validation: php spark nutrition:catalog-audit', 'cyan');
+                CLI::write('Demo estimates are not signed or independently verified.', 'yellow');
+                CLI::write('For source validation: php spark nutrition:catalog-audit', 'cyan');
             }
 
             CLI::newLine();
