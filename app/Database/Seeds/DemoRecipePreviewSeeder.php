@@ -71,31 +71,22 @@ final class DemoRecipePreviewSeeder extends Seeder
         ],
     ];
 
-    /** Number of core menu products with a linked recipe and complete displayed nutrition. */
+    /** One grouped read, not one recipe query per product. */
     public static function coverage(BaseConnection $db): int
     {
         if (! $db->tableExists('products') || ! $db->tableExists('product_recipes')) {
             return 0;
         }
 
-        // Read once rather than issuing another round trip for every product.
-        $products = $db->table('products')
-            ->whereIn('slug', array_keys(self::EXAMPLES))
+        $rows = $db->table('products p')
+            ->select('p.slug,p.serving_size,p.calories,p.protein_g,p.carbohydrates_g,p.fat_g,p.sugar_g,p.fiber_g,p.sodium_mg')
+            ->select('EXISTS (SELECT 1 FROM product_recipes r WHERE r.product_id = p.id) AS has_recipe', false)
+            ->whereIn('p.slug', array_keys(self::EXAMPLES))
             ->get()->getResultArray();
-        if ($products === []) {
-            return 0;
-        }
-        $recipeIds = array_fill_keys(array_map('intval', array_column(
-            $db->table('product_recipes')
-                ->select('product_id')->distinct()
-                ->whereIn('product_id', array_column($products, 'id'))
-                ->get()->getResultArray(),
-            'product_id',
-        )), true);
+
         $covered = 0;
-        foreach ($products as $product) {
-            if (! isset($recipeIds[(int) $product['id']])
-                || trim((string) ($product['serving_size'] ?? '')) === '') {
+        foreach ($rows as $product) {
+            if (! (int) $product['has_recipe'] || trim((string) ($product['serving_size'] ?? '')) === '') {
                 continue;
             }
             foreach (array_keys(self::EXAMPLES[$product['slug']]['nutrition']) as $field) {
@@ -115,66 +106,81 @@ final class DemoRecipePreviewSeeder extends Seeder
         }
 
         $total = count(self::EXAMPLES);
-        $created = 0;
-        $existing = 0;
-        CLI::write(sprintf('DemoRecipePreviewSeeder: inspecting %d products (synthetic examples only).', $total), 'cyan');
-        CLI::write('Checking database access and configuring a short MySQL lock wait...', 'cyan');
+        CLI::write('DemoRecipePreviewSeeder: checking eight synthetic previews...', 'cyan');
+        $covered = self::coverage($this->db);
+        if ($covered === $total) {
+            CLI::write('All 8/8 demo recipes already have nutrition. Nothing to import.', 'green');
+            return;
+        }
+
         $this->limitLockWait();
-
-        // Do not hold an eight-product transaction open over dozens of remote
-        // database calls. A product is committed atomically and can be safely
-        // skipped on a retry if the process is interrupted halfway through.
-        CLI::write('Loading allergen reference data...', 'cyan');
-        $costing = new CostingService($this->db);
-        $allergenService = new AllergenService($this->db);
-        $allergenOptions = $allergenService->options();
-        $allergens = array_column($allergenOptions, 'id', 'code');
-        $names = array_column($allergenOptions, 'name', 'code');
-        $audit = new AuditLogService($this->db);
-
-        foreach (self::EXAMPLES as $slug => $sample) {
-            $index = $created + $existing + 1;
-            CLI::write(sprintf('   [%d/%d] %s: checking product and recipe...', $index, $total, $sample['label']), 'yellow');
-
-            if (! $this->db->transBegin()) {
-                throw new RuntimeException('Unable to begin demo recipe transaction for ' . $slug);
+        $start = microtime(true);
+        if (! $this->db->transBegin()) {
+            throw new RuntimeException('Could not start the demo recipe transaction.');
+        }
+        try {
+            // Lock the eight parent rows in one statement instead of making
+            // separate remote round trips for each product. All writes commit
+            // together; a failed import leaves no half-seeded recipes.
+            CLI::write('Loading menu products and existing recipes...', 'cyan');
+            $slugs = array_keys(self::EXAMPLES);
+            $placeholders = implode(',', array_fill(0, $total, '?'));
+            $products = array_column($this->db->query(
+                'SELECT * FROM products WHERE slug IN (' . $placeholders . ') FOR UPDATE', $slugs,
+            )->getResultArray(), null, 'slug');
+            foreach ($slugs as $slug) {
+                if (! isset($products[$slug])) {
+                    throw new RuntimeException('Seed the core menu products first: ' . $slug);
+                }
             }
-            try {
-                // Lock only the current product, and release that lock before
-                // processing the next one. MySQL's lock-wait limit is set above.
-                $product = $this->db->query('SELECT * FROM products WHERE slug = ? FOR UPDATE', [$slug])->getRowArray();
-                if ($product === null) {
-                    throw new RuntimeException('Seed the core products before adding demo recipes: ' . $slug);
+
+            $productIds = array_map('intval', array_column($products, 'id'));
+            $recipeRows = $this->db->table('product_recipes')
+                ->select('product_id')->whereIn('product_id', $productIds)
+                ->get()->getResultArray();
+            $hasRecipe = array_fill_keys(array_map('intval', array_column($recipeRows, 'product_id')), true);
+            $missing = [];
+            foreach (self::EXAMPLES as $slug => $sample) {
+                $product = $products[$slug];
+                if (isset($hasRecipe[(int) $product['id']])) {
+                    continue; // Never change an existing administrative/kitchen recipe.
                 }
-                $productId = (int) $product['id'];
-                if ($this->db->table('product_recipes')->where('product_id', $productId)->countAllResults()) {
-                    ++$existing; // Never replace a kitchen/admin recipe.
-                    if (! $this->db->transStatus()) {
-                        throw new RuntimeException('Could not inspect existing recipe for ' . $slug);
-                    }
-                    if (! $this->db->transCommit()) {
-                        throw new RuntimeException('Could not commit existing-recipe check for ' . $slug);
-                    }
-                    CLI::write(sprintf('   [%d/%d] %s: existing recipe preserved.', $index, $total, $sample['label']), 'green');
-                    continue;
-                }
-                if ($product['nutrition_status'] === 'verified' || $product['nutrition_verified_by'] !== null
-                    || $product['nutrition_verified_at'] !== null || $product['nutrition_source'] === 'recipe_sourced') {
+                if ($product['nutrition_status'] === 'verified'
+                    || $product['nutrition_verified_by'] !== null
+                    || $product['nutrition_verified_at'] !== null
+                    || $product['nutrition_source'] === 'recipe_sourced') {
                     throw new RuntimeException('Refusing to change verified nutrition for ' . $slug);
                 }
+                $missing[$slug] = $sample;
+            }
 
-                // This is one made-up whole-serving ingredient, NOT a real
-                // ingredient list or authenticated kitchen measurement.
-                $name = 'DEMO ONLY - ' . $sample['label'] . ' (synthetic serving)';
-                $ingredient = $this->db->table('ingredients')->where('name', $name)->get()->getRowArray();
-                if ($ingredient === null) {
-                    $ingredientData = $sample['nutrition'];
-                    foreach ($ingredientData as $field => $value) {
-                        $perServing = $product[$field] === null ? $value : (float) $product[$field];
-                        $ingredientData[$field] = $perServing * max(1, (int) $product['recipe_servings']);
+            if ($missing !== []) {
+                CLI::write(sprintf('Preparing %d missing recipes as one batch...', count($missing)), 'cyan');
+                $names = array_map(
+                    static fn (array $sample): string => 'DEMO ONLY - ' . $sample['label'] . ' (synthetic serving)',
+                    $missing,
+                );
+                $knownRows = $this->db->table('ingredients')->whereIn('name', array_values($names))
+                    ->get()->getResultArray();
+                $known = array_column($knownRows, null, 'name');
+                $new = [];
+                $now = date('Y-m-d H:i:s');
+                foreach ($missing as $slug => $sample) {
+                    $name = $names[$slug];
+                    if (isset($known[$name])) {
+                        if ($known[$name]['source_reference'] !== null
+                            || ! str_starts_with((string) $known[$name]['supplier'], 'DEMO ONLY')) {
+                            throw new RuntimeException('Existing ingredient is not a demo placeholder: ' . $name);
+                        }
+                        continue;
                     }
-                    $now = date('Y-m-d H:i:s');
-                    $ingredientData += [
+                    $product = $products[$slug];
+                    $nutrients = $sample['nutrition'];
+                    foreach ($nutrients as $field => $value) {
+                        $nutrients[$field] = ($product[$field] === null ? $value : (float) $product[$field])
+                            * max(1, (int) $product['recipe_servings']);
+                    }
+                    $new[] = $nutrients + [
                         'name' => $name, 'purchase_unit' => 'g', 'cost_per_unit' => 0,
                         'supplier' => 'DEMO ONLY - not an actual supplier or purchase price',
                         'source_reference' => null, 'nutrient_basis' => '100g',
@@ -182,96 +188,136 @@ final class DemoRecipePreviewSeeder extends Seeder
                         'reorder_level' => 0, 'stock' => 0,
                         'created_at' => $now, 'updated_at' => $now,
                     ];
-                    if (! $this->db->table('ingredients')->insert($ingredientData)) {
-                        throw new RuntimeException('Unable to insert demo ingredient: ' . $name);
-                    }
-                    $ingredientId = (int) $this->db->insertID();
-                    if (! $this->db->table('ingredient_cost_history')->insert([
-                        'ingredient_id' => $ingredientId, 'unit_cost' => 0,
-                        'effective_at' => $now, 'changed_by' => null,
-                    ])) {
-                        throw new RuntimeException('Unable to insert demo ingredient cost history.');
-                    }
-                } else {
-                    if ($ingredient['source_reference'] !== null
-                        || ! str_starts_with((string) $ingredient['supplier'], 'DEMO ONLY')) {
-                        throw new RuntimeException('Existing ingredient is not a demo placeholder: ' . $name);
-                    }
-                    $ingredientId = (int) $ingredient['id'];
                 }
-                if (! $this->db->table('product_recipes')->insert([
-                    'product_id' => $productId, 'ingredient_id' => $ingredientId,
-                    'quantity' => 100, 'unit' => 'g', 'wastage_percent' => 0,
-                ])) {
-                    throw new RuntimeException('Unable to insert demo recipe: ' . $slug);
+                if ($new !== [] && $this->db->table('ingredients')->insertBatch($new) === false) {
+                    throw new RuntimeException('Failed to insert synthetic ingredients.');
+                }
+                $ingredientRows = $this->db->table('ingredients')
+                    ->select('id,name,supplier,source_reference')
+                    ->whereIn('name', array_values($names))->get()->getResultArray();
+                $ingredients = array_column($ingredientRows, null, 'name');
+                $history = [];
+                $recipeInserts = [];
+                $newNames = array_fill_keys(array_column($new, 'name'), true);
+                foreach ($missing as $slug => $sample) {
+                    $name = $names[$slug];
+                    if (! isset($ingredients[$name])
+                        || $ingredients[$name]['source_reference'] !== null
+                        || ! str_starts_with((string) $ingredients[$name]['supplier'], 'DEMO ONLY')) {
+                        throw new RuntimeException('Synthetic ingredient not available: ' . $name);
+                    }
+                    $ingredientId = (int) $ingredients[$name]['id'];
+                    if (isset($newNames[$name])) {
+                        $history[] = [
+                            'ingredient_id' => $ingredientId, 'unit_cost' => 0,
+                            'effective_at' => $now, 'changed_by' => null,
+                        ];
+                    }
+                    $recipeInserts[] = [
+                        'product_id' => (int) $products[$slug]['id'],
+                        'ingredient_id' => $ingredientId,
+                        'quantity' => 100, 'unit' => 'g', 'wastage_percent' => 0,
+                    ];
+                }
+                if ($history !== [] && $this->db->table('ingredient_cost_history')->insertBatch($history) === false) {
+                    throw new RuntimeException('Failed to insert synthetic ingredient cost history.');
+                }
+                if ($this->db->table('product_recipes')->insertBatch($recipeInserts) === false) {
+                    throw new RuntimeException('Failed to insert synthetic product recipes.');
                 }
 
-                if (trim((string) ($product['serving_size'] ?? '')) === '') {
-                    if (! $this->db->table('products')->where('id', $productId)
-                        ->update(['serving_size' => '1 serving (demo)'])) {
-                        throw new RuntimeException('Unable to set demo serving size: ' . $slug);
+                CLI::write('Linking demo allergen labels and serving sizes...', 'cyan');
+                $ids = array_map('intval', array_column($recipeInserts, 'product_id'));
+                $linked = array_fill_keys(array_map('intval', array_column(
+                    $this->db->table('product_allergens')->select('product_id')
+                        ->whereIn('product_id', $ids)->get()->getResultArray(),
+                    'product_id',
+                )), true);
+                $allergenService = new AllergenService($this->db);
+                $allergenOptions = $allergenService->options();
+                $allergenIds = array_column($allergenOptions, 'id', 'code');
+                $allergenNames = array_column($allergenOptions, 'name', 'code');
+                $updates = [];
+                foreach ($missing as $slug => $sample) {
+                    $product = $products[$slug];
+                    $id = (int) $product['id'];
+                    $fields = ['id' => $id];
+                    if (trim((string) ($product['serving_size'] ?? '')) === '') {
+                        $fields['serving_size'] = '1 serving (demo)';
                     }
-                }
-                if (! $this->db->table('product_allergens')->where('product_id', $productId)->countAllResults()) {
-                    $ids = [];
-                    foreach ($sample['allergens'] as $code) {
-                        if (! isset($allergens[$code])) {
-                            throw new RuntimeException('Missing allergen reference code: ' . $code);
+                    if (! isset($linked[$id])) {
+                        $allergenList = [];
+                        foreach ($sample['allergens'] as $code) {
+                            if (! isset($allergenIds[$code])) {
+                                throw new RuntimeException('Missing allergen reference code: ' . $code);
+                            }
+                            $allergenList[] = (int) $allergenIds[$code];
                         }
-                        $ids[] = (int) $allergens[$code];
-                    }
-                    $allergenService->sync($productId, $ids);
-                    if (trim((string) ($product['allergens'] ?? '')) === '') {
-                        if (! $this->db->table('products')->where('id', $productId)
-                            ->update(['allergens' => implode(', ', array_map(
-                                static fn (string $code): string => $names[$code], $sample['allergens'],
-                            ))])) {
-                            throw new RuntimeException('Unable to set demo allergen names: ' . $slug);
+                        $allergenService->sync($id, $allergenList);
+                        if (trim((string) ($product['allergens'] ?? '')) === '') {
+                            $fields['allergens'] = implode(', ', array_map(
+                                static fn (string $code): string => $allergenNames[$code], $sample['allergens'],
+                            ));
                         }
                     }
+                    if (count($fields) > 1) {
+                        // Different products may need different columns updated;
+                        // individual narrow updates avoid NULLing existing text.
+                        $updates[] = $fields;
+                    }
                 }
-                CLI::write(sprintf('   [%d/%d] %s: calculating nutrition...', $index, $total, $sample['label']), 'cyan');
-                $costing->refreshNutrition($productId);
-                $audit->record('unverified_demo_recipe_seeded', 'product', $productId, [
-                    'synthetic' => true, 'approved' => false, 'ingredient_count' => 1,
-                ]);
-                if (! $this->db->transStatus()) {
-                    throw new RuntimeException('The demo recipe seed transaction failed for ' . $slug);
+                foreach ($updates as $fields) {
+                    $id = $fields['id'];
+                    unset($fields['id']);
+                    if (! $this->db->table('products')->where('id', $id)->update($fields)) {
+                        throw new RuntimeException('Could not save demo labels for product ' . $id);
+                    }
                 }
-                if (! $this->db->transCommit()) {
-                    throw new RuntimeException('Could not commit demo recipe for ' . $slug);
+
+                // Recalculate from the inserted recipe lines in CostingService.
+                // One joined read and one batch write replace 8 separate
+                // calculate() calls (dozens of remote SQL requests).
+                CLI::write('Calculating recipe-based nutrition in one batch...', 'cyan');
+                (new CostingService($this->db))->refreshNutritionBatch($ids);
+                $audit = new AuditLogService($this->db);
+                foreach ($ids as $id) {
+                    $audit->record('unverified_demo_recipe_seeded', 'product', $id, [
+                        'synthetic' => true, 'approved' => false, 'ingredient_count' => 1,
+                    ]);
                 }
-                ++$created;
-                CLI::write(sprintf('   [%d/%d] %s: demo recipe saved.', $index, $total, $sample['label']), 'green');
-            } catch (Throwable $error) {
-                $this->db->transRollback();
-                throw new RuntimeException(sprintf(
-                    'Demo recipe %d/%d (%s) failed: %s. Earlier completed products remain saved; rerun php spark seed to resume.',
-                    $index, $total, $slug, $error->getMessage(),
-                ), 0, $error);
             }
+
+            if (! $this->db->transStatus()) {
+                throw new RuntimeException('Demo recipe database transaction failed.');
+            }
+            CLI::write('Committing demo recipes...', 'cyan');
+            if (! $this->db->transCommit()) {
+                throw new RuntimeException('Unable to commit demo recipes.');
+            }
+        } catch (Throwable $error) {
+            $this->db->transRollback();
+            throw new RuntimeException('Demo recipes could not be imported: ' . $error->getMessage(), 0, $error);
         }
 
-        CLI::write('Verifying all eight demo recipes...', 'cyan');
-        CLI::write(sprintf('Unverified demo recipes: %d/%d available; %d created, %d existing left unchanged.',
-            self::coverage($this->db), $total, $created, $existing));
+        $covered = self::coverage($this->db);
+        CLI::write(sprintf(
+            'Demo recipes: %d/%d available; %d newly imported (%d ms).',
+            $covered, $total, count($missing), (int) round((microtime(true) - $start) * 1000),
+        ), $covered === $total ? 'green' : 'yellow');
+        if ($covered !== $total) {
+            throw new RuntimeException('Some demo recipes still lack nutrition. Run php spark seed again after checking the database.');
+        }
     }
 
-    /** Fail promptly instead of waiting for MySQL's long default InnoDB lock timeout. */
+    /** Limit MySQL row-lock waits on this connection only. */
     private function limitLockWait(): void
     {
         if ($this->db->DBDriver !== 'MySQLi') {
             return;
         }
-        // This changes only the current CLI connection, not a global database setting.
-        // A failure to configure the limit should not silently turn into a hang.
-        try {
-            if ($this->db->query('SET SESSION innodb_lock_wait_timeout = 10') === false
-                || $this->db->query('SET SESSION lock_wait_timeout = 10') === false) {
-                throw new RuntimeException('MySQL rejected the session lock-wait limits.');
-            }
-        } catch (Throwable $error) {
-            throw new RuntimeException('Cannot configure MySQL lock-wait timeout: ' . $error->getMessage(), 0, $error);
+        if ($this->db->query('SET SESSION innodb_lock_wait_timeout = 10') === false
+            || $this->db->query('SET SESSION lock_wait_timeout = 10') === false) {
+            throw new RuntimeException('Could not configure MySQL lock-wait limits.');
         }
     }
 }

@@ -81,6 +81,12 @@ class SeedAll extends BaseCommand
 
             $seeders = DatabaseSeeder::runnableSeeders($readySlugs, $strict);
             $this->step('🔎', sprintf('Checking %d applicable seeder(s)...', count($seeders)), 'cyan');
+            // Fetch seeder history once. Per-seeder SELECT calls (and then
+            // repeating them during final verification) are very expensive on
+            // a high-latency database connection.
+            $recordedRuns = array_column(
+                $db->table('seeder_runs')->get()->getResultArray(), null, 'seeder_name',
+            );
             $pending = [];
             $skipped = 0;
 
@@ -91,7 +97,7 @@ class SeedAll extends BaseCommand
                     throw new RuntimeException('Registered seeder file is missing: ' . $seeder . '.php');
                 }
 
-                $record = $this->seederRun($db, $seeder);
+                $record = $recordedRuns[$seeder] ?? null;
                 $productSlug = DemoProductNutritionCatalog::slugForSeeder($seeder);
 
                 if ($record !== null) {
@@ -115,6 +121,7 @@ class SeedAll extends BaseCommand
 
                 if (DatabaseSeeder::isSatisfied($seeder, $db)) {
                     $this->recordSeederRun($db, $seeder, 'adopted_existing');
+                    $recordedRuns[$seeder] = true;
                     $skipped++;
                     CLI::write(sprintf(
                         '   ⏭️  [%d/%d] %s — SKIPPED (existing seed data detected)',
@@ -157,6 +164,7 @@ class SeedAll extends BaseCommand
                 }
 
                 $this->recordSeederRun($db, $seeder, 'executed');
+                $recordedRuns[$seeder] = true;
                 $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
                 CLI::write(sprintf(
                     '✅ [%d/%d] %s completed and recorded (%d ms)',
@@ -169,9 +177,16 @@ class SeedAll extends BaseCommand
 
             CLI::newLine();
             $this->step('🔐', 'Final verification: checking all applicable seeders...', 'cyan');
+            // Verify the committed markers in one query, without querying
+            // once for every seed file or relying only on in-memory state.
+            $storedNames = array_fill_keys(array_column(
+                $db->table('seeder_runs')->select('seeder_name')
+                    ->whereIn('seeder_name', $seeders)->get()->getResultArray(),
+                'seeder_name',
+            ), true);
             $missing = [];
             foreach ($seeders as $seeder) {
-                if ($this->seederRun($db, $seeder) === null) {
+                if (! isset($storedNames[$seeder])) {
                     $missing[] = $seeder;
                     CLI::write('   ❌ Pending: ' . $seeder, 'red');
                     continue;
@@ -235,25 +250,11 @@ class SeedAll extends BaseCommand
         return $seeders;
     }
 
-    /**
-     * @return array<string,mixed>|null
-     */
-    private function seederRun(BaseConnection $db, string $seeder): ?array
-    {
-        $row = $db->table('seeder_runs')
-            ->where('seeder_name', $seeder)
-            ->get()
-            ->getRowArray();
-
-        return is_array($row) ? $row : null;
-    }
-
     private function recordSeederRun(BaseConnection $db, string $seeder, string $mode): void
     {
-        if ($this->seederRun($db, $seeder) !== null) {
-            return;
-        }
-
+        // The caller already queried seeder_runs as a batch and only calls
+        // this method for an unrecorded seeder. The database uniqueness
+        // constraint still protects against concurrent registrations.
         $path = APPPATH . 'Database/Seeds/' . $seeder . '.php';
         $hash = is_file($path) ? hash_file('sha256', $path) : null;
 

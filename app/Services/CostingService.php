@@ -122,6 +122,72 @@ class CostingService
             'ingredients'=>$rows,
         ];
     }
+    /**
+     * Refresh several recipe products with two reads and one batch write.
+     * This computes the same per-serving nutrient figures and provenance as
+     * refreshNutrition(), but avoids N+1 queries on slow hosted databases.
+     * Never call it for products whose recipe was not just safely updated.
+     *
+     * @param list<int> $productIds
+     */
+    public function refreshNutritionBatch(array $productIds): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $productIds)));
+        if ($ids === []) {
+            return;
+        }
+        $db = $this->db();
+        $products = array_column($db->table('products')
+            ->select('id,recipe_servings')->whereIn('id', $ids)->get()->getResultArray(), null, 'id');
+        if (count($products) !== count($ids)) {
+            throw new \DomainException('A recipe product was not found.');
+        }
+        $recipeRows = $db->table('product_recipes r')
+            ->select('r.product_id,r.quantity,r.unit,i.purchase_unit,i.nutrient_basis,i.source_reference,i.density_g_per_ml,i.grams_per_piece,i.calories,i.protein_g,i.carbohydrates_g,i.fat_g,i.sugar_g,i.fiber_g,i.sodium_mg')
+            ->join('ingredients i', 'i.id=r.ingredient_id')
+            ->whereIn('r.product_id', $ids)->get()->getResultArray();
+        $fields = ['calories','protein_g','carbohydrates_g','fat_g','sugar_g','fiber_g','sodium_mg'];
+        $batch = [];
+        $referenced = [];
+        foreach ($recipeRows as $row) {
+            $id = (int) $row['product_id'];
+            $batch[$id] ??= array_fill_keys($fields, 0.0);
+            $referenced[$id] ??= true;
+            $gramsPerPiece = $row['grams_per_piece'] === null ? null : (float) $row['grams_per_piece'];
+            $units = self::ingredientUnits((float) $row['quantity'], (string) $row['unit'],
+                (string) $row['purchase_unit'], (float) $row['density_g_per_ml'], $gramsPerPiece);
+            $grams = $row['nutrient_basis'] === 'unit' ? $units
+                : self::nutrientQuantity((float) $row['quantity'], (string) $row['unit'],
+                    (float) $row['density_g_per_ml'], $gramsPerPiece);
+            $basis = $row['nutrient_basis'] === 'unit' ? 1.0 : 100.0;
+            foreach ($fields as $field) {
+                $batch[$id][$field] += $grams / $basis * (float) $row[$field];
+            }
+            if (! SourcedRecipeCatalog::validReference((string) ($row['source_reference'] ?? ''))) {
+                $referenced[$id] = false;
+            }
+        }
+
+        $updates = [];
+        foreach ($ids as $id) {
+            if (! isset($batch[$id])) {
+                throw new \DomainException('No recipe lines were found for product ' . $id);
+            }
+            $nutrition = self::perServingNutrients($batch[$id], max(1, (int) $products[$id]['recipe_servings']));
+            $nutrition['calories'] = (int) round($nutrition['calories']);
+            $nutrition['sodium_mg'] = (int) round($nutrition['sodium_mg']);
+            $updates[] = ['id' => $id] + $nutrition + [
+                'nutrition_source' => $referenced[$id] ? 'recipe_sourced' : 'recipe_unverified',
+                'nutrition_status' => 'estimated',
+                'nutrition_verified_by' => null,
+                'nutrition_verified_at' => null,
+            ];
+        }
+        if ($db->table('products')->updateBatch($updates, 'id') === false) {
+            throw new \RuntimeException('Unable to save calculated recipe nutrition.');
+        }
+    }
+
     private function setting(string $key,string $default): string
     {
         return (string)($this->db()->table('settings')->where('setting_key',$key)->get()->getRow('setting_value') ?? $default);
