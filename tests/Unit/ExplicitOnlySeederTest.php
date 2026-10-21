@@ -17,6 +17,16 @@ final class ExplicitOnlySeederTest extends TestCase
         ]));
     }
 
+    public function testRandomNutritionSeederIsExplicitOnly(): void
+    {
+        self::assertContains('RandomNutritionSeeder', DatabaseSeeder::EXPLICIT_ONLY_SEEDERS);
+        self::assertNotContains('RandomNutritionSeeder', DatabaseSeeder::seeders());
+        self::assertSame([], DatabaseSeeder::unregisteredSeeders([
+            ...DatabaseSeeder::seeders(),
+            'RandomNutritionSeeder',
+        ]));
+    }
+
     public function testUnknownSeederStillBlocksPreflight(): void
     {
         self::assertSame(['UnexpectedSeeder'], DatabaseSeeder::unregisteredSeeders([
