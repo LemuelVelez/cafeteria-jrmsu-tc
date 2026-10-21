@@ -36,11 +36,34 @@ class DatabaseSeeder extends Seeder
     ];
 
     /**
+     * Seeders deliberately excluded from `php spark seed` and `php spark populate`.
+     * They may be run only by an explicit `php spark db:seed Name` command.
+     * Keep this list separate from SEEDERS to prevent accidental data creation.
+     *
+     * @var list<string>
+     */
+    public const EXPLICIT_ONLY_SEEDERS = [
+        'CounterItemCatalogSeeder',
+    ];
+
+    /**
      * @return list<string>
      */
     public static function seeders(): array
     {
         return self::SEEDERS;
+    }
+
+    /**
+     * Files that have neither a default registry entry nor a deliberate
+     * manual-only exception must still fail the seeding preflight.
+     *
+     * @param list<string> $existingSeeders
+     * @return list<string>
+     */
+    public static function unregisteredSeeders(array $existingSeeders): array
+    {
+        return array_values(array_diff($existingSeeders, self::SEEDERS, self::EXPLICIT_ONLY_SEEDERS));
     }
 
     /**

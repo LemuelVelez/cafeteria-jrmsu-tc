@@ -53,12 +53,12 @@ class SeedAll extends BaseCommand
             }
 
             $existingSeeders = $this->existingSeederFiles();
-            $unregistered = array_values(array_diff($existingSeeders, $seeders));
+            $unregistered = DatabaseSeeder::unregisteredSeeders($existingSeeders);
             if ($unregistered !== []) {
                 foreach ($unregistered as $seeder) {
                     CLI::write('   ⚠️ Unregistered seeder: ' . $seeder . '.php', 'yellow');
                 }
-                throw new RuntimeException('Every application seeder must be registered in DatabaseSeeder::SEEDERS.');
+                throw new RuntimeException('Every application seeder must be registered or explicitly manual-only in DatabaseSeeder.');
             }
 
             $this->step('🔎', sprintf('Checking %d registered seeder(s)...', count($seeders)), 'cyan');
