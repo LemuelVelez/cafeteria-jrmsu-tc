@@ -100,6 +100,18 @@ $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static f
     $routes->post('promos', 'Admin\\PromoController::save');
     $routes->post('promos/(:num)', 'Admin\\PromoController::save/$1');
     $routes->get('reports', 'Admin\\ReportController::index');
+    $routes->get('reports/daily/print', 'Admin\DailyInventoryController::printable');
+    $routes->get('reports/daily/export', 'Admin\DailyInventoryController::export');
+    $routes->post('reports/daily/action', 'Admin\DailyInventoryController::action');
+    $routes->get('cash-count', 'Admin\CashCountController::index');
+    $routes->get('cash-count/print', 'Admin\CashCountController::printable');
+    $routes->post('cash-count', 'Admin\CashCountController::save');
+    $routes->post('cash-count/approve', 'Admin\CashCountController::approve');
+    $routes->post('cash-count/reopen', 'Admin\CashCountController::reopen');
+    $routes->get('on-call', 'Admin\OnCallController::index');
+    $routes->get('on-call/print', 'Admin\OnCallController::printable');
+    $routes->get('on-call/export', 'Admin\OnCallController::export');
+    $routes->post('on-call', 'Admin\OnCallController::save');
     $routes->get('settings', 'Admin\\SettingController::index');
     $routes->post('settings', 'Admin\\SettingController::save');
 });
@@ -110,6 +122,9 @@ $routes->group('cashier', ['filter' => ['auth', 'active', 'role:cashier']], stat
     $routes->get('inventory/stock-card', 'Admin\InventoryController::stockCard');
     $routes->get('inventory/stock-card/export', 'Admin\InventoryController::stockCardExport');
     $routes->get('inventory/stock-card/print', 'Admin\InventoryController::stockCardPrint');
+    $routes->get('cash-count', 'Admin\CashCountController::index');
+    $routes->get('cash-count/print', 'Admin\CashCountController::printable');
+    $routes->post('cash-count', 'Admin\CashCountController::save');
     $routes->get('pos', 'Cashier\\PosController::index');
     $routes->get('orders', 'Cashier\\OrderController::index');
     $routes->post('orders/(:num)/status', 'Cashier\\OrderController::status/$1');

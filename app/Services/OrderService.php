@@ -154,7 +154,9 @@ class OrderService
                 }
 
                 $addonTotal = array_sum(array_map(static fn (array $addon): float => (float) $addon['price'], $actualAddons));
-                $lineTotal = round(((float) $product['price'] + $addonTotal) * $quantity, 2);
+                $lineTotal = round(BundlePricePolicy::amount($quantity, (float)$product['price'],
+                    $product['bundle_quantity'] !== null ? (int)$product['bundle_quantity'] : null,
+                    $product['bundle_price']) + $addonTotal * $quantity, 2);
                 $subtotal += $lineTotal;
                 $normalized[] = [
                     'product' => $product,
@@ -215,6 +217,9 @@ class OrderService
             foreach ($normalized as $line) {
                 $product = $line['product'];
                 $costing = $costingService->calculate((int) $product['id']);
+                if ($costing['cost_status'] !== 'complete' && $product['standard_unit_cost'] !== null) {
+                    $costing = ['unit_cost' => (float)$product['standard_unit_cost'], 'cost_status' => 'standard'];
+                }
                 if (! $this->items->insert([
                     'order_id' => $orderId,
                     'product_id' => $product['id'],

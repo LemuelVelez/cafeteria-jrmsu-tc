@@ -64,7 +64,20 @@ class ProductController extends BaseController
             return redirect()->to('/admin/products')->withInput()->with('error', 'Full stock must be at least 1 and no less than the reorder level.');
         }
 
+        $bundleQuantity = $this->nullablePost('bundle_quantity');
+        $bundlePrice = $this->nullablePost('bundle_price');
+        $standardCost = $this->nullablePost('standard_unit_cost');
+        $stockUnit = (string)$this->request->getPost('stock_unit');
+        if (($bundleQuantity === null) !== ($bundlePrice === null)
+            || ($bundleQuantity !== null && (filter_var($bundleQuantity, FILTER_VALIDATE_INT) === false || (int)$bundleQuantity < 2))
+            || ($bundlePrice !== null && (!is_numeric($bundlePrice) || (float)$bundlePrice < 0))
+            || ($standardCost !== null && (!is_numeric($standardCost) || (float)$standardCost < 0))
+            || !in_array($stockUnit, ['pcs','servings'], true)) {
+            return redirect()->to('/admin/products')->withInput()->with('error','Check the stock unit, standard cost and paired bundle fields.');
+        }
         $data = [
+            'stock_unit'=>$stockUnit,'standard_unit_cost'=>$standardCost,
+            'bundle_quantity'=>$bundleQuantity,'bundle_price'=>$bundlePrice,
             'category_id' => (int) $categoryId,
             'name' => trim((string) $this->request->getPost('name')),
             'slug' => url_title((string) $this->request->getPost('name'), '-', true),

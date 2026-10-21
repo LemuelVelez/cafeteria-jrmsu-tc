@@ -27,7 +27,11 @@
 <div class="col-md-7"><label class="form-label">Product name</label><input class="form-control" name="name" placeholder="e.g. Chicken Adobo Rice" required maxlength="150"></div>
 <div class="col-md-5"><label class="form-label">Category</label><select class="form-select" name="category_id" required><option value="">Select category</option><?php foreach ($categories as $category): ?><option value="<?= (int)$category['id'] ?>"><?= esc($category['name']) ?></option><?php endforeach; ?></select></div>
 <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" name="description" placeholder="e.g. Tender chicken adobo with steamed rice and vegetables."></textarea></div>
-<div class="col-md-4"><label class="form-label">Price</label><input class="form-control" type="number" step="0.01" min="0" name="price" placeholder="e.g. 95.00" required></div>
+<div class="col-md-4"><label class="form-label">Single-piece price (₱)</label><input class="form-control" type="number" step="0.01" min="0" name="price" required></div>
+<div class="col-md-4"><label class="form-label">Preset unit cost (₱; blank if unknown)</label><input class="form-control" name="standard_unit_cost" type="number" min="0" step="0.01" placeholder="Uncosted"></div>
+<div class="col-md-4"><label class="form-label">Stock unit</label><select class="form-select" name="stock_unit"><option value="pcs">pcs</option><option value="servings">servings</option></select></div>
+<div class="col-md-4"><label class="form-label">Bundle quantity (minimum 2)</label><input class="form-control" name="bundle_quantity" type="number" min="2" step="1" placeholder="e.g. 3"></div>
+<div class="col-md-4"><label class="form-label">Bundle price (₱)</label><input class="form-control" name="bundle_price" type="number" min="0" step="0.01" placeholder="e.g. 20.00"></div>
 <div class="col-md-4"><label class="form-label">SKU</label><input class="form-control" name="sku" maxlength="40" pattern="[A-Za-z0-9_-]*" placeholder="e.g. RICE-ADOBO-001"></div>
 <div class="col-md-4"><label class="form-label">Barcode</label><div class="input-group"><input class="form-control" name="barcode" maxlength="64" pattern="[A-Za-z0-9_-]*" placeholder="e.g. 4801234567890" data-product-barcode><button class="btn btn-outline-secondary" type="button" data-generate-barcode>Generate</button></div></div>
 <div class="col-md-4" data-initial-stock-group><label class="form-label">Initial stock</label><input class="form-control" type="number" min="0" name="stock" value="0" placeholder="e.g. 25" required></div>

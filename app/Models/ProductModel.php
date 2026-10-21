@@ -7,7 +7,7 @@ class ProductModel extends BaseModel
     protected $table = 'products';
     protected $primaryKey = 'id';
     protected $allowedFields = [
-        'category_id', 'name', 'slug', 'sku', 'barcode', 'description', 'price', 'stock', 'reorder_level', 'max_stock', 'image',
+        'category_id', 'name', 'slug', 'sku', 'barcode', 'description', 'price', 'standard_unit_cost', 'stock_unit', 'bundle_quantity', 'bundle_price', 'stock', 'reorder_level', 'max_stock', 'image',
         'is_available', 'is_featured', 'serving_size', 'calories', 'protein_g', 'carbohydrates_g', 'fat_g',
         'sugar_g', 'fiber_g', 'sodium_mg', 'allergens', 'is_healthy_choice', 'is_vegetarian', 'packaging_cost', 'recipe_servings', 'cooking_yield', 'nutrition_source', 'nutrition_status', 'nutrition_verified_by', 'nutrition_verified_at',
     ];
@@ -20,6 +20,10 @@ class ProductModel extends BaseModel
         'sku' => 'permit_empty|alpha_dash|max_length[40]',
         'barcode' => 'permit_empty|alpha_dash|max_length[64]',
         'price' => 'required|decimal|greater_than_equal_to[0]',
+        'standard_unit_cost' => 'permit_empty|decimal|greater_than_equal_to[0]',
+        'stock_unit' => 'required|in_list[pcs,servings]',
+        'bundle_quantity' => 'permit_empty|integer|greater_than_equal_to[2]',
+        'bundle_price' => 'permit_empty|decimal|greater_than_equal_to[0]',
         'stock' => 'permit_empty|integer|greater_than_equal_to[0]',
         'reorder_level' => 'permit_empty|integer|greater_than_equal_to[0]',
         'max_stock' => 'permit_empty|integer|greater_than_equal_to[0]',

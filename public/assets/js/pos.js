@@ -60,7 +60,7 @@
                 <div class="pos-line py-2 border-bottom">
                     <div class="pos-line-main">
                         <div class="fw-semibold">${escapeHtml(line.name)}</div>
-                        <small class="text-secondary">₱${unitPrice.toFixed(2)}${addons.length ? ` · ${escapeHtml(addons.join(', '))}` : ''}</small>
+                        <small class="text-secondary">${Number(line.bundle_quantity || 0) >= 2 ? `${line.bundle_quantity} for ₱${Number(line.bundle_price || 0).toFixed(2)}` : `₱${unitPrice.toFixed(2)}`}${addons.length ? ` · ${escapeHtml(addons.join(', '))}` : ''}</small>
                         ${availability}
                     </div>
                     <input class="form-control form-control-sm pos-line-quantity" type="number" min="1" value="${line.quantity}" data-pos-qty="${index}" aria-label="Quantity for ${escapeHtml(line.name)}">
@@ -105,7 +105,7 @@
             const { data: product } = await window.cafeteriaFetch(window.cafeteriaUrl(`api/products/barcode/${encodeURIComponent(scanned)}`));
             if (!product.is_available) throw new Error(`${product.name} is unavailable.`);
             if (Number(product.stock) < 1) throw new Error(`${product.name} is out of stock.`);
-            const full = cart.add({ product_id: Number(product.id), name: product.name, price: Number(product.price), stock: Number(product.stock), quantity: 1, image: product.image_url || '', addons: [], addon_total: 0, notes: '', available: true });
+            const full = cart.add({ product_id: Number(product.id), name: product.name, price: Number(product.price), bundle_quantity: product.bundle_quantity, bundle_price: product.bundle_price, stock: Number(product.stock), quantity: 1, image: product.image_url || '', addons: [], addon_total: 0, notes: '', available: true });
             if (!full) throw new Error(`No more stock is available for ${product.name}.`);
             render(); beep(true); setScanFeedback(`${product.name} added.`, true); barcodeInput.value = '';
         } catch (error) {

@@ -58,6 +58,8 @@
                     data-product-card
                     data-product-id="<?= $product['id'] ?>"
                     data-product-name="<?= esc($product['name'], 'attr') ?>"
+                    data-bundle-quantity="<?= (int)($product['bundle_quantity']??0) ?>"
+                    data-bundle-price="<?= esc((string)($product['bundle_price']??''),'attr') ?>"
                     data-product-price="<?= $product['price'] ?>"
                     data-product-stock="<?= (int) $product['stock'] ?>"
                     data-product-image="<?= esc($productImage, 'attr') ?>"
@@ -70,7 +72,7 @@
                     <div class="product-card-body">
                         <div class="product-card-heading">
                             <h2 class="h5 section-title fw-bold mb-0"><?= esc($product['name']) ?></h2>
-                            <span class="price text-nowrap"><?= format_price($product['price']) ?></span>
+                            <span class="price text-nowrap"><?= !empty($product['bundle_quantity']) ? esc(\App\Services\BundlePricePolicy::label($product)) : format_price($product['price']) ?></span>
                         </div>
                         <p class="product-description text-secondary"><?= esc($product['description']) ?></p>
                         <div class="d-flex flex-wrap gap-2 mb-3"><?php if ($product['calories'] !== null): ?><span class="badge text-bg-light border"><?= (int)$product['calories'] ?> kcal</span><?php endif; ?><span class="badge text-bg-secondary"><?= ($product['nutrition_status']??'estimated')==='verified'?'Verified':'Estimated' ?></span><?php if (!empty($product['is_healthy_choice']) && ($product['nutrition_status'] ?? '') === 'verified'): ?><span class="badge text-bg-success">Healthy choice</span><?php endif; ?></div>

@@ -76,6 +76,10 @@ class ProductApiController extends BaseController
             'barcode' => $barcode,
             'description' => trim((string) ($payload['description'] ?? '')),
             'price' => $payload['price'] ?? '',
+            'standard_unit_cost' => $this->nullable($payload['standard_unit_cost'] ?? ($existing['standard_unit_cost']??null)),
+            'stock_unit' => $payload['stock_unit'] ?? ($existing['stock_unit'] ?? 'pcs'),
+            'bundle_quantity' => $this->nullable($payload['bundle_quantity'] ?? ($existing['bundle_quantity']??null)),
+            'bundle_price' => $this->nullable($payload['bundle_price'] ?? ($existing['bundle_price']??null)),
             'reorder_level' => $payload['reorder_level'] ?? 5,
             'max_stock' => $payload['max_stock'] ?? 50,
             'serving_size' => $this->nullable($payload['serving_size'] ?? null),
@@ -91,6 +95,12 @@ class ProductApiController extends BaseController
             'is_available' => ! empty($payload['is_available']) ? 1 : 0,
             'is_featured' => ! empty($payload['is_featured']) ? 1 : 0,
         ];
+        if (($data['bundle_quantity'] === null) !== ($data['bundle_price'] === null)
+            || ($data['bundle_quantity'] !== null && (filter_var($data['bundle_quantity'],FILTER_VALIDATE_INT)===false || (int)$data['bundle_quantity']<2))
+            || ($data['bundle_price'] !== null && (!is_numeric($data['bundle_price']) || (float)$data['bundle_price']<0))
+            || ($data['standard_unit_cost'] !== null && (!is_numeric($data['standard_unit_cost']) || (float)$data['standard_unit_cost']<0))) {
+            return $this->jsonError('Bundle quantity and price must be supplied together; standard cost must not be negative.');
+        }
         // PUT requests often omit nutrition fields; omission must not erase
         // an existing estimate (or revoke a valid human sign-off).
         if ($existing) {

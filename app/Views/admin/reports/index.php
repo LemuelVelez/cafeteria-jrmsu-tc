@@ -33,13 +33,24 @@
     </form>
     <nav class="report-tabs-scroll report-controls mb-4" aria-label="Report sections" tabindex="0">
         <ul class="nav nav-tabs report-tabs">
-            <?php foreach (['sales'=>['Sales','bi-cash-stack'], 'orders'=>['Orders','bi-receipt'], 'inventory'=>['Inventory','bi-box-seam'], 'popular'=>['Popular food','bi-award'], 'deliveries'=>['Deliveries','bi-bicycle'], 'profit'=>['Profit','bi-graph-up'], 'lowstock'=>['Low stock','bi-exclamation-triangle'], 'audit'=>['Audit','bi-shield-check']] + ($attendanceEnabled ? ['attendance'=>['Staff hours/wages','bi-clock-history']] : []) as $key => [$label, $icon]): ?>
+            <?php foreach (['daily'=>['Daily counter inventory','bi-clipboard-data'], 'sales'=>['Sales','bi-cash-stack'], 'orders'=>['Orders','bi-receipt'], 'inventory'=>['Inventory','bi-box-seam'], 'popular'=>['Popular food','bi-award'], 'deliveries'=>['Deliveries','bi-bicycle'], 'profit'=>['Profit','bi-graph-up'], 'lowstock'=>['Low stock','bi-exclamation-triangle'], 'audit'=>['Audit','bi-shield-check']] + ($attendanceEnabled ? ['attendance'=>['Staff hours/wages','bi-clock-history']] : []) as $key => [$label, $icon]): ?>
                 <li class="nav-item"><a class="nav-link <?= $active === $key ? 'active' : '' ?>" <?= $active === $key ? 'aria-current="page"' : '' ?> href="<?= esc(base_url('admin/reports') . '?' . http_build_query(['type'=>$key, 'from'=>$from, 'to'=>$to]), 'attr') ?>"><i class="bi <?= esc($icon, 'attr') ?> me-1" aria-hidden="true"></i><?= esc($label) ?></a></li>
             <?php endforeach; ?>
         </ul>
     </nav>
 
-    <?php if ($active === 'sales'): $s = $sales['summary']; ?>
+    <?php if ($active === 'daily'): $r=$dailyReport; ?>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <a class="btn btn-outline-primary" target="_blank" href="<?= base_url('admin/reports/daily/print').'?date='.urlencode($r['date']) ?>">Printable sheet</a>
+            <a class="btn btn-outline-secondary" href="<?= base_url('admin/reports/daily/export').'?date='.urlencode($r['date']) ?>">CSV export</a>
+            <a class="btn btn-outline-secondary" href="<?= base_url('admin/cash-count').'?date='.urlencode($r['date']) ?>">Cash count / reconciliation</a>
+            <?php if(!$r['check']): ?><form method="post" action="<?= base_url('admin/reports/daily/action') ?>"><?= csrf_field() ?><input type="hidden" name="date" value="<?= esc($r['date'],'attr') ?>"><input type="hidden" name="operation" value="prepare"><button class="btn btn-primary">Prepare</button></form>
+            <?php elseif(!$r['check']['checked_at']): ?><form method="post" action="<?= base_url('admin/reports/daily/action') ?>"><?= csrf_field() ?><input type="hidden" name="date" value="<?= esc($r['date'],'attr') ?>"><input type="hidden" name="operation" value="check"><button class="btn btn-primary">Check and lock</button></form>
+            <?php else: ?><span class="badge text-bg-secondary">Checked / locked</span><?php endif; ?>
+        </div>
+        <p>Day/Date: <strong><?= esc($r['day']) ?></strong>. Values are reconstructed from the stock ledger; non-zero POS variances indicate missing or unmatched movements. Profit excludes uncosted products.</p>
+        <div class="surface-card p-3"><?= view('admin/reports/_daily_table',['report'=>$r]) ?></div>
+    <?php elseif ($active === 'sales'): $s = $sales['summary']; ?>
         <div class="report-stat-grid mb-4">
             <?php foreach ([['Gross sales',format_price($s['gross_sales'])], ['Discounts',format_price($s['discounts'])], ['Delivery fees',format_price($s['delivery_fees'])], ['Net sales',format_price($s['net_sales'])], ['Average order',format_price($s['average_order_value'])]] as [$label,$value]): ?>
                 <div class="stat-card report-stat"><span class="report-stat-label"><?= esc($label) ?></span><strong class="report-stat-value"><?= esc($value) ?></strong></div>
@@ -94,7 +105,7 @@
             <?php endforeach; ?>
         </div>
         <?php if ($profitReport['uncostedRevenue'] > 0): ?><div class="alert alert-warning mb-4" role="alert"><i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>Items without recipes account for <?= esc(format_price($profitReport['uncostedRevenue'])) ?> of discounted revenue. They are excluded from profitability percentages.</div><?php endif; ?>
-        <div class="surface-card table-card"><div class="table-responsive"><table class="table"><thead><tr><th>Product</th><th>Category</th><th>Cost status</th><th>Gross revenue</th><th>Discount</th><th>Net revenue</th><th>Cost</th><th>Profit</th></tr></thead><tbody><?php foreach ($profitReport['rows'] as $row): ?><tr><td><?= esc($row['product_name']) ?></td><td><?= esc($row['category'] ?? '—') ?></td><td><?= $row['cost_status'] === 'complete' ? 'Complete' : 'No recipe' ?></td><td><?= esc(format_price($row['revenue'])) ?></td><td><?= esc(format_price($row['discount_allocated'])) ?></td><td><?= esc(format_price($row['net_revenue'])) ?></td><td><?= $row['cost_status'] === 'complete' ? esc(format_price($row['cost'])) : '—' ?></td><td><?= $row['gross_profit'] !== null ? esc(format_price($row['gross_profit'])) : 'Not costed' ?></td></tr><?php endforeach; ?></tbody></table></div></div>
+        <div class="surface-card table-card"><div class="table-responsive"><table class="table"><thead><tr><th>Product</th><th>Category</th><th>Cost status</th><th>Gross revenue</th><th>Discount</th><th>Net revenue</th><th>Cost</th><th>Profit</th></tr></thead><tbody><?php foreach ($profitReport['rows'] as $row): ?><tr><td><?= esc($row['product_name']) ?></td><td><?= esc($row['category'] ?? '—') ?></td><td><?= in_array($row['cost_status'], ['complete','standard'],true) ? ($row['cost_status']==='standard'?'Preset cost':'Recipe') : 'Uncosted' ?></td><td><?= esc(format_price($row['revenue'])) ?></td><td><?= esc(format_price($row['discount_allocated'])) ?></td><td><?= esc(format_price($row['net_revenue'])) ?></td><td><?= in_array($row['cost_status'], ['complete','standard'],true) ? esc(format_price($row['cost'])) : '—' ?></td><td><?= $row['gross_profit'] !== null ? esc(format_price($row['gross_profit'])) : 'Not costed' ?></td></tr><?php endforeach; ?></tbody></table></div></div>
 
     <?php elseif ($active === 'lowstock'): ?>
         <p class="text-secondary small">Stock as of <?= esc($to) ?>; reorder/par thresholds reflect current product settings.</p>

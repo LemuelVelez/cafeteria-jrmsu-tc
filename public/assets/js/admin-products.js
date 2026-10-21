@@ -22,7 +22,7 @@
     document.querySelectorAll('[data-edit-product]').forEach((button) => button.addEventListener('click', () => {
         const product = JSON.parse(button.dataset.editProduct || '{}');
         form.action = `${form.dataset.baseAction}/${product.id}`;
-        ['name','category_id','description','price','sku','barcode','reorder_level','max_stock',...nutritionFields].forEach((name) => { if (form.elements[name]) form.elements[name].value = product[name] ?? ''; });
+        ['name','category_id','description','price','standard_unit_cost','stock_unit','bundle_quantity','bundle_price','sku','barcode','reorder_level','max_stock',...nutritionFields].forEach((name) => { if (form.elements[name]) form.elements[name].value = product[name] ?? ''; });
         form.elements.image.value = '';
         form.elements.image_url.value = /^https:\/\//i.test(String(product.image || '')) ? product.image : ''; 
         ['is_available','is_featured','is_healthy_choice'].forEach((name) => { form.elements[name].checked = Number(product[name]) === 1; });

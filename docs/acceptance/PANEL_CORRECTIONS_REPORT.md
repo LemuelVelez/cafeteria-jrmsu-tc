@@ -142,3 +142,40 @@ See `docs/acceptance/execution-2026-10-19-v16.md` for the actual command attempt
 - Added `app/Database/Seeds/data/recipe_measurement_workbook.csv`: all eight demo products have clearly labeled candidate ingredient suggestions and **blank measured quantities, recipe servings, cooking yields, and kitchen sign-off**. Calamansi-specific data and a matching burger bun are among the unresolved items; lemon is expressly **not** used as a calamansi substitute.
 - Added `NutritionReferenceCatalog`, `nutrition:references`, `NutritionReferenceCatalogTest`, and `docs/nutrition/EIGHT_PRODUCT_SOURCE_STATUS.md`. A PHP smoke test reads and validates 20 source candidates and correctly reports 0/8 kitchen-measured recipes. `npm run check` and PHP syntax lint pass; PHPUnit/MySQL acceptance is not runnable here.
 - Existing registry entries, admin-managed data, and seeder CSVs were **not** modified. Correction #5 remains **Partial / Blocked on restaurant measurements and nutrition verification**.
+
+## Continuation v8 — new panel paper-form corrections (2026-10-21)
+
+**Implementation status: Implemented–untested against MySQL and paper-form acceptance.** This source patch adds migrations `000042`–`000046`; it did not edit previously applied migrations. No fabricated product unit costs, opening stocks, wage rates, or extra product prices were added. The on-call rate is blank until approved. No new environment keys or external CDN libraries were added.
+
+| New panel correction | Honest status | Code evidence / outstanding acceptance |
+|---|---|---|
+| 1. Automate daily inventory columns | Implemented–untested | `DailyInventoryService`, `DailyInventoryPolicy`, `InventoryService::count`, new Report Center daily tab/print/CSV and locked preparer/checker; needs actual day-end count and ledger verification in MySQL |
+| 2. Cost, item revenue, estimated net profit | Implemented–untested | `standard_unit_cost`, recipe-first cost resolution, uncosted revenue, per-line bundle pricing in POS and profit report; requires real cost approval and matched till sales |
+| 3. Withdrawal reason and remarks | Implemented–untested | Nullable movement reason_code, required code and nonempty remarks for new `stock_out`/`waste`, legacy notes kept; MySQL update/reversal to verify |
+| 4. Generate daily sales report | Implemented–untested | Group/category subtotals, credit payment line, GRAND TOTAL, printed university title and signatures, CSV-safe formula neutralization; printer checks pending |
+| 5. Cash denomination counts | Implemented–untested | Per-day `cash_counts` with server-validated nonnegative piece counts and computed denomination totals; human cashier sample verification pending |
+| 6. POS and cash reconciliation | Implemented–untested | Expected paid cash on same `orders.created_at` date basis as existing sales; counted vs expected and over/short, optional cashier grouping; audited admin checking/correction reason history; requires live MySQL close-of-day |
+| 7. On-call hours/minutes and wages | Implemented–untested | Independent on-call log, blank approved-rate setting, recorded hourly snapshot, half-up total, range/print/CSV; rate approval and real payroll verification pending |
+| Bundle / catalog addenda | Implemented–untested | Reversible product fields, `BundlePricePolicy`, cart/POS/receipt authoritative amounts; explicit `CounterItemCatalogSeeder` idempotence checked in database test source only, not executed; handwritten confirmations outstanding |
+
+**Source-level checks:** `sh cafe lint` **PASS** (the ZIP extraction does not preserve executable permission on `cafe`, so `./cafe lint` itself was blocked by permission; running the same script through `sh` passed); `npm run check` **PASS**. `vendor/`, Composer executable, and MySQLi are absent in this environment; PHP unit/integration execution and migration rollback have **not** been verified. Dedicated `CounterFormsPolicyTest` and `CounterFormsDatabaseTest` added, but MySQL and Composer are still required. No panel acceptance/production deployment is claimed.
+
+**Important arithmetic correction requiring panel approval:** Requested input Beginning=150, Additional=20, Withdrawn=5, Ending=30 cannot give Total Stock=165/Sold=130 under the panel's exact field definitions. It gives Total Stock=**170**, Sold=**135**, Amount=₱1,350, COGS=₱810 and profit=₱540 at price ₱10/cost ₱6. To give Sold=130, amount ₱1,300, COGS ₱780 and profit ₱520, ending stock must be **35**. Implementation and calculator unit tests honor the written formula; the test sample is identified as inconsistent rather than hardcoded incorrectly. Approved historical reports preserve sign-offs while newly posted ledger movements are flagged using a checked ledger-ID high-water mark.
+
+**Cash storage decision:** One row per date with two JSON arrays (nine denomination piece counts and optional credit customers/office entries) supports atomic replacement of a complete daily count and locking by unique business date; the calculated cash and credit totals are stored after server validation for reconciliation. A separate immutable `cash_count_revisions` table retains admin correction reasons, without placing private credit customer data in audit event payloads.
+
+### Modified/new-file breakdown (continuation v8)
+
+- `app/Config/Routes.php`, `app/Views/layouts/main.php`: protected admin and cashier routes and navigation links.
+- `app/Controllers/Admin/ReportController.php`, `app/Views/admin/reports/index.php`: new daily report tab, date-scoped export and grouping.
+- `app/Controllers/Admin/DailyInventoryController.php`, `app/Services/DailyInventoryService.php`, `app/Services/DailyInventoryPolicy.php`, `app/Views/admin/reports/_daily_table.php`, `app/Views/admin/reports/daily_inventory_print.php`: ledger calculations, differences, grouping, checked signatures, print and CSV.
+- `app/Controllers/Admin/InventoryController.php`, `app/Services/InventoryService.php`, `app/Views/admin/inventory/index.php`: coded withdrawal reasons, required remarks, counting zero difference.
+- `app/Controllers/Admin/CashCountController.php`, `app/Services/CashCountPolicy.php`, `app/Views/admin/cash/count.php`, `app/Views/admin/cash/print.php`: denomination calculator, independent manual credits, cashier preparation, admin reconciliation/sign-off and auditable correction reopening.
+- `app/Controllers/Admin/OnCallController.php`, `app/Services/OnCallWagePolicy.php`, `app/Views/admin/on_call/index.php`, `app/Views/admin/on_call/_table.php`, `app/Views/admin/on_call/print.php`: approved-rate snapshots, minute-accurate pay, period totals, printable and CSV reports.
+- `app/Services/BundlePricePolicy.php`, `app/Services/OrderService.php`, `app/Services/ReportService.php`, `public/assets/js/cart.js`, `public/assets/js/pos.js`, `app/Views/cashier/pos/index.php`, `app/Views/customer/menu/index.php`: bundle pricing in server totals, POS, cart, menu display and profit reporting.
+- `app/Models/ProductModel.php`, `app/Controllers/Admin/ProductController.php`, `app/Controllers/Api/ProductApiController.php`, `app/Views/admin/products/index.php`, `public/assets/js/admin-products.js`: preset cost/stock-unit/bundle editing and validation.
+- `app/Controllers/Admin/SettingController.php`, `app/Views/admin/settings/index.php`: admin-only approved on-call rate setting.
+- `app/Database/Migrations/2026-10-21-000042_AddCounterReportFields.php` through `2026-10-21-000046_CreateCashCountRevisions.php`: five new reversible migrations for product/ledger columns, counts, work logs, approvals and correction history.
+- `app/Database/Seeds/CounterItemCatalogSeeder.php`: explicit, idempotent counter catalog, never in default registry.
+- `tests/Unit/CounterFormsPolicyTest.php`, `tests/Database/CounterFormsDatabaseTest.php`: pure numeric policies and MySQL-dependent catalog/ledger acceptance fixtures.
+- `README.md`, `SYSTEM_DOCUMENTATION.md`, `docs/acceptance/PANEL_CORRECTIONS_REPORT.md`: deployment, formulas, roles, seeder command, affected files and unverified acceptance state.

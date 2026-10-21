@@ -46,7 +46,9 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                         data-product-card
                         data-product-id="<?= esc($product['id'], 'attr') ?>"
                         data-product-name="<?= esc($product['name'], 'attr') ?>"
-                        data-product-price="<?= esc($product['price'], 'attr') ?>"
+                        data-bundle-quantity="<?= (int)($product['bundle_quantity']??0) ?>"
+                    data-bundle-price="<?= esc((string)($product['bundle_price']??''),'attr') ?>"
+                    data-product-price="<?= esc($product['price'], 'attr') ?>"
                         data-product-stock="<?= esc($product['stock'], 'attr') ?>"
                         data-product-image="<?= esc(product_image($product)['url'], 'attr') ?>"
                     >
@@ -54,7 +56,7 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                         <img class="product-image rounded mb-3" src="<?= esc($image['url'], 'attr') ?>" alt="<?= esc($image['alt'], 'attr') ?>" width="800" height="600" loading="lazy" decoding="async" data-fallback-src="<?= esc($image['fallback'], 'attr') ?>">
                         <div class="d-flex justify-content-between gap-2">
                             <h2 class="h6 fw-bold mb-1"><?= esc($product['name']) ?></h2>
-                            <span class="price text-nowrap"><?= format_price($product['price']) ?></span>
+                            <span class="price text-nowrap"><?= !empty($product['bundle_quantity']) ? esc(\App\Services\BundlePricePolicy::label($product)) : format_price($product['price']) ?></span>
                         </div>
                         <small class="text-secondary">Stock: <?= esc($product['stock']) ?></small>
                         <?php if (! empty($addons[$product['id']])): ?>

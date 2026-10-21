@@ -19,7 +19,7 @@ SELECT oi.product_id, oi.product_name, c.name category, oi.cost_status,
        ROUND(COALESCE(SUM(oi.line_total),0),2) revenue,
        ROUND(COALESCE(SUM(CASE WHEN o.subtotal > 0 THEN oi.line_total * o.discount / o.subtotal ELSE 0 END),0),2) discount_allocated,
        ROUND(COALESCE(SUM(oi.line_total - CASE WHEN o.subtotal > 0 THEN oi.line_total * o.discount / o.subtotal ELSE 0 END),0),2) net_revenue,
-       ROUND(COALESCE(SUM(CASE WHEN oi.cost_status='complete' THEN oi.quantity * oi.unit_cost ELSE 0 END),0),2) cost
+       ROUND(COALESCE(SUM(CASE WHEN oi.cost_status IN ('complete','standard') THEN oi.quantity * oi.unit_cost ELSE 0 END),0),2) cost
 FROM order_items oi
 JOIN orders o ON o.id = oi.order_id
 LEFT JOIN products p ON p.id = oi.product_id
@@ -31,11 +31,11 @@ SQL, [$from, $to])->getResultArray();
         $revenue = 0.0; $discounts = 0.0; $cost = 0.0; $profit = 0.0;
         $costedNet = 0.0; $uncostedNet = 0.0;
         foreach ($rows as &$row) {
-            $row['gross_profit'] = $row['cost_status'] === 'complete'
+            $row['gross_profit'] = in_array($row['cost_status'], ['complete','standard'], true)
                 ? round((float) $row['net_revenue'] - (float) $row['cost'], 2) : null;
             $revenue += (float) $row['revenue'];
             $discounts += (float) $row['discount_allocated'];
-            if ($row['cost_status'] === 'complete') {
+            if (in_array($row['cost_status'], ['complete','standard'], true)) {
                 $cost += (float) $row['cost'];
                 $profit += (float) $row['gross_profit'];
                 $costedNet += (float) $row['net_revenue'];

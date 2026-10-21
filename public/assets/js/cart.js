@@ -1,6 +1,19 @@
 (() => {
     'use strict';
 
+    // Identical to BundlePricePolicy::amount in PHP; server recomputes on checkout.
+    const productAmount = (line, quantity) => {
+        const bundleQuantity = Number(line.bundle_quantity || 0);
+        const single = Number(line.price || 0);
+        const addons = Number(line.addon_total || 0) * quantity;
+        if (bundleQuantity < 2) return single * quantity + addons;
+        const remainder = quantity % bundleQuantity;
+        return Math.floor(quantity / bundleQuantity) * Number(line.bundle_price || 0) + remainder * single + addons;
+    };
+    const bundleLabel = (line) => Number(line.bundle_quantity || 0) >= 2
+        ? `${line.bundle_quantity} for ₱${Number(line.bundle_price || 0).toFixed(2)}`
+        : `₱${Number(line.price || 0).toFixed(2)} each`;
+
     class CartStore {
         constructor(key = 'jrmsu-cafeteria-cart') {
             this.key = key;
@@ -43,6 +56,8 @@
                 product_id: productId,
                 name: String(item.name || 'Product').slice(0, 120),
                 price,
+                bundle_quantity: Number.isInteger(Number(item.bundle_quantity)) && Number(item.bundle_quantity) >= 2 ? Number(item.bundle_quantity) : null,
+                bundle_price: item.bundle_price === null || item.bundle_price === undefined || item.bundle_price === '' ? null : Number(item.bundle_price),
                 stock: normalizedStock,
                 quantity,
                 image: String(item.image || '').slice(0, 2000),
@@ -74,6 +89,9 @@
             for (const line of this.items) {
                 if (line.available === false) return `${line.name || 'A product'} is no longer available. Remove it from the cart before continuing.`;
                 if (line.addon_invalid) return `An add-on selected for ${line.name || 'a product'} is no longer available. Remove and re-add that item before continuing.`;
+                if (Number(line.bundle_quantity || 0) >= 2 && Number(line.price) === 0 && Number(line.quantity) % Number(line.bundle_quantity) !== 0) {
+                    return `${line.name}: sold only in groups of ${line.bundle_quantity}. No single-piece price is set.`;
+                }
 
                 const productId = Number(line.product_id);
                 const requested = (requestedByProduct.get(productId) || 0) + Number(line.quantity || 0);
@@ -104,9 +122,13 @@
                 const serverStock = Math.max(0, Math.floor(Number(product.stock) || 0));
                 const serverName = String(product.name || line.name || 'Product').slice(0, 120);
                 const serverImage = String(product.image_url || line.image || '').slice(0, 2000);
-                if (line.available === false || line.price !== serverPrice || line.stock !== serverStock || line.name !== serverName || line.image !== serverImage) changed = true;
+                if (line.available === false || line.price !== serverPrice || line.stock !== serverStock || line.name !== serverName || line.image !== serverImage
+                    || Number(line.bundle_quantity || 0) !== Number(product.bundle_quantity || 0)
+                    || Number(line.bundle_price || 0) !== Number(product.bundle_price || 0)) changed = true;
                 line.available = true;
                 line.price = serverPrice;
+                line.bundle_quantity = product.bundle_quantity ? Number(product.bundle_quantity) : null;
+                line.bundle_price = product.bundle_price === null ? null : Number(product.bundle_price);
                 line.stock = serverStock;
                 line.name = serverName;
                 line.image = serverImage;
@@ -180,7 +202,7 @@
             return line.quantity;
         }
         clear() { this.items = []; this.save(); }
-        subtotal() { return this.items.reduce((sum, line) => sum + ((Number(line.price) + Number(line.addon_total || 0)) * Number(line.quantity)), 0); }
+        subtotal() { return this.items.reduce((sum, line) => sum + productAmount(line, Number(line.quantity)), 0); }
         updateBadges() {
             const count = this.items.reduce((sum, line) => sum + Number(line.quantity), 0);
             document.querySelectorAll('[data-cart-count]').forEach((node) => { node.textContent = count; node.hidden = count < 1; });
@@ -249,7 +271,7 @@
         const itemMarkup = visibleItems.map((line) => {
             const quantity = Number(line.quantity);
             const unitPrice = Number(line.price) + Number(line.addon_total || 0);
-            const lineTotal = unitPrice * quantity;
+            const lineTotal = productAmount(line, quantity);
             const addons = (line.addons || []).map((addon) => addon.name).filter(Boolean);
             const meta = addons.length
                 ? `${quantity} × ${addons.join(', ')}`
@@ -302,6 +324,8 @@
                 product_id: Number(card.dataset.productId),
                 name: card.dataset.productName,
                 price: Number(card.dataset.productPrice),
+                bundle_quantity: Number(card.dataset.bundleQuantity || 0) || null,
+                bundle_price: card.dataset.bundlePrice === '' ? null : Number(card.dataset.bundlePrice),
                 stock: Number(card.dataset.productStock || 0),
                 image: card.dataset.productImage || '',
                 quantity: Number(card.querySelector('[data-quantity]')?.value || 1),
@@ -342,7 +366,7 @@
             cartRows.innerHTML = cart.items.map((line, index) => {
                 const addons = line.addons || [];
                 const unitPrice = Number(line.price) + Number(line.addon_total || 0);
-                const lineTotal = unitPrice * Number(line.quantity);
+                const lineTotal = productAmount(line, Number(line.quantity));
                 const addonMarkup = addons.length
                     ? addons.map((addon) => `<span class="cart-addon-chip">${escapeHtml(addon.name)}</span>`).join('')
                     : '<span class="cart-addon-chip is-standard">Standard</span>';
@@ -353,7 +377,7 @@
                         <div class="cart-line-main">
                             <div class="cart-line-title-row">
                                 <h3 class="cart-line-title">${escapeHtml(line.name)}</h3>
-                                <span class="cart-line-unit-price">₱${unitPrice.toFixed(2)} each</span>
+                                <span class="cart-line-unit-price">${bundleLabel(line)}${addons.length ? ' + add-ons' : ''}</span>
                             </div>
                             <div class="cart-addon-list">${addonMarkup}</div>
                             <label class="small text-muted mt-2 d-block" for="cart-note-${index}">Item note (optional)</label>
@@ -533,9 +557,9 @@
                                 <div class="checkout-item-copy">
                                     <h3>${escapeHtml(line.name || 'Product')}</h3>
                                     <p>${escapeHtml(description)}</p>
-                                    <span>${lineQuantity} × ${formatMoney(unitPrice)}</span>
+                                    <span>${lineQuantity} × ${escapeHtml(bundleLabel(line))}</span>
                                 </div>
-                                <strong>${formatMoney(unitPrice * lineQuantity)}</strong>
+                                <strong>${formatMoney(productAmount(line, lineQuantity))}</strong>
                             </article>`;
                     }).join('');
                 }

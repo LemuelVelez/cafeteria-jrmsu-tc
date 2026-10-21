@@ -7,7 +7,7 @@ use App\Services\ReportService;
 
 class ReportController extends BaseController
 {
-    private const TYPES = ['sales', 'orders', 'inventory', 'popular', 'deliveries', 'profit', 'lowstock', 'audit', 'attendance'];
+    private const TYPES = ['sales', 'orders', 'inventory', 'popular', 'deliveries', 'profit', 'lowstock', 'audit', 'attendance', 'daily'];
 
     private function isAttendanceEnabled(): bool
     {
@@ -26,9 +26,10 @@ class ReportController extends BaseController
             'sales' => [], 'ordersReport' => [], 'inventoryReport' => [],
             'popularReport' => [], 'deliveryReport' => [], 'profitReport' => [],
             'lowStockReport' => [], 'auditReport' => [], 'attendanceReport' => [],
-            'attendanceEnabled' => $this->isAttendanceEnabled(),
+            'attendanceEnabled' => $this->isAttendanceEnabled(), 'dailyReport' => null,
         ];
         switch ($active) {
+            case 'daily': $data['dailyReport'] = (new \App\Services\DailyInventoryService())->report($from); break;
             case 'sales': $data['sales'] = $service->sales($from,$to); break;
             case 'orders': $data['ordersReport'] = $service->orders($from,$to); break;
             case 'inventory': $data['inventoryReport'] = $service->inventory($from,$to); break;
@@ -114,6 +115,22 @@ class ReportController extends BaseController
             'lowstock' => $service->lowStock($from,$to),
             'audit' => $service->audit($from,$to),
             'attendance' => $service->attendance($from,$to),
+            'daily' => (static function () use ($from, &$summary): array {
+                $report=(new \App\Services\DailyInventoryService())->report($from);
+                $template=['category'=>'','product'=>'','unit'=>'','beginning'=>'','additional'=>'','total'=>'','withdrawn'=>'',
+                    'ending'=>'','ending_source'=>'','sold'=>'','pos_sold'=>'','variance'=>'','unit_cost'=>'','total_cost'=>'',
+                    'selling_price'=>'','amount'=>'','net_profit'=>'','remarks'=>''];
+                $rows=[];
+                foreach($report['groups'] as $category=>$group) {
+                    foreach($group['rows'] as $r)$rows[]=array_replace($template,['category'=>$category,'product'=>$r['name'],'unit'=>$r['unit'],'beginning'=>$r['beginning'],'additional'=>$r['additional'],'total'=>$r['total_stock'],'withdrawn'=>$r['withdrawn'],'ending'=>$r['ending'],'ending_source'=>$r['ending_source'],'sold'=>$r['sold'],'pos_sold'=>$r['pos_sold'],'variance'=>$r['variance'],'unit_cost'=>$r['unit_cost']??'—','total_cost'=>$r['total_cost']??'—','selling_price'=>$r['price_label'],'amount'=>$r['amount']??'—','net_profit'=>$r['profit']??'—','remarks'=>$r['remarks']]);
+                    $rows[]=array_replace($template,['category'=>$category,'product'=>'CATEGORY SUBTOTAL','sold'=>$group['totals']['sold'],'pos_sold'=>$group['totals']['pos_sold'],'variance'=>$group['totals']['variance'],'total_cost'=>$group['totals']['total_cost'],'amount'=>$group['totals']['amount'],'net_profit'=>$group['totals']['profit']]);
+                }
+                $rows[]=array_replace($template,['product'=>'Credit Payment','amount'=>$report['credit_total']]);
+                $rows[]=array_replace($template,['product'=>'GRAND TOTAL','sold'=>$report['totals']['sold'],'pos_sold'=>$report['totals']['pos_sold'],'variance'=>$report['totals']['variance'],'total_cost'=>$report['totals']['total_cost'],'amount'=>$report['totals']['amount'],'net_profit'=>$report['totals']['profit']]);
+                $summary=['uncosted_revenue'=>$report['totals']['uncosted_revenue'],'prepared_by'=>$report['check']['prepared_name']??'Pending','prepared_at'=>$report['check']['prepared_at']??'',
+                    'checked_by'=>$report['check']['checked_name']??'Pending','checked_at'=>$report['check']['checked_at']??'', 'changes_after_check'=>$report['changed_since_check']?'YES':'no'];
+                return $rows;
+            })(),
         };
         $stream = fopen('php://temp', 'r+');
         fwrite($stream, "\xEF\xBB\xBF"); // UTF-8 BOM for spreadsheet software.

@@ -46,12 +46,19 @@ class InventoryService
         return $this->change($productId, $quantityDelta, 'adjustment', null, $userId, null, $reason);
     }
 
-    public function stockOut(int $productId, int $quantity, ?int $userId, string $reason): array
+    public const WITHDRAWAL_REASONS = ['damaged', 'expired', 'catering', 'transfer', 'return to supplier', 'staff meal', 'spoilage'];
+
+    public static function validateWithdrawal(string $reason, string $remarks, int $quantity): void
     {
-        if ($quantity < 1 || ! in_array($reason, ['transfer', 'return to supplier', 'staff meal', 'spoilage'], true)) {
-            throw new \DomainException('Choose a valid stock-out quantity and reason.');
+        if ($quantity < 1 || !in_array($reason, self::WITHDRAWAL_REASONS, true) || trim($remarks) === '') {
+            throw new \DomainException('Withdrawals require a valid reason, positive quantity, and nonempty remarks.');
         }
-        return $this->change($productId, -$quantity, 'stock_out', null, $userId, null, $reason);
+    }
+
+    public function stockOut(int $productId, int $quantity, ?int $userId, string $reason, string $remarks = ''): array
+    {
+        self::validateWithdrawal($reason, $remarks, $quantity);
+        return $this->change($productId, -$quantity, 'stock_out', null, $userId, null, $remarks, $reason);
     }
 
     public function count(int $productId, int $physicalQuantity, ?int $userId, string $reason): array
@@ -63,16 +70,14 @@ class InventoryService
         $current = $db->query('SELECT stock FROM products WHERE id=? FOR UPDATE', [$productId])->getRowArray();
         if (! $current) throw new \DomainException('Product not found.');
         $difference = $physicalQuantity - (int) $current['stock'];
-        if ($difference === 0) return $db->table('products')->where('id', $productId)->get()->getRowArray() ?: [];
+        // Record zero-difference counts too; the daily sheet must know the stock was physically counted.
         return $this->change($productId, $difference, 'adjustment', null, $userId, 'PHYSICAL-COUNT', 'Count reconciliation: ' . $reason);
     }
 
-    public function recordWaste(int $productId, int $quantity, ?int $userId, string $reason): array
+    public function recordWaste(int $productId, int $quantity, ?int $userId, string $reason, string $remarks = ''): array
     {
-        if ($quantity < 1 || trim($reason) === '') {
-            throw new \DomainException('Waste quantity and reason are required.');
-        }
-        return $this->change($productId, -$quantity, 'waste', null, $userId, null, $reason);
+        self::validateWithdrawal($reason, $remarks, $quantity);
+        return $this->change($productId, -$quantity, 'waste', null, $userId, null, $remarks, $reason);
     }
 
     public function opening(int $productId, int $quantity, ?int $userId = null): array
@@ -110,7 +115,7 @@ class InventoryService
         return $product;
     }
 
-    private function change(int $productId, int $delta, string $type, ?int $orderId, ?int $userId, ?string $reference, ?string $note): array
+    private function change(int $productId, int $delta, string $type, ?int $orderId, ?int $userId, ?string $reference, ?string $note, ?string $reasonCode = null): array
     {
         $db = $this->db();
         $product = $db->query('SELECT * FROM products WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [$productId])->getRowArray();
@@ -135,12 +140,13 @@ class InventoryService
             'user_id' => $userId,
             'reference' => $reference ? mb_substr(trim($reference), 0, 120) : null,
             'note' => $note ? mb_substr(trim($note), 0, 1000) : null,
+            'reason_code' => $reasonCode,
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ])) {
             throw new \RuntimeException('Unable to record inventory movement.');
         }
-        (new AuditLogService($db))->record('inventory_movement', 'product', $productId, ['movement_type' => $type, 'quantity' => $delta, 'stock_before' => $before, 'stock_after' => $after], $userId);
+        (new AuditLogService($db))->record('inventory_movement', 'product', $productId, ['movement_type' => $type, 'quantity' => $delta, 'stock_before' => $before, 'stock_after' => $after, 'reason_code' => $reasonCode, 'note' => $note], $userId);
         $product['previous_stock'] = $before;
         $product['stock'] = $after;
         return $product;

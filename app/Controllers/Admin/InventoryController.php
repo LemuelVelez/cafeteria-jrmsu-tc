@@ -203,6 +203,7 @@ class InventoryController extends BaseController
         $quantity = filter_var($this->request->getPost('quantity'), FILTER_VALIDATE_INT);
         $note = trim((string) $this->request->getPost('note'));
         $reference = trim((string) $this->request->getPost('reference'));
+        $reasonCode = trim((string) $this->request->getPost('reason_code'));
         if ($productId === false || $quantity === false) {
             return redirect()->to('/admin/inventory')->with('error', 'Select a product and enter a valid quantity.');
         }
@@ -214,9 +215,9 @@ class InventoryController extends BaseController
             $product = match ($type) {
                 'stock_in' => $inventory->stockIn((int) $productId, (int) $quantity, $actorId, $reference ?: null, $note ?: null),
                 'adjustment' => $inventory->adjust((int) $productId, (int) $quantity, $actorId, $note),
-                'stock_out' => $inventory->stockOut((int) $productId, (int) $quantity, $actorId, $note),
+                'stock_out' => $inventory->stockOut((int) $productId, (int) $quantity, $actorId, $reasonCode, $note),
                 'count' => $inventory->count((int) $productId, (int) $quantity, $actorId, $note),
-                'waste' => $inventory->recordWaste((int) $productId, abs((int) $quantity), $actorId, $note),
+                'waste' => $inventory->recordWaste((int) $productId, abs((int) $quantity), $actorId, $reasonCode, $note),
                 default => throw new \DomainException('Invalid inventory operation.'),
             };
             (new NotificationService($db))->lowStock($product);
