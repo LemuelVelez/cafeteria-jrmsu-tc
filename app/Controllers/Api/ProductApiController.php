@@ -205,6 +205,7 @@ class ProductApiController extends BaseController
         foreach ($products as &$product) {
             $product['addons'] = $addonsByProduct[(int) $product['id']] ?? [];
             $product['image_url'] = product_image($product)['url'];
+            $product['available'] = product_availability($product)['available'];
         }
         unset($product);
     }

@@ -87,7 +87,8 @@
         validationError() {
             const requestedByProduct = new Map();
             for (const line of this.items) {
-                if (line.available === false) return `${line.name || 'A product'} is no longer available. Remove it from the cart before continuing.`;
+                if (Number(line.stock || 0) === 0) return `${line.name || 'A product'} is sold out. Remove it from the cart before continuing.`;
+                if (line.available === false) return `${line.name || 'A product'} is sold out or no longer available. Remove it from the cart before continuing.`;
                 if (line.addon_invalid) return `An add-on selected for ${line.name || 'a product'} is no longer available. Remove and re-add that item before continuing.`;
                 if (Number(line.bundle_quantity || 0) >= 2 && Number(line.price) === 0 && Number(line.quantity) % Number(line.bundle_quantity) !== 0) {
                     return `${line.name}: sold only in groups of ${line.bundle_quantity}. No single-piece price is set.`;
@@ -319,6 +320,7 @@
     document.querySelectorAll('[data-add-product]').forEach((button) => {
         button.addEventListener('click', () => {
             const card = button.closest('[data-product-card]');
+            if (card.dataset.productAvailable === '0') return;
             const addons = [...card.querySelectorAll('[data-addon]:checked')].map((input) => ({ id: Number(input.value), name: input.dataset.name, price: Number(input.dataset.price) }));
             const addedInFull = cart.add({
                 product_id: Number(card.dataset.productId),
@@ -382,7 +384,7 @@
                             <div class="cart-addon-list">${addonMarkup}</div>
                             <label class="small text-muted mt-2 d-block" for="cart-note-${index}">Item note (optional)</label>
                             <textarea class="form-control form-control-sm mt-1" id="cart-note-${index}" rows="2" maxlength="500" data-cart-note="${index}" placeholder="e.g. No onions or sauce on the side">${escapeHtml(line.notes || '')}</textarea>
-                            ${line.available === false ? '<div class="small text-danger mt-2">This product is no longer available.</div>' : ''}
+                            ${line.available === false ? '<div class="small text-danger mt-2">Sold out or no longer available.</div>' : ''}
                             ${line.addon_invalid ? '<div class="small text-danger mt-2">A selected add-on is no longer available.</div>' : ''}
                         </div>
                         <div class="cart-line-controls">

@@ -61,6 +61,21 @@ if (! function_exists('product_image')) {
     }
 }
 
+if (! function_exists('product_availability')) {
+    /** @return array{available:bool,label:string,cssClass:string,icon:string} */
+    function product_availability(array $product): array
+    {
+        $available = (int) ($product['is_available'] ?? 0) === 1 && (int) ($product['stock'] ?? 0) > 0;
+
+        return [
+            'available' => $available,
+            'label' => $available ? 'Available' : 'Sold out',
+            'cssClass' => $available ? 'product-availability--available' : 'product-availability--sold-out',
+            'icon' => $available ? 'bi-check-circle-fill' : 'bi-x-circle-fill',
+        ];
+    }
+}
+
 if (! function_exists('format_queue_number')) {
     function format_queue_number(?int $number, ?string $fallback = null): string
     {

@@ -17,7 +17,7 @@ class MenuController extends BaseController
         $excludeAllergen = trim((string) $this->request->getGet('exclude_allergen')) ?: null;
         $filters=[];
         foreach(['high_protein','low_sodium','healthy_choice','vegetarian'] as $key) $filters[$key]=$this->request->getGet($key)==='1';
-        $products = (new ProductModel())->menu($categoryId, $search, $under500 ? 500 : null, $excludeAllergen, $filters);
+        $products = (new ProductModel())->menu($categoryId, $search, $under500 ? 500 : null, $excludeAllergen, $filters, true);
         $addons = [];
         if ($products) {
             $ids = array_column($products, 'id');

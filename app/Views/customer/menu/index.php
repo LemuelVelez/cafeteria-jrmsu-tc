@@ -48,14 +48,16 @@
     <div class="row g-4 menu-grid">
         <?php foreach ($products as $product): ?>
             <?php
+            $availability = product_availability($product);
             $image = product_image($product);
             $productImage = $image['url'];
             $productImageAlt = $image['alt'];
             ?>
             <div class="col-sm-6 col-xl-4" data-product-column>
                 <article
-                    class="product-card bg-white"
+                    class="product-card bg-white<?= $availability['available'] ? '' : ' is-sold-out' ?>"
                     data-product-card
+                    data-product-available="<?= $availability['available'] ? '1' : '0' ?>"
                     data-product-id="<?= $product['id'] ?>"
                     data-product-name="<?= esc($product['name'], 'attr') ?>"
                     data-bundle-quantity="<?= (int)($product['bundle_quantity']??0) ?>"
@@ -67,6 +69,7 @@
                     <div class="product-media">
                         <img class="product-image" src="<?= esc($productImage, 'attr') ?>" alt="<?= esc($productImageAlt, 'attr') ?>" width="800" height="600" loading="lazy" decoding="async" data-fallback-src="<?= esc($image['fallback'], 'attr') ?>">
                         <span class="product-category-badge"><?= esc($product['category_name']) ?></span>
+                        <span class="product-availability-badge <?= esc($availability['cssClass'], 'attr') ?>"><i class="bi <?= esc($availability['icon'], 'attr') ?>" aria-hidden="true"></i><span><?= esc($availability['label']) ?></span></span>
                     </div>
 
                     <div class="product-card-body">
@@ -101,6 +104,7 @@
                                                 data-name="<?= esc($addon['name'], 'attr') ?>"
                                                 data-price="<?= $addon['price'] ?>"
                                                 id="addon-<?= $addon['id'] ?>"
+                                                <?= $availability['available'] ? '' : 'disabled' ?>
                                             >
                                             <label class="form-check-label" for="addon-<?= $addon['id'] ?>">
                                                 <span><?= esc($addon['name']) ?></span>
@@ -124,11 +128,12 @@
                                     value="1"
                                     data-quantity
                                     aria-label="Quantity for <?= esc($product['name'], 'attr') ?>"
+                                    <?= $availability['available'] ? '' : 'disabled' ?>
                                 >
                             </label>
-                            <button class="btn btn-primary product-add-button" type="button" data-add-product>
-                                <i class="bi bi-bag-plus" aria-hidden="true"></i>
-                                <span>Add to cart</span>
+                            <button class="btn btn-primary product-add-button" type="button" data-add-product <?= $availability['available'] ? '' : 'disabled aria-disabled="true"' ?>>
+                                <i class="bi <?= $availability['available'] ? 'bi-bag-plus' : 'bi-slash-circle' ?>" aria-hidden="true"></i>
+                                <span><?= $availability['available'] ? 'Add to cart' : 'Sold out' ?></span>
                             </button>
                         </div>
                     </div>
@@ -138,7 +143,7 @@
 
         <?php if (!$products): ?>
             <div class="col-12">
-                <div class="surface-card"><?= view('components/empty', ['icon' => 'bi-search', 'message' => 'No available products match your search.']) ?></div>
+                <div class="surface-card"><?= view('components/empty', ['icon' => 'bi-search', 'message' => 'No products match your search.']) ?></div>
             </div>
         <?php endif; ?>
     </div>

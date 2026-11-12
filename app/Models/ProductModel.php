@@ -41,14 +41,16 @@ class ProductModel extends BaseModel
         'is_featured' => 'permit_empty|in_list[0,1]',
     ];
 
-    public function menu(?int $categoryId = null, ?string $search = null, ?int $maxCalories = null, ?string $excludeAllergen = null, array $filters = []): array
+    public function menu(?int $categoryId = null, ?string $search = null, ?int $maxCalories = null, ?string $excludeAllergen = null, array $filters = [], bool $includeSoldOut = false): array
     {
         $builder = $this->select('products.*, categories.name AS category_name')
             ->join('categories', 'categories.id = products.category_id')
             ->where('products.is_available', 1)
-            ->where('products.stock >', 0)
             ->where('categories.is_active', 1)
             ->where('categories.deleted_at', null);
+        if (! $includeSoldOut) {
+            $builder->where('products.stock >', 0);
+        }
         if ($categoryId) {
             $builder->where('products.category_id', $categoryId);
         }
@@ -71,6 +73,9 @@ class ProductModel extends BaseModel
         if (!empty($filters['low_sodium'])) $builder->where('products.sodium_mg <=', 140);
         if (!empty($filters['healthy_choice'])) $builder->where('products.is_healthy_choice', 1)->where('products.nutrition_status', 'verified');
         if (!empty($filters['vegetarian'])) $builder->where('products.is_vegetarian', 1);
+        if ($includeSoldOut) {
+            $builder->orderBy('(products.stock > 0)', 'DESC', false);
+        }
         $products = $builder->orderBy('products.is_featured', 'DESC')->orderBy('products.name')->findAll();
         (new \App\Services\AllergenService())->attach($products);
         return $products;
