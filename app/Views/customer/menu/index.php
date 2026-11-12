@@ -80,12 +80,6 @@
                         <p class="product-description text-secondary"><?= esc($product['description']) ?></p>
                         <div class="d-flex flex-wrap gap-2 mb-3"><?php if ($product['calories'] !== null): ?><span class="badge text-bg-light border"><?= (int)$product['calories'] ?> kcal</span><?php endif; ?><span class="badge text-bg-secondary"><?= ($product['nutrition_status']??'estimated')==='verified'?'Verified':'Estimated' ?></span><?php if (!empty($product['is_healthy_choice']) && ($product['nutrition_status'] ?? '') === 'verified'): ?><span class="badge text-bg-success">Healthy choice</span><?php endif; ?></div>
                         <button class="btn btn-sm btn-outline-secondary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#nutrition-modal-<?= (int)$product['id'] ?>" aria-haspopup="dialog">Nutrition Facts &amp; Allergens</button>
-                        <div class="modal fade" id="nutrition-modal-<?= (int)$product['id'] ?>" tabindex="-1" aria-labelledby="nutrition-title-<?= (int)$product['id'] ?>" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
-                                <div class="modal-header"><h2 class="modal-title h5" id="nutrition-title-<?= (int)$product['id'] ?>"><?= esc($product['name']) ?> nutrition</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close nutrition facts"></button></div>
-                                <div class="modal-body"><?= view('components/nutrition_facts', ['product' => $product]) ?></div>
-                            </div></div>
-                        </div>
 
                         <?php if (!empty($addons[$product['id']])): ?>
                             <div class="product-addons">
@@ -148,4 +142,19 @@
         <?php endif; ?>
     </div>
 </section>
+
+<?php // Keep Bootstrap modals outside the hover-transformed, overflow-hidden product cards. ?>
+<?php foreach ($products as $product): ?>
+    <div class="modal fade" id="nutrition-modal-<?= (int)$product['id'] ?>" tabindex="-1" aria-labelledby="nutrition-title-<?= (int)$product['id'] ?>" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="nutrition-title-<?= (int)$product['id'] ?>"><?= esc($product['name']) ?> nutrition</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close nutrition facts"></button>
+                </div>
+                <div class="modal-body"><?= view('components/nutrition_facts', ['product' => $product]) ?></div>
+            </div>
+        </div>
+    </div>
+<?php endforeach; ?>
 <?= $this->endSection() ?>
