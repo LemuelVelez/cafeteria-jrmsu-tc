@@ -2512,3 +2512,52 @@ body:not(.auth-page) > main > section.bg-white {
 .stock-warning { line-height: 1.7; }
 
 .stock-dashboard-link-card { position: relative; }
+
+/* Customer order history: generous stat spacing and readable actions at every width. */
+.customer-orders-stat {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    min-width: 0;
+    padding: 1.15rem 1.25rem;
+}
+.customer-orders-stat .stat-icon {
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.15rem;
+}
+.customer-orders-stat__content { flex: 1 1 auto; min-width: 0; }
+.customer-orders-stat__label { font-size: .875rem; line-height: 1.35; }
+.customer-orders-stat__value {
+    font-size: clamp(1.2rem, 1.8vw, 1.55rem);
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+.customer-orders-filters .row > * { min-width: 0; }
+.customer-orders-table-wrap { border-radius: 1rem; }
+.customer-orders-table { min-width: 1110px; }
+.customer-orders-table td:first-child { min-width: 135px; }
+.customer-orders-table td:nth-child(4) { max-width: 235px; overflow-wrap: anywhere; }
+.customer-orders-actions-cell { min-width: 180px; }
+.customer-orders-actions.table-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: .625rem;
+}
+.customer-orders-actions .btn { flex: 0 0 auto; white-space: nowrap; }
+.customer-order-card__meta,
+.customer-order-card__details { min-width: 0; overflow-wrap: anywhere; }
+.customer-order-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .625rem;
+}
+.customer-order-card__actions .btn { flex: 1 1 110px; min-width: 0; }
+@media (max-width: 575.98px) {
+    .customer-orders-stat { display: block; padding: 1rem; }
+    .customer-orders-stat .stat-icon { margin-bottom: .65rem; }
+    .customer-orders-stat__value { font-size: 1.25rem; }
+}
