@@ -6,15 +6,17 @@ class OrderQrService
 {
     public function token(array $order): string
     {
+        $key = $this->key();
         return SignedOrderQr::issue((int) ($order['id'] ?? 0),
-            (string) ($order['request_token'] ?? ''), $this->key(), SignedOrderQr::KITCHEN);
+            $this->requestToken($order), $key, SignedOrderQr::KITCHEN);
     }
 
     /** Customer-only delivery QR, never accepted as a kitchen/dispatch ticket. */
     public function deliveryToken(array $order): string
     {
+        $key = $this->key();
         return SignedOrderQr::issue((int) ($order['id'] ?? 0),
-            (string) ($order['request_token'] ?? ''), $this->key(), SignedOrderQr::DELIVERY);
+            $this->requestToken($order), $key, SignedOrderQr::DELIVERY);
     }
 
     /** A customer delivery QR is valid only during the out-for-delivery stage. */
@@ -34,7 +36,8 @@ class OrderQrService
     public function pickupCode(array $order): string
     {
         // Stable four-digit code; server verifies against the bound order and rate-limits attempts.
-        $hash = hash_hmac('sha256', (string)($order['id']??'') . ':' . (string)($order['request_token']??''), $this->key());
+        $key = $this->key();
+        $hash = hash_hmac('sha256', (string)($order['id']??'') . ':' . $this->requestToken($order), $key);
         return str_pad((string)(hexdec(substr($hash,0,8)) % 10000),4,'0',STR_PAD_LEFT);
     }
 
@@ -42,9 +45,9 @@ class OrderQrService
     public function deliveryCode(array $order): string
     {
         $id=(int)($order['id']??0);
-        $request=(string)($order['request_token']??'');
-        if ($id<1 || $request==='') throw new \DomainException('Order cannot have a delivery code.');
-        $hash=hash_hmac('sha256','delivery:'.$id.':'.$request,$this->key());
+        if ($id<1) throw new \DomainException('Order cannot have a delivery code.');
+        $key = $this->key();
+        $hash=hash_hmac('sha256','delivery:'.$id.':'.$this->requestToken($order),$key);
         return str_pad((string)(hexdec(substr($hash,0,8))%10000),4,'0',STR_PAD_LEFT);
     }
 
@@ -61,6 +64,35 @@ class OrderQrService
         }
         return SignedOrderQr::matches($token, (string) ($order['request_token'] ?? ''),
             $this->key(), SignedOrderQr::KITCHEN) ? $order : null;
+    }
+
+    /** Give pre-token orders a persistent, unpredictable signing token once. */
+    private function requestToken(array $order): string
+    {
+        $token = trim((string) ($order['request_token'] ?? ''));
+        if ($token !== '') {
+            return $token;
+        }
+
+        $id = (int) ($order['id'] ?? 0);
+        if ($id < 1) {
+            throw new \DomainException('Order has no valid ID.');
+        }
+
+        // Only a legacy NULL/empty token may be replaced; a concurrent request
+        // wins once and all later readers use that same stored value.
+        $db = db_connect();
+        $db->table('orders')->set('request_token', bin2hex(random_bytes(24)))
+            ->where('id', $id)
+            ->groupStart()->where('request_token', null)->orWhere('request_token', '')->groupEnd()
+            ->update();
+
+        $row = $db->table('orders')->select('request_token')->where('id', $id)->get()->getRowArray();
+        $token = trim((string) ($row['request_token'] ?? ''));
+        if ($token === '') {
+            throw new \DomainException('Order verification is temporarily unavailable.');
+        }
+        return $token;
     }
 
     private function key(): string

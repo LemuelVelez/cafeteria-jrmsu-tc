@@ -595,6 +595,49 @@
         acceptButton.focus();
     });
 
+    const getAlertDialog = () => {
+        let element = document.getElementById('cafeteriaAlertDialog');
+        if (!element) {
+            element = document.createElement('div');
+            element.id = 'cafeteriaAlertDialog';
+            element.className = 'modal fade cafeteria-alert-modal';
+            element.tabIndex = -1;
+            element.setAttribute('aria-labelledby', 'cafeteriaAlertTitle');
+            element.setAttribute('aria-describedby', 'cafeteriaAlertMessage');
+            element.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2 class="modal-title h5" id="cafeteriaAlertTitle">Notification</h2>
+                            <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <span class="cafeteria-alert-icon" aria-hidden="true"><i class="bi bi-check-circle-fill"></i></span>
+                            <p class="cafeteria-alert-message" id="cafeteriaAlertMessage"></p>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" type="button" data-bs-dismiss="modal">OK</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(element);
+        }
+        return element;
+    };
+
+    window.cafeteriaAlert = (message, options = {}) => new Promise((resolve) => {
+        const element = getAlertDialog();
+        if (element.classList.contains('show')) { resolve(); return; }
+        const variant = ['success', 'warning', 'error'].includes(options.variant) ? options.variant : 'success';
+        element.querySelector('#cafeteriaAlertTitle').textContent = options.title || 'Notification';
+        element.querySelector('#cafeteriaAlertMessage').textContent = String(message);
+        const icon = element.querySelector('.cafeteria-alert-icon');
+        icon.className = `cafeteria-alert-icon${variant === 'success' ? '' : ` is-${variant}`}`;
+        icon.firstElementChild.className = `bi ${variant === 'error' ? 'bi-x-circle-fill' : variant === 'warning' ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'}`;
+        element.addEventListener('hidden.bs.modal', () => resolve(), { once: true });
+        bootstrap.Modal.getOrCreateInstance(element).show();
+    });
+
     enhanceFormFields();
     enhanceFileInputs();
     enhancePasswordFields();

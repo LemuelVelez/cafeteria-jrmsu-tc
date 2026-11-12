@@ -642,12 +642,17 @@
                 const skipped = Array.isArray(result?.data?.skipped) ? result.data.skipped : [];
                 let added = 0;
                 items.forEach((item) => { if (cart.add(item)) added += 1; });
-                const message = [`${added} item line(s) added to your cart.`];
+                const message = [`${added} ${added === 1 ? 'item' : 'items'} added to your cart.`];
                 if (skipped.length) message.push(`Skipped: ${skipped.join('; ')}`);
-                window.alert(message.join('\n'));
+                await window.cafeteriaAlert(message.join('\n'), {
+                    title: added ? 'Cart updated' : 'No items added',
+                    variant: added ? 'success' : 'warning',
+                });
                 if (added) window.location.assign(window.cafeteriaUrl('customer/cart'));
             } catch (error) {
-                window.alert(error instanceof Error ? error.message : 'Unable to reorder these items.');
+                await window.cafeteriaAlert(error instanceof Error ? error.message : 'Unable to reorder these items.', {
+                    title: 'Unable to reorder', variant: 'error',
+                });
             } finally {
                 button.disabled = false;
                 button.innerHTML = original;

@@ -24,6 +24,21 @@ class ReceiptController extends BaseController
     {
         $order=(new OrderModel())->where('id',$id)->where('customer_id',(int)session()->get('user')['id'])->first();
         if (!$order)throw PageNotFoundException::forPageNotFound();
-        return $this->render('customer/orders/receipt',['title'=>'Order receipt','order'=>$order,'items'=>(new OrderItemModel())->where('order_id',$id)->findAll(),'token'=>(new OrderQrService())->token($order)]);
+        $token = null;
+        $pickupCode = null;
+        try {
+            $qr = new OrderQrService();
+            $token = $qr->token($order);
+            $pickupCode = $qr->pickupCode($order);
+        } catch (\InvalidArgumentException | \DomainException | \RuntimeException $exception) {
+            log_message('error', 'Order receipt {id} QR unavailable: {message}', [
+                'id' => $id, 'message' => $exception->getMessage(),
+            ]);
+        }
+        return $this->render('customer/orders/receipt',[
+            'title'=>'Order receipt', 'order'=>$order,
+            'items'=>(new OrderItemModel())->where('order_id',$id)->findAll(),
+            'token'=>$token, 'pickupCode'=>$pickupCode,
+        ]);
     }
 }

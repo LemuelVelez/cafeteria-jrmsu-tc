@@ -76,15 +76,26 @@ class OrderController extends BaseController
             throw PageNotFoundException::forPageNotFound();
         }
         $qr = new OrderQrService();
-        $token = $order['order_type'] === 'delivery' && $order['status'] === 'out_for_delivery'
-            ? $qr->deliveryToken($order) : $qr->token($order);
+        $verificationUrl = null;
+        $deliveryCode = null;
+        try {
+            $isDeliveryHandoff = $order['order_type'] === 'delivery' && $order['status'] === 'out_for_delivery';
+            $token = $isDeliveryHandoff ? $qr->deliveryToken($order) : $qr->token($order);
+            $verificationUrl = base_url('staff/orders/verify/' . rawurlencode($token));
+            if ($isDeliveryHandoff) {
+                $deliveryCode = $qr->deliveryCode($order);
+            }
+        } catch (\InvalidArgumentException | \DomainException | \RuntimeException $exception) {
+            log_message('error', 'Order {id} QR unavailable: {message}', [
+                'id' => (int) $order['id'], 'message' => $exception->getMessage(),
+            ]);
+        }
         return $this->render('customer/orders/show', [
             'order' => $order,
             'items' => (new OrderItemModel())->where('order_id', $id)->findAll(),
             'history' => (new OrderStatusHistoryModel())->where('order_id', $id)->orderBy('created_at')->findAll(),
-            'verificationUrl' => base_url('staff/orders/verify/' . rawurlencode($token)),
-            'deliveryCode' => $order['order_type']==='delivery' && $order['status']==='out_for_delivery'
-                ? (new OrderQrService())->deliveryCode($order) : null,
+            'verificationUrl' => $verificationUrl,
+            'deliveryCode' => $deliveryCode,
         ]);
     }
 
