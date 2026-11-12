@@ -2539,23 +2539,26 @@ body:not(.auth-page) > main > section.bg-white {
 .customer-orders-table { min-width: 1110px; }
 .customer-orders-table td:first-child { min-width: 135px; }
 .customer-orders-table td:nth-child(4) { max-width: 235px; overflow-wrap: anywhere; }
-.customer-orders-actions-cell { min-width: 180px; }
+.customer-orders-actions-cell { min-width: 120px; }
 .customer-orders-actions.table-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
     flex-wrap: nowrap;
     gap: .625rem;
+    width: 100%;
 }
-.customer-orders-actions .btn { flex: 0 0 auto; white-space: nowrap; }
+.customer-orders-actions .btn { flex: 0 0 auto; width: 100%; white-space: nowrap; }
 .customer-order-card__meta,
 .customer-order-card__details { min-width: 0; overflow-wrap: anywhere; }
 .customer-order-card__actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
     gap: .625rem;
 }
-.customer-order-card__actions .btn { flex: 1 1 110px; min-width: 0; }
+.customer-order-card__actions .btn { flex: 0 0 auto; width: 100%; min-width: 0; }
 @media (max-width: 575.98px) {
     .customer-orders-stat { display: block; padding: 1rem; }
     .customer-orders-stat .stat-icon { margin-bottom: .65rem; }
