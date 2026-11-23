@@ -47,6 +47,7 @@ class DatabaseSeeder extends Seeder
      */
     public const EXPLICIT_ONLY_SEEDERS = [
         'CounterItemCatalogSeeder',
+        'CafeteriaMenuCatalogSeeder',
         'RandomNutritionSeeder',
     ];
 

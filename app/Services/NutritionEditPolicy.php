@@ -47,6 +47,7 @@ final class NutritionEditPolicy
         // that entered numbers were calculated from the recorded recipe sources.
         $data['nutrition_status'] = 'estimated';
         $data['nutrition_source'] = 'manual';
+        $data['nutrition_reference'] = null;
         $data['nutrition_verified_by'] = null;
         $data['nutrition_verified_at'] = null;
         return $data;

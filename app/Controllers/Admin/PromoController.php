@@ -12,7 +12,8 @@ class PromoController extends BaseController
     public function index(): string
     {
         return $this->render('admin/promos/index', [
-            'promos' => (new PromoModel())->orderBy('created_at', 'DESC')->findAll(),
+            'promos' => $this->request->getGet('view') === 'all' ? (new PromoModel())->orderBy('created_at', 'DESC')->findAll() : (new PromoModel())->activeNow(),
+            'view' => $this->request->getGet('view') === 'all' ? 'all' : 'active',
         ]);
     }
 

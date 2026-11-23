@@ -181,6 +181,7 @@ textarea.form-control { min-height: 110px; }
 .order-status-badge--confirmed { color: #155e75; background: #ecfeff; border-color: #a5f3fc; }
 .order-status-badge--preparing { color: #1e40af; background: #eff6ff; border-color: #bfdbfe; }
 .order-status-badge--ready-for-pickup,
+.order-status-badge--ready-for-delivery,
 .order-status-badge--completed { color: #065f46; background: #ecfdf5; border-color: #a7f3d0; }
 .order-status-badge--out-for-delivery { color: #5b21b6; background: #f5f3ff; border-color: #ddd6fe; }
 .order-status-badge--cancelled { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
@@ -1106,6 +1107,7 @@ body { min-width: 0; overflow-x: clip; }
 .menu-heading { flex: 1 1 auto; min-width: 0; }
 .menu-search {
     position: relative;
+    position: relative;
     width: min(100%, 470px);
     flex: 0 1 470px;
 }
@@ -1565,7 +1567,8 @@ body { min-width: 0; overflow-x: clip; }
 
 @media (max-width: 1199.98px) {
     .menu-hero { align-items: stretch; }
-    .menu-search { flex-basis: 420px; }
+    .menu-search {
+    position: relative; flex-basis: 420px; }
     .cart-line { grid-template-columns: 44px minmax(0, 1fr) auto; gap: .8rem; }
     .cart-line-icon,
     .cart-line-image { width: 44px; height: 44px; }
@@ -1575,7 +1578,8 @@ body { min-width: 0; overflow-x: clip; }
 
 @media (max-width: 991.98px) {
     .menu-hero { flex-direction: column; gap: 1.25rem; }
-    .menu-search { width: 100%; flex-basis: auto; max-width: none; }
+    .menu-search {
+    position: relative; width: 100%; flex-basis: auto; max-width: none; }
     .page-heading-row { align-items: flex-end; }
     .cart-line {
         grid-template-columns: 48px minmax(0, 1fr) auto 40px;
@@ -2594,3 +2598,9 @@ body:not(.auth-page) > main > section.bg-white {
     .customer-orders-stat .stat-icon { margin-bottom: .65rem; }
     .customer-orders-stat__value { font-size: 1.25rem; }
 }
+
+/* Product search suggestions shared by customer menu and cashier POS. */
+.product-search-dropdown { position: absolute; top: 100%; left: 0; right: 0; z-index: 1060; background: #fff; border: 1px solid #dee2e6; border-radius: .75rem; box-shadow: 0 12px 24px rgba(15, 23, 42, .14); max-height: 320px; overflow-y: auto; margin-top: .25rem; }
+.product-search-option { display: block; width: 100%; padding: .65rem .85rem; border: 0; text-align: left; background: transparent; color: inherit; cursor: pointer; }
+.product-search-option:hover, .product-search-option.active { background: #eff6ff; }
+.product-search-hit { outline: 3px solid #f59e0b !important; outline-offset: 2px; transition: outline-color 1.5s ease; }

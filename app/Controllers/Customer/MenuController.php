@@ -27,6 +27,7 @@ class MenuController extends BaseController
         }
         return $this->render('customer/menu/index', [
             'products' => $products,
+            'searchOptions' => (new ProductModel())->searchOptions(),
             'categories' => (new CategoryModel())->where('is_active', 1)->orderBy('sort_order')->findAll(),
             'addons' => $addons,
             'allergenOptions' => (new \App\Services\AllergenService())->options(),

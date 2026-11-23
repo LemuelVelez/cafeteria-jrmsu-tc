@@ -80,6 +80,8 @@ $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static f
     $routes->post('products', 'Admin\\ProductController::save');
     $routes->post('products/(:num)', 'Admin\\ProductController::save/$1');
     $routes->post('products/(:num)/delete', 'Admin\\ProductController::delete/$1');
+    $routes->post('products/(:num)/verify-nutrition', 'Admin\\ProductController::verifyNutrition/$1');
+    $routes->post('products/(:num)/unverify-nutrition', 'Admin\\ProductController::unverifyNutrition/$1');
     $routes->get('categories', 'Admin\\CategoryController::index');
     $routes->post('categories', 'Admin\\CategoryController::save');
     $routes->post('categories/(:num)', 'Admin\\CategoryController::save/$1');
@@ -87,6 +89,8 @@ $routes->group('admin', ['filter' => ['auth', 'active', 'role:admin']], static f
     $routes->get('orders', 'Admin\\OrderController::index');
     $routes->get('orders/(:num)', 'Admin\\OrderController::show/$1');
     $routes->post('orders/(:num)/status', 'Admin\\OrderController::status/$1');
+    $routes->post('cancel-requests/(:num)/approve', 'Admin\\OrderController::approveCancellation/$1');
+    $routes->post('cancel-requests/(:num)/reject', 'Admin\\OrderController::rejectCancellation/$1');
     $routes->post('orders/(:num)/assign-rider', 'Admin\\OrderController::assignRider/$1');
     $routes->get('users', 'Admin\\UserController::index');
     $routes->post('users', 'Admin\\UserController::save');
@@ -128,6 +132,8 @@ $routes->group('cashier', ['filter' => ['auth', 'active', 'role:cashier']], stat
     $routes->get('pos', 'Cashier\\PosController::index');
     $routes->get('orders', 'Cashier\\OrderController::index');
     $routes->post('orders/(:num)/status', 'Cashier\\OrderController::status/$1');
+    $routes->post('cancel-requests/(:num)/approve', 'Cashier\\OrderController::approveCancellation/$1');
+    $routes->post('cancel-requests/(:num)/reject', 'Cashier\\OrderController::rejectCancellation/$1');
 });
 
 $routes->group('customer', ['filter' => ['auth', 'active', 'role:customer']], static function (RouteCollection $routes): void {
@@ -137,6 +143,7 @@ $routes->group('customer', ['filter' => ['auth', 'active', 'role:customer']], st
     $routes->get('checkout', 'Customer\\CheckoutController::index');
     $routes->get('orders', 'Customer\\OrderController::index');
     $routes->get('orders/(:num)', 'Customer\\OrderController::show/$1');
+    $routes->post('orders/(:num)/cancel-request', 'Customer\\OrderController::requestCancellation/$1');
     $routes->get('orders/(:num)/receipt', 'Customer\\ReceiptController::show/$1');
     $routes->post('orders/(:num)/issue', 'Customer\\ReceiptController::issue/$1');
     $routes->get('reviews', 'Customer\\ReviewController::index');

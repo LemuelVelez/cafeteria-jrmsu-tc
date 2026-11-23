@@ -8,6 +8,9 @@ use App\Models\OrderItemModel;
 use App\Models\OrderModel;
 use App\Models\OrderStatusHistoryModel;
 use App\Services\OrderQrService;
+use App\Services\OrderCancellationService;
+use DomainException;
+use Throwable;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
 class OrderController extends BaseController
@@ -51,11 +54,15 @@ class OrderController extends BaseController
             $cancelled = $db->table('order_status_history')->select('order_id,from_status')
                 ->whereIn('order_id',$orderIds)->where('to_status','cancelled')->get()->getResultArray();
             $cancelledAt = array_column($cancelled, 'from_status','order_id');
+            $cancelRequests = $db->table('order_cancellation_requests')->select('order_id,status')
+                ->whereIn('order_id', $orderIds)->get()->getResultArray();
+            $cancelStatuses = array_column($cancelRequests, 'status', 'order_id');
             foreach ($orders as &$order) {
                 $lines = $byOrder[(int)$order['id']] ?? [];
                 $labels = array_map(static fn ($line): string => (int)$line['quantity'] . '× ' . $line['product_name'], array_slice($lines,0,2));
                 $order['item_summary'] = implode(', ', $labels) . (count($lines)>2 ? ' +' . (count($lines)-2) . ' more' : '');
                 $order['cancelled_at_status'] = $cancelledAt[(int)$order['id']] ?? 'pending';
+                $order['cancellation_request_status'] = $cancelStatuses[(int) $order['id']] ?? null;
             }
             unset($order);
         }
@@ -90,13 +97,33 @@ class OrderController extends BaseController
                 'id' => (int) $order['id'], 'message' => $exception->getMessage(),
             ]);
         }
+        $cancellationService = new OrderCancellationService();
         return $this->render('customer/orders/show', [
             'order' => $order,
             'items' => (new OrderItemModel())->where('order_id', $id)->findAll(),
             'history' => (new OrderStatusHistoryModel())->where('order_id', $id)->orderBy('created_at')->findAll(),
             'verificationUrl' => $verificationUrl,
             'deliveryCode' => $deliveryCode,
+            'cancellationRequest' => $cancellationService->forOrder($id),
+            'cancellation' => $cancellationService->eligibility($order, $userId),
         ]);
+    }
+
+    public function requestCancellation(int $id)
+    {
+        $userId = (int) (session()->get('user')['id'] ?? 0);
+        $reason = trim((string) $this->request->getPost('reason'));
+        $details = trim((string) $this->request->getPost('reason_details'));
+        $combined = mb_substr($reason . ($details !== '' ? ': ' . $details : ''), 0, 255);
+        try {
+            (new OrderCancellationService())->request($id, $userId, $combined);
+            return redirect()->to('/customer/orders/' . $id)->with('success', 'Cancellation request sent. The cashier will review it.');
+        } catch (DomainException $exception) {
+            return redirect()->to('/customer/orders/' . $id)->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            log_message('error', 'Customer cancellation request failed: {message}', ['message' => $exception->getMessage()]);
+            return redirect()->to('/customer/orders/' . $id)->with('error', 'The cancellation request could not be sent right now.');
+        }
     }
 
     private function isDate(string $value): bool

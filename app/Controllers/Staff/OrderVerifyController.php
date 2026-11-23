@@ -20,7 +20,7 @@ class OrderVerifyController extends BaseController
         if (($actor['role'] ?? '') === 'rider'
             && ($order['order_type'] !== 'delivery'
                 || (int) ($order['rider_id'] ?? 0) !== (int) ($actor['id'] ?? 0)
-                || ! in_array($order['status'], ['ready_for_pickup','out_for_delivery'], true))) {
+                || ! in_array($order['status'], ['ready_for_delivery','out_for_delivery'], true))) {
             throw PageNotFoundException::forPageNotFound();
         }
         // The verification screen uses preparation and handoff details, not contact PII.

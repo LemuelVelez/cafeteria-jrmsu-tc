@@ -45,7 +45,7 @@ class PreparationController extends BaseController
             $order=$db->query('SELECT * FROM orders WHERE id=? FOR UPDATE',[$id])->getRowArray();
             if (!$order) throw new \DomainException('Order not found.');
             $delivery=$order['order_type']==='delivery';
-            $stage=$delivery ? ($order['status']==='ready_for_pickup'?'dispatch':'delivery') : 'pickup';
+            $stage=$delivery ? ($order['status']==='ready_for_delivery'?'dispatch':'delivery') : 'pickup';
             if ($delivery && $stage==='dispatch') {
                 if (!in_array($role,['cashier','admin'],true)) throw new \DomainException('Cashier or admin must independently verify rider departure.');
                 if (empty($order['rider_id'])) throw new \DomainException('Assign a rider before dispatch verification.');

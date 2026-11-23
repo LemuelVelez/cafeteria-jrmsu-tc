@@ -25,10 +25,10 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
             <div class="scan-actions mt-2" data-scan-actions></div>
             <div class="form-text" data-pos-scan-feedback>USB/Bluetooth scanners are supported. Product barcodes add directly to the order; staff order QR URLs open verification.</div>
         </div>
-        <div class="input-group mb-3">
+        <div class="position-relative mb-3"><div class="input-group">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" type="search" data-pos-search placeholder="e.g. Chicken adobo or iced coffee" aria-label="Search products">
-        </div>
+            <input class="form-control" type="search" data-product-search data-product-search-mode="filter" autocomplete="off" data-pos-search placeholder="e.g. Chicken adobo or iced coffee" aria-label="Search products">
+        </div></div>
         <div class="d-flex flex-wrap gap-2 mb-3" data-category-filters>
             <button class="btn btn-sm btn-primary" type="button" data-category="all">All</button>
             <?php foreach ($categories as $category): ?>
@@ -145,10 +145,10 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                     ></textarea>
                 </div>
 
-                <div class="mt-3">
+                <?php if ($hasActivePromos): ?><div class="mt-3">
                     <label class="form-label" for="pos-promo">Promo code</label>
-                    <input class="form-control text-uppercase" id="pos-promo" name="promo_code" maxlength="40" placeholder="e.g. WELCOME10">
-                </div>
+                    <input class="form-control text-uppercase" id="pos-promo" name="promo_code" maxlength="40" placeholder="Enter promo code">
+                </div><?php endif; ?>
 
                 <label class="visually-hidden" for="pos-notes">Order notes</label>
                 <textarea class="form-control mt-3" id="pos-notes" name="notes" maxlength="1000" placeholder="e.g. No onions; call on arrival"></textarea>
@@ -169,6 +169,7 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
-<script src="<?= base_url('assets/js/pos.js') ?>"></script>
+<script src="<?= base_url('assets/js/pos.js') . '?v=20261124-corrections' ?>"></script>
+<script src="<?= base_url('assets/js/product-search-dropdown.js') . '?v=20261124-corrections' ?>"></script>
 <script src="<?= base_url('assets/js/camera-scan.js') . '?v=20261020c' ?>"></script>
 <?= $this->endSection() ?>

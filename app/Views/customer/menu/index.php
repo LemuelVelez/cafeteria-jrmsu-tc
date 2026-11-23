@@ -8,7 +8,7 @@
             <p class="text-secondary mb-0">Fresh campus favorites, ready for pickup or delivery.</p>
         </div>
 
-        <form class="menu-search" method="get" role="search">
+        <form class="menu-search" method="get" role="search" data-product-search-options="<?= esc(json_encode(array_map(static fn($p) => ['id'=>(int)$p['id'], 'name'=>$p['name'], 'category'=>$p['category_name'], 'price'=>!empty($p['bundle_quantity']) ? \App\Services\BundlePricePolicy::label($p) : format_price($p['price'])], $searchOptions), JSON_UNESCAPED_UNICODE), 'attr') ?>">
             <?php if ($selectedCategory): ?><input type="hidden" name="category" value="<?= (int) $selectedCategory ?>"><?php endif; ?>
             <?php if ($under500): ?><input type="hidden" name="under_500" value="1"><?php endif; ?>
             <?php if ($excludeAllergen): ?><input type="hidden" name="exclude_allergen" value="<?= esc($excludeAllergen, 'attr') ?>"><?php endif; ?>
@@ -17,6 +17,7 @@
                 class="form-control"
                 type="search"
                 name="q"
+                data-product-search data-product-search-mode="submit" autocomplete="off"
                 value="<?= esc($search ?? '') ?>"
                 placeholder="e.g. Chicken adobo or iced coffee"
                 aria-label="Search meals and drinks"
@@ -78,7 +79,7 @@
                             <span class="price text-nowrap"><?= !empty($product['bundle_quantity']) ? esc(\App\Services\BundlePricePolicy::label($product)) : format_price($product['price']) ?></span>
                         </div>
                         <p class="product-description text-secondary"><?= esc($product['description']) ?></p>
-                        <div class="d-flex flex-wrap gap-2 mb-3"><?php if ($product['calories'] !== null): ?><span class="badge text-bg-light border"><?= (int)$product['calories'] ?> kcal</span><?php endif; ?><span class="badge text-bg-secondary"><?= ($product['nutrition_status']??'estimated')==='verified'?'Verified':'Estimated' ?></span><?php if (!empty($product['is_healthy_choice']) && ($product['nutrition_status'] ?? '') === 'verified'): ?><span class="badge text-bg-success">Healthy choice</span><?php endif; ?></div>
+                        <div class="d-flex flex-wrap gap-2 mb-3"><?php if (($product['nutrition_status'] ?? '') === 'verified' && $product['calories'] !== null): ?><span class="badge text-bg-light border"><?= (int)$product['calories'] ?> kcal</span><?php endif; ?><?php if (($product['nutrition_status'] ?? '') === 'verified'): ?><span class="badge text-bg-success">Verified nutrition</span><?php endif; ?><?php if (!empty($product['is_healthy_choice']) && ($product['nutrition_status'] ?? '') === 'verified'): ?><span class="badge text-bg-success">Healthy choice</span><?php endif; ?></div>
                         <button class="btn btn-sm btn-outline-secondary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#nutrition-modal-<?= (int)$product['id'] ?>" aria-haspopup="dialog">Nutrition Facts &amp; Allergens</button>
 
                         <?php if (!empty($addons[$product['id']])): ?>
@@ -157,4 +158,7 @@
         </div>
     </div>
 <?php endforeach; ?>
+<?= $this->endSection() ?>
+<?= $this->section('scripts') ?>
+<script src="<?= base_url('assets/js/product-search-dropdown.js') . '?v=20261124-corrections' ?>"></script>
 <?= $this->endSection() ?>

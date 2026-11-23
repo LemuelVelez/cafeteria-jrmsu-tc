@@ -291,6 +291,7 @@ class OrderService
                 throw new \RuntimeException('Unable to create the order.');
             }
             $this->db->transCommit();
+            SmsService::flushQuietly();
             return $order;
         } catch (Throwable $exception) {
             $this->db->transRollback();
@@ -337,31 +338,27 @@ class OrderService
         $actorId = (int) ($actor['id'] ?? 0);
         $isDelivery = (string) ($order['order_type'] ?? '') === OrderType::Delivery->value;
 
+        // The order type constrains ALL roles, including administrators.
+        $forbidden = $isDelivery
+            ? [OrderStatus::ReadyForPickup->value, OrderStatus::Completed->value]
+            : [OrderStatus::ReadyForDelivery->value, OrderStatus::OutForDelivery->value, OrderStatus::Delivered->value];
+        $candidates = array_values(array_diff($candidates, $forbidden));
+
         if ($role === 'admin') {
-            return array_values(array_filter($candidates, static function (string $status) use ($isDelivery): bool {
-                if ($isDelivery && in_array($status, [OrderStatus::OutForDelivery->value, OrderStatus::Delivered->value, OrderStatus::Completed->value], true)) {
-                    return false;
-                }
-                if (! $isDelivery && in_array($status, [OrderStatus::OutForDelivery->value, OrderStatus::Delivered->value], true)) {
-                    return false;
-                }
-                return true;
-            }));
+            return $isDelivery
+                ? array_values(array_diff($candidates, [OrderStatus::OutForDelivery->value, OrderStatus::Delivered->value]))
+                : $candidates;
         }
-
         if ($role === 'cashier') {
-            return array_values(array_filter($candidates, static function (string $status) use ($order, $isDelivery): bool {
-                if (in_array($status, [OrderStatus::Confirmed->value, OrderStatus::Preparing->value, OrderStatus::ReadyForPickup->value, OrderStatus::Cancelled->value], true)) {
-                    return true;
-                }
-                return $status === OrderStatus::Completed->value
-                    && ! $isDelivery
-                    && (string) ($order['status'] ?? '') === OrderStatus::ReadyForPickup->value;
-            }));
+            $allowed = [OrderStatus::Confirmed->value, OrderStatus::Preparing->value,
+                OrderStatus::ReadyForPickup->value, OrderStatus::ReadyForDelivery->value, OrderStatus::Cancelled->value];
+            if (! $isDelivery && $current === OrderStatus::ReadyForPickup) {
+                $allowed[] = OrderStatus::Completed->value;
+            }
+            return array_values(array_intersect($candidates, $allowed));
         }
-
         if ($role === 'rider' && $actorId > 0 && (int) ($order['rider_id'] ?? 0) === $actorId && $isDelivery) {
-            if ($current === OrderStatus::ReadyForPickup && in_array(OrderStatus::OutForDelivery->value, $candidates, true)) {
+            if ($current === OrderStatus::ReadyForDelivery && in_array(OrderStatus::OutForDelivery->value, $candidates, true)) {
                 return [OrderStatus::OutForDelivery->value];
             }
             if ($current === OrderStatus::OutForDelivery && in_array(OrderStatus::Delivered->value, $candidates, true)) {
@@ -424,11 +421,13 @@ class OrderService
             } elseif ($nextStatus === OrderStatus::Cancelled->value) {
                 $orderUpdates['payment_status'] = 'failed';
             }
-            if ($nextStatus === OrderStatus::ReadyForPickup->value) {
+            if (in_array($nextStatus, [OrderStatus::ReadyForPickup->value, OrderStatus::ReadyForDelivery->value], true)) {
                 $time = (new \DateTimeImmutable('now', new \DateTimeZone(config(\Config\Cafeteria::class)->timezone)))->format('Y-m-d H:i:s');
                 $orderUpdates['ready_at'] = $time;
-                $orderUpdates['queue_called_at'] = $time;
-                $orderUpdates['queue_call_count'] = 1;
+                if ($nextStatus === OrderStatus::ReadyForPickup->value) {
+                    $orderUpdates['queue_called_at'] = $time;
+                    $orderUpdates['queue_call_count'] = 1;
+                }
                 $unchecked = $this->db->table('order_items')->where('order_id', $orderId)->where('prepared_at', null)->countAllResults();
                 if ($unchecked > 0) {
                     throw new \DomainException('Every order item must be checked as prepared first.');
@@ -490,6 +489,7 @@ class OrderService
                 throw new \RuntimeException('Unable to update the order status.');
             }
             $this->db->transCommit();
+            SmsService::flushQuietly();
             return $updatedOrder;
         } catch (Throwable $exception) {
             $this->db->transRollback();

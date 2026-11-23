@@ -17,6 +17,12 @@ class NotificationService
         if (! empty($order['customer_id'])) {
             $this->insert((int) $order['customer_id'], (int) $order['id'], 'order_placed', 'Order placed', 'Your order ' . $order['order_number'] . ' was received.', '/customer/orders/' . $order['id']);
         }
+        if (! empty($order['customer_id']) && ($order['status'] ?? '') === OrderStatus::Confirmed->value) {
+            $queue = format_queue_number(isset($order['queue_number']) ? (int) $order['queue_number'] : null, $order['order_number'] ?? '');
+            $name = store_setting('cafeteria_name', 'JRMSU-TC Cafeteria');
+            (new SmsService($db))->enqueue((int) $order['customer_id'], (int) $order['id'], OrderStatus::Confirmed->value,
+                mb_substr("{$name}: Your order {$queue} ({$order['order_number']}) is confirmed and will be prepared shortly.", 0, 159));
+        }
         // Staff alerts are for online pending orders only; POS orders are already being handled by the cashier.
         if (empty($order['cashier_id']) && ($order['status'] ?? '') === OrderStatus::Pending->value) {
             foreach ($this->staffUsers(['admin', 'cashier']) as $staff) {
@@ -48,6 +54,23 @@ class NotificationService
                 $title = 'Order ' . $queue . ' is ready';
                 $message = 'Order ' . $queue . ' is ready for pickup. Please proceed to the counter.';
             }
+            if ($status === OrderStatus::ReadyForDelivery->value && ($order['order_type'] ?? '') === 'delivery') {
+                $queue = format_queue_number(isset($order['queue_number']) ? (int) $order['queue_number'] : null, $order['order_number'] ?? '');
+                $title = 'Order ' . $queue . ' is ready for delivery';
+                $message = 'Your order is packed and ready for delivery. Your rider will head out shortly.';
+            }
+            if ($status === OrderStatus::Confirmed->value
+                || ($status === OrderStatus::ReadyForPickup->value && ($order['order_type'] ?? '') === 'pickup')
+                || ($status === OrderStatus::ReadyForDelivery->value && ($order['order_type'] ?? '') === 'delivery')) {
+                $queue = format_queue_number(isset($order['queue_number']) ? (int) $order['queue_number'] : null, $order['order_number'] ?? '');
+                $name = store_setting('cafeteria_name', 'JRMSU-TC Cafeteria');
+                $sms = match ($status) {
+                    OrderStatus::Confirmed->value => "{$name}: Your order {$queue} ({$order['order_number']}) is confirmed and will be prepared shortly.",
+                    OrderStatus::ReadyForPickup->value => "{$name}: Order {$queue} is ready for pickup. Please proceed to the counter.",
+                    default => "{$name}: Order {$queue} is packed and ready for delivery. Your rider will head out shortly.",
+                };
+                (new SmsService($this->db()))->enqueue((int) $order['customer_id'], (int) $order['id'], $status, mb_substr($sms, 0, 159));
+            }
             $this->insert((int) $order['customer_id'], (int) $order['id'], 'order_status', $title, $message, '/customer/orders/' . $order['id']);
             $this->emailOrderStatusIfEnabled($order, $enum, $message);
         }
@@ -57,6 +80,23 @@ class NotificationService
                 $this->insert((int) $staff['id'], (int) $order['id'], 'order_cancelled', 'Order cancelled', 'Order ' . $order['order_number'] . ' was cancelled.', $link);
             }
         }
+    }
+
+    public function cancellationRequested(array $order, string $reason): void
+    {
+        foreach ($this->staffUsers(['admin', 'cashier']) as $staff) {
+            $link = $staff['role'] === 'admin' ? '/admin/orders/' . $order['id'] : '/cashier/orders';
+            $this->insert((int) $staff['id'], (int) $order['id'], 'cancellation_requested', 'Cancellation requested',
+                'Customer requested to cancel order ' . $order['order_number'] . '. Reason: ' . mb_substr($reason, 0, 180), $link);
+        }
+    }
+
+    public function cancellationRejected(array $order, string $note): void
+    {
+        if (empty($order['customer_id'])) return;
+        $this->insert((int) $order['customer_id'], (int) $order['id'], 'cancellation_rejected', 'Cancellation request declined',
+            'Your request to cancel order ' . $order['order_number'] . ' was declined. ' . mb_substr($note, 0, 180),
+            '/customer/orders/' . $order['id']);
     }
 
     public function riderAssigned(array $order, ?int $oldRiderId, ?int $newRiderId): void
@@ -98,7 +138,7 @@ class NotificationService
 
     private function emailOrderStatusIfEnabled(array $order, OrderStatus $status, string $message): void
     {
-        if (! in_array($status, [OrderStatus::ReadyForPickup, OrderStatus::OutForDelivery, OrderStatus::Completed, OrderStatus::Delivered, OrderStatus::Cancelled], true)) return;
+        if (! in_array($status, [OrderStatus::ReadyForPickup, OrderStatus::ReadyForDelivery, OrderStatus::OutForDelivery, OrderStatus::Completed, OrderStatus::Delivered, OrderStatus::Cancelled], true)) return;
         try {
             $enabled = $this->db()->table('settings')->where('setting_key', 'email_order_notifications')->get()->getRow('setting_value');
             if ((string) ($enabled ?? '1') !== '1') return;
@@ -106,7 +146,7 @@ class NotificationService
             if (! $user || empty($user['email'])) return;
             $prefRow=$this->db()->table('users')->select('notification_email_prefs')->where('id',$user['id'])->get()->getRowArray();
             $prefs=json_decode((string)($prefRow['notification_email_prefs']??'null'),true);
-            if(is_array($prefs) && empty($prefs[$status->value]))return;
+            if (is_array($prefs) && array_key_exists($status->value, $prefs) && empty($prefs[$status->value])) return;
             (new AccountEmailService())->sendOrderStatus($user, $order, $status->label(), $message);
         } catch (\Throwable $exception) {
             log_message('error', 'Order status email failed for order {orderId}: {message}', ['orderId' => (int) ($order['id'] ?? 0), 'message' => $exception->getMessage()]);

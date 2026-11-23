@@ -43,6 +43,24 @@
     document.querySelector('[data-select-all-products]')?.addEventListener('change', (event) => {
         document.querySelectorAll('input[name="ids[]"]').forEach((box) => { box.checked = event.target.checked; });
     });
+    const nutritionModal = document.getElementById('nutritionVerifyModal');
+    const nutritionForm = document.getElementById('nutritionVerifyForm');
+    const nutritionUnverifyForm = document.getElementById('nutritionUnverifyForm');
+    document.querySelectorAll('[data-verify-nutrition]').forEach(button => button.addEventListener('click', () => {
+        if (!nutritionModal || !nutritionForm || !nutritionUnverifyForm) return;
+        let product;
+        try { product = JSON.parse(button.dataset.verifyNutrition || '{}'); } catch (_) { return; }
+        const id = encodeURIComponent(String(product.id));
+        nutritionForm.action = nutritionForm.dataset.actionTemplate.replace('{id}', id);
+        nutritionUnverifyForm.action = nutritionUnverifyForm.dataset.actionTemplate.replace('{id}', id);
+        nutritionForm.reset();
+        nutritionForm.elements.nutrition_source.value = product.source || '';
+        nutritionForm.elements.nutrition_reference.value = product.reference || '';
+        nutritionUnverifyForm.hidden = !product.verified;
+        const name = nutritionModal.querySelector('[data-nutrition-product-name]');
+        if (name) name.textContent = product.name || '';
+        bootstrap.Modal.getOrCreateInstance(nutritionModal).show();
+    }));
     const qrModal = document.getElementById('productQrModal');
     document.querySelectorAll('[data-show-product-qr]').forEach((button) => button.addEventListener('click', () => {
         const url = button.dataset.productUrl; const output = qrModal?.querySelector('[data-product-qr-output]');

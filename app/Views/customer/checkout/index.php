@@ -74,10 +74,10 @@ $defaultPaymentMode = $paymentModes[$defaultOrderType];
                                 placeholder="e.g. Building A, Dormitory 2, or campus landmark"
                             ></textarea>
                         </div>
-                        <div class="col-md-6">
+                        <?php if ($hasActivePromos): ?><div class="col-md-6">
                             <label class="form-label fw-semibold" for="checkout-promo">Promo code</label>
-                            <input class="form-control text-uppercase" id="checkout-promo" name="promo_code" maxlength="40" placeholder="e.g. WELCOME10">
-                        </div>
+                            <input class="form-control text-uppercase" id="checkout-promo" name="promo_code" maxlength="40" placeholder="Enter promo code">
+                        </div><?php endif; ?>
                         <div class="col-12">
                             <label class="form-label fw-semibold" for="checkout-notes">Order notes</label>
                             <textarea class="form-control" id="checkout-notes" name="notes" maxlength="1000" placeholder="e.g. No onions; call on arrival"></textarea>

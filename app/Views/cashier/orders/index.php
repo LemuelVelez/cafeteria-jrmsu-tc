@@ -10,7 +10,8 @@
             <thead><tr><th>Queue #</th><th>Order</th><th>Customer</th><th>Type</th><th>Status</th><th>Total</th><th class="text-end">Next status</th></tr></thead>
             <tbody>
                 <?php foreach ($orders as $order): ?>
-                    <tr>
+                    <?php $pendingCancellation = $pendingRequests[(int) $order['id']] ?? null; ?>
+                    <tr class="<?= $pendingCancellation ? 'table-warning' : '' ?>">
                         <td class="fs-3 fw-bold"><?= esc(format_queue_number(isset($order['queue_number']) ? (int) $order['queue_number'] : null, $order['order_number'])) ?></td>
                         <td>
                             <div class="fw-semibold"><?= esc($order['order_number']) ?></div>
@@ -18,15 +19,26 @@
                         </td>
                         <td><?= esc($order['customer_name'] ?: 'Walk-in') ?></td>
                         <td class="text-capitalize"><?= esc(str_replace('_', ' ', $order['order_type'])) ?></td>
-                        <td><?= order_status_badge($order['status']) ?></td>
+                        <td><?= order_status_badge($order['status']) ?><?php if ($pendingCancellation): ?><span class="badge text-bg-warning d-block mt-1">Cancellation requested</span><small class="d-block mt-1">Reason: <?= esc($pendingCancellation['reason']) ?></small><small class="text-secondary">Requested <?= esc(time_ago($pendingCancellation['created_at'])) ?></small><?php endif; ?></td>
                         <td><?= format_price($order['total']) ?></td>
                         <td class="text-end">
+                            <?php if ($pendingCancellation): ?>
+                                <div class="d-flex flex-column gap-2 mb-2">
+                                    <form method="post" action="<?= base_url('cashier/cancel-requests/' . $pendingCancellation['id'] . '/approve') ?>" data-confirm="Cancel this order and restock its items?" data-confirm-title="Approve cancellation" data-confirm-label="Approve cancellation">
+                                        <?= csrf_field() ?><button class="btn btn-sm btn-outline-danger">Approve cancellation</button>
+                                    </form>
+                                    <form method="post" action="<?= base_url('cashier/cancel-requests/' . $pendingCancellation['id'] . '/reject') ?>">
+                                        <?= csrf_field() ?><input class="form-control form-control-sm mb-1" type="text" name="note" minlength="3" maxlength="255" required placeholder="e.g. Food is already being prepared">
+                                        <button class="btn btn-sm btn-outline-secondary">Reject</button>
+                                    </form>
+                                </div>
+                            <?php endif; ?>
                             <?php if ($order['status_options']): ?>
                                 <form class="d-inline-flex gap-2" action="<?= base_url('cashier/orders/' . $order['id'] . '/status') ?>" method="post" data-confirm="Update this order status?" data-confirm-title="Update order" data-confirm-label="Update">
                                     <?= csrf_field() ?>
                                     <select class="form-select form-select-sm" name="status" required>
                                         <?php foreach ($order['status_options'] as $status): ?>
-                                            <option value="<?= esc($status, 'attr') ?>"><?= esc(ucwords(str_replace('_', ' ', $status))) ?></option>
+                                            <option value="<?= esc($status, 'attr') ?>"><?= esc(\App\Enums\OrderStatus::from($status)->label()) ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                     <button class="btn btn-sm btn-outline-primary">Update</button>

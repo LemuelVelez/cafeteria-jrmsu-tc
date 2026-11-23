@@ -128,7 +128,7 @@ SQL, [$from, $to])->getResultArray();
         $total = count($rows);
         $cancelled = count(array_filter($rows, static fn (array $row): bool => $row['status'] === 'cancelled'));
         $prep = $db->query(
-            "SELECT AVG(TIMESTAMPDIFF(MINUTE, c.created_at, r.created_at)) avg_minutes FROM order_status_history c JOIN order_status_history r ON r.order_id=c.order_id AND r.to_status='ready_for_pickup' WHERE c.to_status='confirmed' AND DATE(c.created_at) >= ? AND DATE(c.created_at) <= ?",
+            "SELECT AVG(TIMESTAMPDIFF(MINUTE, c.created_at, r.created_at)) avg_minutes FROM order_status_history c JOIN order_status_history r ON r.order_id=c.order_id AND r.to_status IN ('ready_for_pickup','ready_for_delivery') WHERE c.to_status='confirmed' AND DATE(c.created_at) >= ? AND DATE(c.created_at) <= ?",
             [$from, $to],
         )->getRowArray();
         $issues=(int)($db->query('SELECT COUNT(*) n FROM order_issues i JOIN orders o ON o.id=i.order_id WHERE DATE(o.created_at)>=? AND DATE(o.created_at)<=?',[$from,$to])->getRow('n')??0);

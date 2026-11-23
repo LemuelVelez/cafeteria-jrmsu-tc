@@ -1,9 +1,9 @@
 <?= $this->extend('layouts/main') ?>
 <?= $this->section('content') ?>
 <?php
-$steps = ['pending','confirmed','preparing','ready_for_pickup'];
-if ($order['order_type']==='delivery') $steps[]='out_for_delivery';
-$steps[]=$order['order_type']==='delivery'?'delivered':'completed';
+$steps = $order['order_type'] === 'delivery'
+    ? ['pending','confirmed','preparing','ready_for_delivery','out_for_delivery','delivered']
+    : ['pending','confirmed','preparing','ready_for_pickup','completed'];
 $historyByStatus=[]; foreach ($history as $entry) { $historyByStatus[$entry['to_status']]=$entry; }
 $currentIndex=array_search($order['status'],$steps,true); if ($currentIndex===false) $currentIndex=-1;
 ?>
@@ -12,6 +12,41 @@ $currentIndex=array_search($order['status'],$steps,true); if ($currentIndex===fa
 <?php if ($deliveryCode !== null): ?><div class="alert alert-info" role="status"><strong>Delivery confirmation code:</strong> <span class="fs-5 fw-bold font-monospace"><?= esc($deliveryCode) ?></span> — share this four-digit code with your assigned rider only upon receiving your order.</div><?php endif; ?>
 <div class="row g-4"><div class="col-lg-8"><div class="surface-card p-4 mb-4"><h2 class="h5 fw-bold section-title">Items</h2><?php foreach ($items as $item): $addons=json_decode((string)($item['addons_json']??'[]'),true)?:[]; ?><div class="py-3 border-bottom"><div class="d-flex justify-content-between gap-3"><div><strong><?= (int)$item['quantity'] ?> × <?= esc($item['product_name']) ?></strong><?php if($addons): ?><div class="small text-secondary"><?= esc(implode(', ',array_column($addons,'name'))) ?></div><?php endif; ?><?php if(!empty($item['notes'])): ?><div class="small text-secondary">Note: <?= esc($item['notes']) ?></div><?php endif; ?></div><strong><?= format_price($item['line_total']) ?></strong></div></div><?php endforeach; ?><div class="pt-3 ms-auto order-total-breakdown"><div class="d-flex justify-content-between"><span>Subtotal</span><span><?= format_price($order['subtotal']) ?></span></div><div class="d-flex justify-content-between"><span>Discount</span><span>-<?= format_price($order['discount']) ?></span></div><div class="d-flex justify-content-between"><span>Delivery fee</span><span><?= format_price($order['delivery_fee']) ?></span></div><div class="d-flex justify-content-between fw-bold fs-5 border-top pt-2 mt-2"><span>Total</span><span><?= format_price($order['total']) ?></span></div></div></div>
 <div class="surface-card p-4"><h2 class="h5 fw-bold section-title">Timeline</h2><?php foreach($history as $entry): ?><div class="d-flex gap-3 py-2 border-bottom"><i class="bi bi-circle-fill small text-primary mt-1"></i><div><div class="fw-semibold"><?= esc(\App\Enums\OrderStatus::tryFrom($entry['to_status'])?->label() ?? $entry['to_status']) ?></div><small class="text-secondary"><?= esc(date('M j, Y g:i A',strtotime($entry['created_at']))) ?><?= $entry['note'] ? ' · '.esc($entry['note']) : '' ?></small></div></div><?php endforeach; ?></div></div>
-<div class="col-lg-4"><div class="surface-card p-4 mb-4"><h2 class="h5 fw-bold section-title">Order details</h2><dl class="row small mb-0"><dt class="col-5">Type</dt><dd class="col-7"><?= esc(ucfirst($order['order_type'])) ?></dd><dt class="col-5">Payment</dt><dd class="col-7"><?= esc(payment_method_label($order['payment_method'])) ?> · <?= esc(ucfirst($order['payment_status'])) ?></dd><dt class="col-5">Placed</dt><dd class="col-7"><?= esc(date('M j, Y g:i A',strtotime($order['created_at']))) ?></dd><?php if($order['order_type']==='delivery'): ?><dt class="col-5">Address</dt><dd class="col-7"><?= esc($order['delivery_address'] ?: '—') ?></dd><dt class="col-5">Rider</dt><dd class="col-7"><?= esc($order['rider_name'] ?? 'Not assigned') ?></dd><?php endif; ?></dl></div><div class="surface-card p-4 text-center"><h2 class="h5 fw-bold section-title">Order QR</h2><?php if ($verificationUrl !== null): ?><p class="small text-secondary"><?= $deliveryCode !== null ? 'Show this customer-only QR to your assigned rider when the delivery arrives. The kitchen ticket QR cannot confirm delivery.' : 'Staff can scan this signed code to verify the order.' ?></p><p class="small text-secondary">QR codes expire after 48 hours. Reopen this page for a new code if necessary.</p><?php endif; ?><?php if ($verificationUrl !== null): ?><div class="mx-auto" data-qr-code data-qr-value="<?= esc($verificationUrl,'attr') ?>"></div><?php else: ?><div class="alert alert-warning small mb-0" role="status">The order QR is temporarily unavailable. You can still show your order number to staff.</div><?php endif; ?><div class="d-flex justify-content-center flex-wrap gap-2 mt-3"><a class="btn btn-sm btn-outline-primary" href="<?= base_url('customer/orders/'.$order['id'].'/receipt') ?>">Printable receipt</a><button class="btn btn-sm btn-outline-secondary" type="button" data-print-page><i class="bi bi-printer"></i> Print receipt</button></div></div></div></div>
+<div class="col-lg-4">
+<?php if ($cancellationRequest): ?>
+<div class="surface-card p-4 mb-4" role="status">
+    <h2 class="h5 fw-bold">Cancellation request</h2>
+    <?php if ($cancellationRequest['status'] === 'pending'): ?>
+        <div class="alert alert-warning mb-0">Cancellation requested — waiting for cashier review</div>
+    <?php elseif ($cancellationRequest['status'] === 'approved'): ?>
+        <div class="alert alert-success mb-0">Cancellation approved</div>
+    <?php else: ?>
+        <div class="alert alert-secondary mb-2">Cancellation declined</div>
+        <?php if (!empty($cancellationRequest['review_note'])): ?><p class="small mb-0"><?= esc($cancellationRequest['review_note']) ?></p><?php endif; ?>
+    <?php endif; ?>
+</div>
+<?php elseif ($cancellation['eligible']): ?>
+<div class="surface-card p-4 mb-4" data-cancel-request-card>
+    <h2 class="h5 fw-bold">Request cancellation</h2>
+    <p class="small text-secondary">A cashier will review your request. This does not cancel the order immediately.</p>
+    <p class="small">You can request cancellation for the next <strong data-cancel-countdown data-seconds-left="<?= (int) $cancellation['seconds_left'] ?>">00:00</strong>.</p>
+    <form method="post" action="<?= base_url('customer/orders/' . $order['id'] . '/cancel-request') ?>" data-cancel-request-form>
+        <?= csrf_field() ?>
+        <label class="form-label" for="cancelReason">Reason</label>
+        <select class="form-select mb-2" id="cancelReason" name="reason" required>
+            <option value="">Select reason</option>
+            <option>Ordered the wrong item</option>
+            <option>Ordered the wrong quantity</option>
+            <option>Changed my mind</option>
+            <option>Other</option>
+        </select>
+        <label class="form-label" for="cancelDetails">Additional details (optional)</label>
+        <textarea class="form-control mb-3" id="cancelDetails" name="reason_details" maxlength="200" rows="2"></textarea>
+        <button type="submit" class="btn btn-outline-danger">Request cancellation</button>
+    </form>
+    <p class="small text-secondary mt-2 mb-0" data-cancel-expired hidden>The 2-minute cancellation window has ended.</p>
+</div>
+<?php endif; ?>
+<div class="surface-card p-4 mb-4"><h2 class="h5 fw-bold section-title">Order details</h2><dl class="row small mb-0"><dt class="col-5">Type</dt><dd class="col-7"><?= esc(ucfirst($order['order_type'])) ?></dd><dt class="col-5">Payment</dt><dd class="col-7"><?= esc(payment_method_label($order['payment_method'])) ?> · <?= esc(ucfirst($order['payment_status'])) ?></dd><dt class="col-5">Placed</dt><dd class="col-7"><?= esc(date('M j, Y g:i A',strtotime($order['created_at']))) ?></dd><?php if($order['order_type']==='delivery'): ?><dt class="col-5">Address</dt><dd class="col-7"><?= esc($order['delivery_address'] ?: '—') ?></dd><dt class="col-5">Rider</dt><dd class="col-7"><?= esc($order['rider_name'] ?? 'Not assigned') ?></dd><?php endif; ?></dl></div><div class="surface-card p-4 text-center"><h2 class="h5 fw-bold section-title">Order QR</h2><?php if ($verificationUrl !== null): ?><p class="small text-secondary"><?= $deliveryCode !== null ? 'Show this customer-only QR to your assigned rider when the delivery arrives. The kitchen ticket QR cannot confirm delivery.' : 'Staff can scan this signed code to verify the order.' ?></p><p class="small text-secondary">QR codes expire after 48 hours. Reopen this page for a new code if necessary.</p><?php endif; ?><?php if ($verificationUrl !== null): ?><div class="mx-auto" data-qr-code data-qr-value="<?= esc($verificationUrl,'attr') ?>"></div><?php else: ?><div class="alert alert-warning small mb-0" role="status">The order QR is temporarily unavailable. You can still show your order number to staff.</div><?php endif; ?><div class="d-flex justify-content-center flex-wrap gap-2 mt-3"><a class="btn btn-sm btn-outline-primary" href="<?= base_url('customer/orders/'.$order['id'].'/receipt') ?>">Printable receipt</a><button class="btn btn-sm btn-outline-secondary" type="button" data-print-page><i class="bi bi-printer"></i> Print receipt</button></div></div></div></div>
 <?= $this->endSection() ?>
-<?= $this->section('scripts') ?><script src="<?= base_url('assets/vendor/qrcode-generator/qrcode.min.js') ?>"></script><script src="<?= base_url('assets/js/qr.js') ?>"></script><?= $this->endSection() ?>
+<?= $this->section('scripts') ?><script src="<?= base_url('assets/vendor/qrcode-generator/qrcode.min.js') ?>"></script><script src="<?= base_url('assets/js/qr.js') ?>"></script><script src="<?= base_url('assets/js/cancel-request.js') . '?v=20261124-corrections' ?>"></script><?= $this->endSection() ?>

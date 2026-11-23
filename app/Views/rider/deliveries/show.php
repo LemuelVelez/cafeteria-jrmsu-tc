@@ -2,7 +2,7 @@
 
 <?= $this->section('content') ?>
 <?php if($order['status']==='out_for_delivery'): ?><form method="post" action="<?= base_url('staff/orders/'.$order['id'].'/verify-handoff') ?>" class="surface-card p-3 mb-3"><?= csrf_field() ?><label class="form-label" for="deliveryToken">Scan customer's signed order QR verification token (or paste token from URL)</label><input class="form-control mb-2" id="deliveryToken" name="token"><label class="form-label mt-2" for="deliveryCode">Or customer 4-digit code (delivery only)</label><input class="form-control mb-2" id="deliveryCode" name="code" inputmode="numeric" pattern="[0-9]{4}" maxlength="4"><button class="btn btn-outline-primary">Verify delivery</button></form><?php endif; ?>
-<?php if($order['status']==='ready_for_pickup'): ?><div class="alert alert-info">A cashier or administrator must verify the packed order and assigned rider before departure. Once that dispatch check is recorded, acknowledge departure using the status button.</div><?php endif; ?>
+<?php if($order['status']==='ready_for_delivery'): ?><div class="alert alert-info">A cashier or administrator must verify the packed order and assigned rider before departure. Once that dispatch check is recorded, acknowledge departure using the status button.</div><?php endif; ?>
 <?= view('components/handoff_stages',['handoffs'=>$handoffs]) ?>
 <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
     <div>
@@ -93,7 +93,7 @@
             <form action="<?= base_url('rider/deliveries/' . $order['id'] . '/status') ?>" method="post" data-confirm="Update this delivery status?" data-confirm-title="Update delivery" data-confirm-label="Update">
                 <?= csrf_field() ?>
                 <div class="d-grid gap-2">
-                    <button class="btn btn-dark btn-lg" name="status" value="out_for_delivery" data-confirm="Mark this order as out for delivery?" data-confirm-title="Start delivery" data-confirm-label="Start delivery" <?= $order['status'] !== 'ready_for_pickup' ? 'disabled' : '' ?>>
+                    <button class="btn btn-dark btn-lg" name="status" value="out_for_delivery" data-confirm="Mark this order as out for delivery?" data-confirm-title="Start delivery" data-confirm-label="Start delivery" <?= $order['status'] !== 'ready_for_delivery' ? 'disabled' : '' ?>>
                         <i class="bi bi-bicycle me-1"></i>Out for delivery
                     </button>
                     <button class="btn btn-success btn-lg" name="status" value="delivered" data-confirm="Mark this order as delivered?" data-confirm-title="Complete delivery" data-confirm-label="Mark delivered" <?= $order['status'] !== 'out_for_delivery' ? 'disabled' : '' ?>>

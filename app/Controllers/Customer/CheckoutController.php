@@ -19,6 +19,7 @@ class CheckoutController extends BaseController
             'deliveryFee' => max(0.0, (float) ($settings['delivery_fee'] ?? env('CAFETERIA_DELIVERY_FEE', 40))),
             'pickupEnabled' => (string) ($settings['pickup_enabled'] ?? '1') === '1',
             'deliveryEnabled' => (string) ($settings['delivery_enabled'] ?? '1') === '1',
+            'hasActivePromos' => (new \App\Models\PromoModel())->hasActive(),
         ]);
     }
 }

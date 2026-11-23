@@ -4,7 +4,7 @@
     <h1 class="h3">Verify order <?= esc($order['order_number']) ?></h1>
     <p><?= order_status_badge($order['status']) ?> · <?= esc(ucfirst($order['order_type'])) ?> · <?= format_price($order['total']) ?></p>
     <p class="text-secondary"><?= esc(date('M j, Y g:i A',strtotime($order['created_at']))) ?> · <?= esc(payment_method_label($order['payment_method'])) ?></p>
-    <?php if(!in_array($order['status'],['ready_for_pickup','out_for_delivery'],true)): ?>
+    <?php if(!in_array($order['status'],['ready_for_pickup','ready_for_delivery','out_for_delivery'],true)): ?>
         <div class="alert alert-warning">This order is not in the hand-off stage. Confirm status before scanning.</div>
     <?php endif; ?>
 <?= view('components/handoff_stages',['handoffs'=>$handoffs]) ?>
@@ -21,7 +21,7 @@
             </td>
         </tr><?php endforeach; ?>
         </tbody></table></div>
-    <?php if(in_array($order['status'],['ready_for_pickup','out_for_delivery'],true)): ?>
+    <?php if(in_array($order['status'],['ready_for_pickup','ready_for_delivery','out_for_delivery'],true)): ?>
     <form method="post" action="<?= base_url('staff/orders/'.$order['id'].'/verify-handoff') ?>"><?= csrf_field() ?>
         <input type="hidden" name="token" value="<?= esc($token,'attr') ?>">
         <button class="btn btn-primary">Confirm scanned order for hand-off</button>

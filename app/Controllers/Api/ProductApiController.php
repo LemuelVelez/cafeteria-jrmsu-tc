@@ -23,6 +23,11 @@ class ProductApiController extends BaseController
             trim((string) $this->request->getGet('exclude_allergen')) ?: null,
         );
         $this->attachAddons($products);
+        $user = (array) session()->get('user');
+        if (($user['role'] ?? '') !== 'admin') {
+            foreach ($products as &$product) $this->hideUnverifiedNutrition($product);
+            unset($product);
+        }
         return $this->jsonSuccess('Products loaded.', $products);
     }
 
@@ -38,6 +43,7 @@ class ProductApiController extends BaseController
         $product['category_name'] = (new CategoryModel())->find((int) $product['category_id'])['name'] ?? '';
         $product['image_url'] = product_image($product)['url'];
         $product['available'] = (bool) $product['is_available'] && (int) $product['stock'] > 0;
+        if ((((array) session()->get('user'))['role'] ?? '') !== 'admin') $this->hideUnverifiedNutrition($product);
         return $this->jsonSuccess('Product loaded.', $product);
     }
 
@@ -191,6 +197,14 @@ class ProductApiController extends BaseController
             (new MediaStorageService())->delete($product['image']);
         }
         return $this->jsonSuccess('Product removed.');
+    }
+
+    private function hideUnverifiedNutrition(array &$product): void
+    {
+        if (($product['nutrition_status'] ?? '') === 'verified') return;
+        foreach (['serving_size','calories','protein_g','carbohydrates_g','fat_g','sugar_g','fiber_g','sodium_mg'] as $field) {
+            $product[$field] = null;
+        }
     }
 
     private function attachAddons(array &$products): void

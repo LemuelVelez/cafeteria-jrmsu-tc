@@ -70,9 +70,9 @@ cafe help
 | Order type | Enforced payment mode | Workflow |
 |---|---|---|
 | Pickup | Cash on Pickup | Pending → Confirmed → Preparing → Ready for Pickup → Completed |
-| Delivery | Cash on Delivery | Pending → Confirmed → Preparing → Ready for Pickup → Out for Delivery → Delivered |
+| Delivery | Cash on Delivery | Pending → Confirmed → Preparing → Ready for Delivery → Out for Delivery → Delivered |
 
-Cancellation is allowed from Pending, Confirmed, Preparing, or Ready for Pickup. Payment is marked `paid` when pickup reaches `completed` or delivery reaches `delivered`; cancellation marks the payment failed where applicable. Prices, add-ons, promotions, stock, totals, and allowed transitions are always recalculated or validated on the server.
+Cancellation is allowed from Pending, Confirmed, Preparing, Ready for Pickup, or Ready for Delivery. Payment is marked `paid` when pickup reaches `completed` or delivery reaches `delivered`; cancellation marks the payment failed where applicable. Prices, add-ons, promotions, stock, totals, and allowed transitions are always recalculated or validated on the server.
 
 ## Inventory
 
@@ -113,7 +113,7 @@ All starter accounts use `Cafeteria#2026Demo`. Change this immediately outside l
 
 Passwords require at least 10 characters with uppercase, lowercase, number, and symbol characters; common passwords and passwords containing the user's name/email username are rejected. Five consecutive failed logins lock the account for 15 minutes. Login responses stay generic.
 
-Authenticated sessions include an account `session_version` and idle timeout. Admin/cashier/rider default to 30 minutes and customer to two hours. Password, role, and account-state changes invalidate old authenticated sessions. Rider customer phone/address data is visible only while a delivery is Ready for Pickup or Out for Delivery; completed/cancelled details are masked. Admin PII reveals and other sensitive actions are written to `audit_logs`.
+Authenticated sessions include an account `session_version` and idle timeout. Admin/cashier/rider default to 30 minutes and customer to two hours. Password, role, and account-state changes invalidate old authenticated sessions. Rider customer phone/address data is visible only while a delivery is Ready for Delivery or Out for Delivery; completed/cancelled details are masked. Admin PII reveals and other sensitive actions are written to `audit_logs`.
 
 Production security is environment-driven. Recommended production values are:
 
@@ -151,7 +151,7 @@ On an existing installation, **back up the database** and configure a sufficient
 
 **New integration tools without additional environment keys:** `npm run check` now executes an offline decoder test for valid/invalid Code 128 B and UPC-A. Admin → Costing → USDA nutrition search can import FoodData Central data, caching responses for offline revisits; it uses USDA's publicly documented test access and may be subject to rate limits, not a private API key. Admin → Settings controls ingredient-stock tracking (off until stocked), Web Push (off until HTTPS and browser approval), backup retention, low-stock digest, and notification-retention settings. VAPID keys are generated locally and kept encrypted in database settings with the existing `encryption.key`; they are never placed in `.env`. Backups reuse the original `AWS_REGION` and `AWS_S3_BUCKET` configuration if S3 is enabled.
 
-**New maintenance commands:** `php spark inventory:low-stock-digest` (requires configured mail transport and enabled setting), `php spark notifications:prune` (removes old *read* notifications), and `php spark notifications:push` (flushes opt-in Web Push outbox). Schedule each with cron/Windows Task Scheduler in addition to `php spark db:backup` and `php spark inventory:reconcile`. A sample Linux schedule is: daily `0 7 * * *` for low-stock digest, daily `20 2 * * *` for pruning, and each minute `* * * * *` for push outbox. On Windows use the project directory as working directory and `php.exe spark <command>` as task action. These integrations do not require new environment variables.
+**New maintenance commands:** `php spark inventory:low-stock-digest` (requires configured mail transport and enabled setting), `php spark notifications:prune` (removes old *read* notifications), and `php spark notifications:push` (flushes opt-in Web Push outbox), and `php spark notifications:sms` (sends queued Semaphore order SMS). Schedule each with cron/Windows Task Scheduler in addition to `php spark db:backup` and `php spark inventory:reconcile`. A sample Linux schedule is: daily `0 7 * * *` for low-stock digest, daily `20 2 * * *` for pruning, and each minute `* * * * *` for push outbox. On Windows use the project directory as working directory and `php.exe spark <command>` as task action. These integrations do not require new environment variables.
 
 **Remaining limitations:** Source-verified PhilFCT ingredient seeding is not included (USDA lookup provides imported, cited alternatives). The offline camera fallback supports **Code 128 B and EAN/UPC**, not all QR/barcode symbologies in older browsers; a native `BarcodeDetector` can scan additional formats. Server-side PDF generation is not installed; use browser Print → Save as PDF. Optional Web Push delivery, SMTP, ingredient oversell isolation under load, full permission and migration rollback checks, and a complete MySQL backup/restore drill require testing with a running database and browser/server infrastructure before production. Some legacy CRUD actions have not been fully integration-verified for audit diff coverage.
 

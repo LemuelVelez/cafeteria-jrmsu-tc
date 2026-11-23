@@ -12,6 +12,7 @@ class Cafeteria extends BaseConfig
     public float $deliveryFee;
     public string $orderPrefix;
     public int $uploadMaxSizeMb;
+    public int $cancellationRequestWindowSeconds;
     /** @var array<string,int> */
     public array $idleTimeouts;
 
@@ -24,6 +25,7 @@ class Cafeteria extends BaseConfig
         $this->deliveryFee = (float) env('CAFETERIA_DELIVERY_FEE', 40.00);
         $this->orderPrefix = (string) env('CAFETERIA_ORDER_PREFIX', 'JRMSU');
         $this->uploadMaxSizeMb = (int) env('UPLOAD_MAX_SIZE_MB', 5);
+        $this->cancellationRequestWindowSeconds = (int) env('CAFETERIA_CANCELLATION_WINDOW_SECONDS', 120);
         $defaultIdle = (int) env('CAFETERIA_IDLE_TIMEOUT', 1800);
         $this->idleTimeouts = [
             'admin' => (int) env('CAFETERIA_IDLE_TIMEOUT_ADMIN', $defaultIdle),

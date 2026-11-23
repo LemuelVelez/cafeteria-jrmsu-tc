@@ -21,7 +21,7 @@ class PromoSeeder extends Seeder
             'minimum_order' => 150,
             'usage_limit' => 100,
             'used_count' => 0,
-            'is_active' => 1,
+            'is_active' => 0,
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);

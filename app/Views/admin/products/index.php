@@ -12,9 +12,13 @@
 <td><div><?= esc($product['sku'] ?: '—') ?></div><small class="text-secondary"><?= esc($product['barcode'] ?: 'No barcode') ?></small></td>
 <td class="fw-semibold"><?= format_price($product['price']) ?></td>
 <td><?= view('components/stock_gauge', ['product' => $product, 'settings' => $stockSettings]) ?><small class="text-secondary d-block">Reorder at <?= (int) $product['reorder_level'] ?></small></td>
-<td><?= $product['calories'] !== null ? esc($product['calories']).' kcal' : '—' ?><?php if (!empty($product['is_healthy_choice'])): ?><span class="badge text-bg-success ms-1">Healthy</span><?php endif; ?></td>
+<td><?= $product['calories'] !== null ? esc($product['calories']).' kcal' : '—' ?>
+    <?php if (\App\Services\NutritionSourcePolicy::isVerified($product)): ?>
+        <span class="badge text-bg-success ms-1" title="<?= esc(\App\Services\NutritionSourcePolicy::label($product['nutrition_source'] ?? null), 'attr') ?>">Verified</span>
+    <?php else: ?><span class="badge text-bg-warning ms-1">Unverified</span><?php endif; ?>
+</td>
 <td><span class="badge <?= $product['is_available'] ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $product['is_available'] ? ((int)$product['stock'] > 0 ? 'Available' : 'Out of stock') : 'Hidden' ?></span></td>
-<td class="text-end action-cell"><div class="table-actions"><?php if ($product['barcode']): ?><button class="btn btn-sm btn-outline-secondary" type="button" data-show-product-qr data-product-url="<?= esc(base_url('menu/'.$product['slug']), 'attr') ?>" title="Menu QR"><i class="bi bi-qr-code"></i></button><?php endif; ?><button class="btn btn-sm btn-outline-primary" type="button" data-edit-product='<?= esc(json_encode($product, JSON_HEX_APOS|JSON_HEX_QUOT), 'attr') ?>'><i class="bi bi-pencil"></i></button><form class="d-inline" data-confirm="Remove this product?" action="<?= base_url('admin/products/'.$product['id'].'/delete') ?>" method="post"><?= csrf_field() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></td>
+<td class="text-end action-cell"><div class="table-actions"><?php if ($product['barcode']): ?><button class="btn btn-sm btn-outline-secondary" type="button" data-show-product-qr data-product-url="<?= esc(base_url('menu/'.$product['slug']), 'attr') ?>" title="Menu QR"><i class="bi bi-qr-code"></i></button><?php endif; ?><button class="btn btn-sm btn-outline-success" type="button" title="Verify nutrition" data-verify-nutrition='<?= esc(json_encode(['id'=>$product['id'],'name'=>$product['name'],'source'=>$product['nutrition_source'],'reference'=>$product['nutrition_reference'] ?? null,'verified'=>\App\Services\NutritionSourcePolicy::isVerified($product)]), 'attr') ?>'><i class="bi bi-patch-check"></i></button><button class="btn btn-sm btn-outline-primary" type="button" data-edit-product='<?= esc(json_encode($product, JSON_HEX_APOS|JSON_HEX_QUOT), 'attr') ?>'><i class="bi bi-pencil"></i></button><form class="d-inline" data-confirm="Remove this product?" action="<?= base_url('admin/products/'.$product['id'].'/delete') ?>" method="post"><?= csrf_field() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></td>
 </tr><?php endforeach; ?>
 <?php if (!$products): ?><tr><td colspan="8"><?= view('components/empty', ['icon'=>'bi-cup-straw','message'=>'Add your first menu product.']) ?></td></tr><?php endif; ?>
 </tbody></table></div></div>
@@ -45,13 +49,39 @@
 <div class="col-md-4"><label class="form-label">Serving size</label><input class="form-control" name="serving_size" maxlength="50" placeholder="e.g. 1 rice meal"></div><div class="col-md-4"><label class="form-label">Calories</label><input class="form-control" type="number" min="0" name="calories" placeholder="e.g. 450"></div><div class="col-md-4"><label class="form-label">Sodium (mg)</label><input class="form-control" type="number" min="0" name="sodium_mg" placeholder="e.g. 650"></div>
 <?php foreach (['protein_g'=>'Protein (g)','carbohydrates_g'=>'Carbohydrates (g)','fat_g'=>'Fat (g)','sugar_g'=>'Sugar (g)','fiber_g'=>'Fiber (g)'] as $name=>$label): ?><div class="col-md-4"><label class="form-label"><?= esc($label) ?></label><input class="form-control" type="number" step="0.01" min="0" name="<?= esc($name) ?>" placeholder="e.g. 25"></div><?php endforeach; ?>
 <fieldset class="col-md-8"><legend class="form-label fs-6">Allergens (confirm with adviser)</legend><div class="d-flex flex-wrap gap-3"><?php foreach ($allergenOptions as $allergen): ?><label class="form-check-label"><input class="form-check-input" type="checkbox" name="allergen_ids[]" value="<?= (int) $allergen['id'] ?>"> <?= esc($allergen['name']) ?></label><?php endforeach; ?></div><small class="text-secondary">Original unrecognized allergens remain in the legacy record; check the source before approving.</small><small class="d-block mt-2" data-legacy-allergens aria-live="polite"></small></fieldset>
-</div><small class="text-secondary">Nutrition values are estimates per serving.</small></div></div>
+</div><small class="text-secondary">Values are hidden from customers until an admin verifies them against a reliable source.</small></div></div>
 </div></div>
 <div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Save product</button></div></form></div></div>
+
+
+<div class="modal fade" id="nutritionVerifyModal" tabindex="-1" aria-labelledby="nutritionVerifyTitle">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <form id="nutritionVerifyForm" method="post" data-action-template="<?= esc(base_url('admin/products/{id}/verify-nutrition'), 'attr') ?>">
+            <?= csrf_field() ?>
+            <div class="modal-header"><h2 class="modal-title h5" id="nutritionVerifyTitle">Verify nutrition</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <p class="small fw-semibold" data-nutrition-product-name></p>
+                <label class="form-label" for="nutritionSource">Verified source</label>
+                <select class="form-select mb-3" id="nutritionSource" name="nutrition_source" required>
+                    <option value="">Choose source</option>
+                    <?php foreach (\App\Services\NutritionSourcePolicy::SOURCES as $key => $label): ?><option value="<?= esc($key, 'attr') ?>"><?= esc($label) ?></option><?php endforeach; ?>
+                </select>
+                <label class="form-label" for="nutritionReference">Source reference</label>
+                <textarea class="form-control mb-3" id="nutritionReference" name="nutrition_reference" rows="3" maxlength="500" minlength="5" required></textarea>
+                <label class="form-check-label"><input class="form-check-input me-2" type="checkbox" value="1" name="confirm_checked" required> I compared every value with the source</label>
+                <p class="small text-secondary mt-3">Use Google Lens on the product's printed nutrition label, or cite FNRI PhilFCT / USDA FoodData Central. Values stay hidden from customers until verified.</p>
+            </div>
+            <div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Close</button><button class="btn btn-success" type="submit">Verify nutrition</button></div>
+        </form>
+        <form id="nutritionUnverifyForm" method="post" class="px-3 pb-3" data-action-template="<?= esc(base_url('admin/products/{id}/unverify-nutrition'), 'attr') ?>" data-confirm="Remove nutrition verification for this product?" data-confirm-title="Unverify nutrition" data-confirm-label="Unverify" hidden>
+            <?= csrf_field() ?><button class="btn btn-outline-warning w-100">Unverify nutrition</button>
+        </form>
+    </div></div>
+</div>
 
 <div class="modal fade" id="productQrModal" tabindex="-1"><div class="modal-dialog modal-sm modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Menu item QR</h2><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body text-center"><div data-product-qr-output></div><a class="btn btn-outline-primary mt-3" data-product-qr-link target="_blank" rel="noopener">Open public page</a></div></div></div></div>
 <?= $this->endSection() ?>
 <?= $this->section('scripts') ?>
 <script src="<?= base_url('assets/vendor/qrcode-generator/qrcode.min.js') ?>"></script>
-<script src="<?= base_url('assets/js/admin-products.js') ?>"></script>
+<script src="<?= base_url('assets/js/admin-products.js') . '?v=20261124-corrections' ?>"></script>
 <?= $this->endSection() ?>

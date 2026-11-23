@@ -10,6 +10,8 @@ use App\Services\AuditLogService;
 use App\Services\InventoryService;
 use App\Services\MediaStorageService;
 use App\Services\NutritionEditPolicy;
+use App\Services\NutritionSourcePolicy;
+use DomainException;
 use Throwable;
 
 class ProductController extends BaseController
@@ -183,6 +185,69 @@ class ProductController extends BaseController
             $media->delete((string) $existing['image']);
         }
         return redirect()->to('/admin/products')->with('success', 'Product saved.');
+    }
+
+    public function verifyNutrition(int $id)
+    {
+        $db = db_connect();
+        $db->transBegin();
+        try {
+            $product = $db->query('SELECT * FROM products WHERE id=? AND deleted_at IS NULL FOR UPDATE', [$id])->getRowArray();
+            if (! $product) throw new DomainException('Product not found.');
+            if ($db->table('product_recipes')->where('product_id', $id)->countAllResults() > 0) {
+                throw new DomainException('This product has a recipe. Verify its nutrition in Food Costing.');
+            }
+            $source = (string) $this->request->getPost('nutrition_source');
+            $reference = trim((string) $this->request->getPost('nutrition_reference'));
+            if (! array_key_exists($source, NutritionSourcePolicy::SOURCES)) throw new DomainException('Select an approved nutrition source.');
+            if (mb_strlen($reference) < 5 || mb_strlen($reference) > 500) throw new DomainException('Enter a source reference between 5 and 500 characters.');
+            if ($this->request->getPost('confirm_checked') !== '1') throw new DomainException('Confirm that you compared every value with the source.');
+            $missing = [];
+            foreach (NutritionSourcePolicy::REQUIRED_FIELDS as $field) {
+                if ($product[$field] === null || trim((string) $product[$field]) === '') $missing[] = $field;
+            }
+            if ($missing) throw new DomainException('Fill these nutrition fields in the product form first: ' . implode(', ', $missing) . '.');
+            $db->table('products')->where('id', $id)->update([
+                'nutrition_source' => $source, 'nutrition_reference' => $reference,
+                'nutrition_status' => 'verified', 'nutrition_verified_by' => (int) (session()->get('user')['id'] ?? 0),
+                'nutrition_verified_at' => date('Y-m-d H:i:s'),
+            ]);
+            (new AuditLogService($db))->record('nutrition_verified', 'product', $id, ['source' => $source], (int) (session()->get('user')['id'] ?? 0));
+            if (! $db->transStatus()) throw new \RuntimeException('Unable to verify nutrition.');
+            $db->transCommit();
+            return redirect()->to('/admin/products')->with('success', 'Nutrition verified.');
+        } catch (DomainException $exception) {
+            $db->transRollback();
+            return redirect()->to('/admin/products')->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            $db->transRollback();
+            log_message('error', 'Nutrition verification failed: {message}', ['message' => $exception->getMessage()]);
+            return redirect()->to('/admin/products')->with('error', 'Nutrition could not be verified right now.');
+        }
+    }
+
+    public function unverifyNutrition(int $id)
+    {
+        $db = db_connect();
+        $db->transBegin();
+        try {
+            $product = $db->query('SELECT * FROM products WHERE id=? AND deleted_at IS NULL FOR UPDATE', [$id])->getRowArray();
+            if (! $product) throw new DomainException('Product not found.');
+            $db->table('products')->where('id', $id)->update([
+                'nutrition_status' => 'estimated', 'nutrition_verified_by' => null, 'nutrition_verified_at' => null,
+            ]);
+            (new AuditLogService($db))->record('nutrition_unverified', 'product', $id, [], (int) (session()->get('user')['id'] ?? 0));
+            if (! $db->transStatus()) throw new \RuntimeException('Unable to unverify nutrition.');
+            $db->transCommit();
+            return redirect()->to('/admin/products')->with('success', 'Nutrition verification removed.');
+        } catch (DomainException $exception) {
+            $db->transRollback();
+            return redirect()->to('/admin/products')->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            $db->transRollback();
+            log_message('error', 'Nutrition unverify failed: {message}', ['message' => $exception->getMessage()]);
+            return redirect()->to('/admin/products')->with('error', 'Nutrition could not be updated right now.');
+        }
     }
 
     public function labels(): string

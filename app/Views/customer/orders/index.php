@@ -36,7 +36,7 @@
                 <td><small><?= esc($order['item_summary'] ?: 'No items') ?></small></td>
                 <td class="fw-semibold"><?= format_price($order['total']) ?></td>
                 <td><?= payment_status_badge($order['payment_status'], $order['payment_method']) ?></td>
-                <td><?= order_status_badge($order['status']) ?><?= view('components/order_mini_progress',['order'=>$order]) ?></td>
+                <td><?= order_status_badge($order['status']) ?><?php if (($order['cancellation_request_status'] ?? '') === 'pending'): ?><span class="badge text-bg-warning ms-1">Cancellation requested</span><?php endif; ?><?= view('components/order_mini_progress',['order'=>$order]) ?></td>
                 <td class="text-end customer-orders-actions-cell">
                     <div class="table-actions customer-orders-actions">
                         <a class="btn btn-sm btn-outline-primary" href="<?= base_url('customer/orders/'.$order['id']) ?>">View</a>
@@ -57,7 +57,7 @@
                     <div class="small"><?= esc($order['order_number']) ?></div>
                     <small class="text-secondary"><?= esc(date('M j, Y g:i A',strtotime($order['created_at']))) ?></small>
                 </div>
-                <?= order_status_badge($order['status']) ?>
+                <?= order_status_badge($order['status']) ?><?php if (($order['cancellation_request_status'] ?? '') === 'pending'): ?><span class="badge text-bg-warning">Cancellation requested</span><?php endif; ?>
             </div>
             <?= view('components/order_mini_progress',['order'=>$order]) ?>
             <div class="row g-2 small mt-2 customer-order-card__details">

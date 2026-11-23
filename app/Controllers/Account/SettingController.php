@@ -161,7 +161,7 @@ class SettingController extends BaseController
     {
         $id=(int)$this->session->get('user')['id'];
         $prefs=[];
-        foreach(['ready_for_pickup','out_for_delivery','completed','delivered','cancelled'] as $key)$prefs[$key]=$this->request->getPost($key)==='1';
+        foreach(['ready_for_pickup','ready_for_delivery','out_for_delivery','completed','delivered','cancelled'] as $key)$prefs[$key]=$this->request->getPost($key)==='1';
         $db=db_connect();$db->transBegin();
         try{
             $db->table('users')->where('id',$id)->update(['notification_email_prefs'=>json_encode($prefs)]);

@@ -20,7 +20,7 @@ final class OrderApiPresenter
         $owner = $role === 'customer' && $actorId > 0 && $actorId === (int) ($order['customer_id'] ?? 0);
         $staff = in_array($role, ['admin','cashier'], true);
         $assignedRider = $role === 'rider' && $actorId > 0 && $actorId === (int) ($order['rider_id'] ?? 0);
-        $riderActive = $assignedRider && in_array($order['status'] ?? '', ['ready_for_pickup','out_for_delivery'], true);
+        $riderActive = $assignedRider && in_array($order['status'] ?? '', ['ready_for_delivery','out_for_delivery'], true);
         if ($owner || $staff || $riderActive) {
             $result['delivery_address'] = $order['delivery_address'] ?? null;
         }
@@ -37,7 +37,7 @@ final class OrderApiPresenter
     {
         $fields = ['id','product_id','product_name','quantity','unit_price','addon_total','line_total','addons_json'];
         $role = (string) ($actor['role'] ?? '');
-        $canSeeNotes = $role !== 'rider' || in_array($order['status'] ?? '', ['ready_for_pickup','out_for_delivery'], true);
+        $canSeeNotes = $role !== 'rider' || in_array($order['status'] ?? '', ['ready_for_delivery','out_for_delivery'], true);
         if ($canSeeNotes) $fields[] = 'notes';
         return array_map(static fn (array $line): array => array_intersect_key($line, array_flip($fields)), $items);
     }

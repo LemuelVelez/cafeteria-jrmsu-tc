@@ -1,8 +1,8 @@
 <?php
 /** @var array $order */
-$steps = ['pending','confirmed','preparing','ready_for_pickup'];
-$steps[] = $order['order_type'] === 'delivery' ? 'out_for_delivery' : 'completed';
-if ($order['order_type'] === 'delivery') $steps[] = 'delivered';
+$steps = $order['order_type'] === 'delivery'
+    ? ['pending','confirmed','preparing','ready_for_delivery','out_for_delivery','delivered']
+    : ['pending','confirmed','preparing','ready_for_pickup','completed'];
 $cancelled = $order['status'] === 'cancelled';
 $at = $cancelled ? ($order['cancelled_at_status'] ?? 'pending') : $order['status'];
 $step = array_search($at,$steps,true);

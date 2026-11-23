@@ -17,6 +17,21 @@ class PromoModel extends BaseModel
         'is_active' => 'permit_empty|in_list[0,1]',
     ];
 
+    public function activeNow(): array
+    {
+        $now = date('Y-m-d H:i:s');
+        return $this->where('is_active', 1)
+            ->groupStart()->where('starts_at IS NULL', null, false)->orWhere('starts_at <=', $now)->groupEnd()
+            ->groupStart()->where('ends_at IS NULL', null, false)->orWhere('ends_at >=', $now)->groupEnd()
+            ->groupStart()->where('usage_limit', 0)->orWhere('used_count < usage_limit', null, false)->groupEnd()
+            ->orderBy('ends_at', 'ASC')->orderBy('id', 'ASC')->findAll();
+    }
+
+    public function hasActive(): bool
+    {
+        return $this->activeNow() !== [];
+    }
+
     public function validCode(string $code): ?array
     {
         $now = date('Y-m-d H:i:s');

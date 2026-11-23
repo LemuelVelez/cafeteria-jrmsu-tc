@@ -65,6 +65,28 @@
     </div>
 
     <div class="col-lg-4">
+        <?php if ($cancellationRequest): ?>
+        <div class="surface-card p-4 mb-4">
+            <h2 class="h5 fw-bold">Cancellation request</h2>
+            <p class="small mb-2"><strong>Reason:</strong> <?= esc($cancellationRequest['reason']) ?></p>
+            <?php if ($cancellationRequest['status'] === 'pending'): ?>
+                <div class="alert alert-warning">Cancellation requested — review pending</div>
+                <form method="post" action="<?= base_url('admin/cancel-requests/' . $cancellationRequest['id'] . '/approve') ?>" data-confirm="Cancel this order and restock its items?" data-confirm-title="Approve cancellation" data-confirm-label="Approve cancellation" class="mb-3">
+                    <?= csrf_field() ?><button class="btn btn-outline-danger w-100">Approve cancellation</button>
+                </form>
+                <form method="post" action="<?= base_url('admin/cancel-requests/' . $cancellationRequest['id'] . '/reject') ?>">
+                    <?= csrf_field() ?><label for="adminCancelNote" class="form-label">Reason for declining</label>
+                    <input class="form-control mb-2" type="text" id="adminCancelNote" name="note" minlength="3" maxlength="255" required placeholder="e.g. Food is already being prepared">
+                    <button class="btn btn-outline-secondary w-100">Reject</button>
+                </form>
+            <?php else: ?>
+                <div class="badge <?= $cancellationRequest['status'] === 'approved' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= esc(ucfirst($cancellationRequest['status'])) ?></div>
+                
+                <p class="small mt-2 mb-1">Reviewed by: <?= esc($cancellationReviewer ?? 'Former staff member') ?></p>
+                <?php if (!empty($cancellationRequest['review_note'])): ?><p class="small mb-0"><?= esc($cancellationRequest['review_note']) ?></p><?php endif; ?>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
         <div class="surface-card p-4 mb-4">
             <h2 class="h5 section-title fw-bold">Update status</h2>
             <?php if ($statusOptions): ?>
@@ -73,7 +95,7 @@
                     <select class="form-select mb-3" name="status" required>
                         <option value="">Select next status</option>
                         <?php foreach ($statusOptions as $status): ?>
-                            <option value="<?= esc($status, 'attr') ?>"><?= esc(ucwords(str_replace('_', ' ', $status))) ?></option>
+                            <option value="<?= esc($status, 'attr') ?>"><?= esc(\App\Enums\OrderStatus::from($status)->label()) ?></option>
                         <?php endforeach; ?>
                     </select>
                     <textarea class="form-control mb-3" name="note" maxlength="1000" placeholder="e.g. Customer requested a delivery update"></textarea>
@@ -88,7 +110,7 @@
         <form class="mb-3" method="post" action="<?= esc(base_url('staff/orders/'.$order['id'].'/call-queue'),'attr') ?>"><?= csrf_field() ?><button class="btn btn-warning w-100" type="submit"><i class="bi bi-megaphone"></i> Call again</button></form>
         <?php endif; ?>
         <?= view('components/handoff_stages',['handoffs'=>$handoffs]) ?>
-        <?php if (in_array($order['status'], ['ready_for_pickup','out_for_delivery'], true)): ?>
+        <?php if (in_array($order['status'], ['ready_for_pickup','ready_for_delivery','out_for_delivery'], true)): ?>
         <div class="surface-card p-4 mb-4">
             <h2 class="h5 fw-bold">Verify hand-off</h2>
             <form method="post" action="<?= base_url('staff/orders/'.$order['id'].'/verify-handoff') ?>">

@@ -9,7 +9,7 @@ class ProductModel extends BaseModel
     protected $allowedFields = [
         'category_id', 'name', 'slug', 'sku', 'barcode', 'description', 'price', 'standard_unit_cost', 'stock_unit', 'bundle_quantity', 'bundle_price', 'stock', 'reorder_level', 'max_stock', 'image',
         'is_available', 'is_featured', 'serving_size', 'calories', 'protein_g', 'carbohydrates_g', 'fat_g',
-        'sugar_g', 'fiber_g', 'sodium_mg', 'allergens', 'is_healthy_choice', 'is_vegetarian', 'packaging_cost', 'recipe_servings', 'cooking_yield', 'nutrition_source', 'nutrition_status', 'nutrition_verified_by', 'nutrition_verified_at',
+        'sugar_g', 'fiber_g', 'sodium_mg', 'allergens', 'is_healthy_choice', 'is_vegetarian', 'packaging_cost', 'recipe_servings', 'cooking_yield', 'nutrition_source', 'nutrition_reference', 'nutrition_status', 'nutrition_verified_by', 'nutrition_verified_at',
     ];
     protected $useSoftDeletes = true;
     protected $deletedField = 'deleted_at';
@@ -58,7 +58,7 @@ class ProductModel extends BaseModel
             $builder->groupStart()->like('products.name', $search)->orLike('products.description', $search)->groupEnd();
         }
         if ($maxCalories !== null) {
-            $builder->where('products.calories IS NOT NULL', null, false)->where('products.calories <=', $maxCalories);
+            $builder->where('products.nutrition_status', 'verified')->where('products.calories IS NOT NULL', null, false)->where('products.calories <=', $maxCalories);
         }
         if ($excludeAllergen) {
             $allergen = $this->db->table('allergens')->groupStart()
@@ -69,16 +69,25 @@ class ProductModel extends BaseModel
                 $builder->where("NOT EXISTS (SELECT 1 FROM product_allergens pa WHERE pa.product_id = products.id AND pa.allergen_id = {$id})", null, false);
             }
         }
-        if (!empty($filters['high_protein'])) $builder->where('products.protein_g >=', 20);
-        if (!empty($filters['low_sodium'])) $builder->where('products.sodium_mg <=', 140);
+        if (!empty($filters['high_protein'])) $builder->where('products.nutrition_status', 'verified')->where('products.protein_g >=', 20);
+        if (!empty($filters['low_sodium'])) $builder->where('products.nutrition_status', 'verified')->where('products.sodium_mg <=', 140);
         if (!empty($filters['healthy_choice'])) $builder->where('products.is_healthy_choice', 1)->where('products.nutrition_status', 'verified');
         if (!empty($filters['vegetarian'])) $builder->where('products.is_vegetarian', 1);
         if ($includeSoldOut) {
             $builder->orderBy('(products.stock > 0)', 'DESC', false);
         }
-        $products = $builder->orderBy('products.is_featured', 'DESC')->orderBy('products.name')->findAll();
+        $products = $builder->orderBy('products.id', 'ASC')->findAll();
         (new \App\Services\AllergenService())->attach($products);
         return $products;
+    }
+
+    public function searchOptions(): array
+    {
+        return $this->select('products.id,products.name,products.slug,products.price,products.bundle_quantity,products.bundle_price,categories.name AS category_name')
+            ->join('categories', 'categories.id = products.category_id')
+            ->where('products.is_available', 1)->where('products.stock >', 0)
+            ->where('categories.is_active', 1)->where('categories.deleted_at', null)
+            ->orderBy('products.name', 'ASC')->findAll();
     }
 
     public function featured(int $limit = 4): array
@@ -94,6 +103,6 @@ class ProductModel extends BaseModel
     {
         return $this->select('products.*, categories.name AS category_name')
             ->join('categories', 'categories.id = products.category_id', 'left')
-            ->orderBy('products.created_at', 'DESC')->findAll();
+            ->orderBy('products.id', 'ASC')->findAll();
     }
 }

@@ -8,6 +8,7 @@ enum OrderStatus: string
     case Confirmed = 'confirmed';
     case Preparing = 'preparing';
     case ReadyForPickup = 'ready_for_pickup';
+    case ReadyForDelivery = 'ready_for_delivery';
     case OutForDelivery = 'out_for_delivery';
     case Completed = 'completed';
     case Delivered = 'delivered';
@@ -20,6 +21,7 @@ enum OrderStatus: string
             self::Confirmed => 'Confirmed',
             self::Preparing => 'Preparing',
             self::ReadyForPickup => 'Ready for Pickup',
+            self::ReadyForDelivery => 'Ready for Delivery',
             self::OutForDelivery => 'Out for Delivery',
             self::Completed => 'Completed',
             self::Delivered => 'Delivered',
@@ -34,6 +36,7 @@ enum OrderStatus: string
             self::Confirmed => 'bi-check-circle',
             self::Preparing => 'bi-cup-hot',
             self::ReadyForPickup => 'bi-bag-check',
+            self::ReadyForDelivery => 'bi-box-seam',
             self::OutForDelivery => 'bi-bicycle',
             self::Completed => 'bi-check2-circle',
             self::Delivered => 'bi-check2-all',
@@ -48,6 +51,7 @@ enum OrderStatus: string
             self::Confirmed => 'confirmed',
             self::Preparing => 'preparing',
             self::ReadyForPickup => 'ready-for-pickup',
+            self::ReadyForDelivery => 'ready-for-delivery',
             self::OutForDelivery => 'out-for-delivery',
             self::Completed => 'completed',
             self::Delivered => 'delivered',
@@ -62,6 +66,7 @@ enum OrderStatus: string
             self::Confirmed => 'Your order has been confirmed.',
             self::Preparing => 'Your meal is being prepared.',
             self::ReadyForPickup => 'Your order is ready. Please proceed to the counter.',
+            self::ReadyForDelivery => 'Your order is packed and ready for delivery. It will be dispatched once your rider is verified.',
             self::OutForDelivery => 'Your order is on the way.',
             self::Completed => 'Your order has been picked up. Thank you!',
             self::Delivered => 'Your order has been delivered. Thank you!',
@@ -85,8 +90,9 @@ enum OrderStatus: string
         return match ($this) {
             self::Pending => [self::Confirmed->value, self::Cancelled->value],
             self::Confirmed => [self::Preparing->value, self::Cancelled->value],
-            self::Preparing => [self::ReadyForPickup->value, self::Cancelled->value],
-            self::ReadyForPickup => [self::OutForDelivery->value, self::Completed->value, self::Cancelled->value],
+            self::Preparing => [self::ReadyForPickup->value, self::ReadyForDelivery->value, self::Cancelled->value],
+            self::ReadyForPickup => [self::Completed->value, self::Cancelled->value],
+            self::ReadyForDelivery => [self::OutForDelivery->value, self::Cancelled->value],
             self::OutForDelivery => [self::Delivered->value],
             self::Completed, self::Delivered, self::Cancelled => [],
         };
