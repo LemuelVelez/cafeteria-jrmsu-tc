@@ -45,7 +45,7 @@ class SettingController extends BaseController
             'pickup_enabled' => 'required|in_list[0,1]',
             'delivery_enabled' => 'required|in_list[0,1]',
             'email_order_notifications' => 'required|in_list[0,1]',
-            'sms_order_notifications' => 'required|in_list[0,1]',
+            'sms_order_notifications' => 'required|in_list[0]',
             'admin_totp_required' => 'required|in_list[0,1]',
             'attendance_enabled' => 'required|in_list[0,1]',
             'on_call_hourly_rate' => 'permit_empty|decimal|greater_than[0]|less_than_equal_to[100000]',

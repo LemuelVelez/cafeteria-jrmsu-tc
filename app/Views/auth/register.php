@@ -19,7 +19,7 @@
         <div class="col-md-5">
             <label class="form-label fw-semibold" for="phone">Phone number</label>
             <input class="form-control" id="phone" name="phone" value="<?= old('phone') ?>" placeholder="e.g. 0917 123 4567" autocomplete="tel" maxlength="30">
-<div class="form-text">Used for SMS updates when your order is confirmed or ready. Use a PH mobile number, e.g. 0917 123 4567.</div>
+<div class="form-text">SMS order updates are coming soon. Use a PH mobile number, e.g. 0917 123 4567.</div>
         </div>
         <div class="col-12">
             <label class="form-label fw-semibold" for="address">Default campus delivery address</label>

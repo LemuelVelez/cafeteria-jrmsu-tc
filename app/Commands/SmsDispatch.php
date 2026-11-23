@@ -14,6 +14,10 @@ class SmsDispatch extends BaseCommand
 
     public function run(array $params): void
     {
+        if (! config(\Config\Sms::class)->enabled) {
+            CLI::write('Order SMS is coming soon. Dispatch is disabled.');
+            return;
+        }
         $stats = (new SmsService())->flush(50);
         CLI::write('SMS: ' . $stats['sent'] . ' sent; ' . $stats['failed'] . ' failed; ' . $stats['skipped'] . ' skipped.');
     }

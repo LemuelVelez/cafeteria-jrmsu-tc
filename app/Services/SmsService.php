@@ -18,6 +18,8 @@ class SmsService
 
     public function enqueue(int $userId, ?int $orderId, string $event, string $message): void
     {
+        // Coming soon: never queue SMS until explicitly released via SMS_ENABLED.
+        if (! config(\Config\Sms::class)->enabled) return;
         $db = $this->db();
         $enabled = $db->table('settings')->where('setting_key', 'sms_order_notifications')->get()->getRow('setting_value');
         if ((string) ($enabled ?? '0') !== '1') return;
@@ -32,6 +34,8 @@ class SmsService
     public function flush(int $limit = 5): array
     {
         $stats = ['sent' => 0, 'failed' => 0, 'skipped' => 0];
+        // While the feature is marked coming soon, preserve any existing queued rows.
+        if (! config(\Config\Sms::class)->enabled) return $stats;
         $db = $this->db();
         // Prevent overlapping HTTP senders, without holding a database transaction over the request.
         $lock = (int) $db->query("SELECT GET_LOCK('cafeteria.sms-dispatch',0) held")->getRow('held');
@@ -49,24 +53,44 @@ class SmsService
                     if ($phone === null) {
                         $outcome = 'skipped';
                         $changes['last_error'] = 'No valid PH mobile number';
-                    } elseif ($config->apiKey === '' || $config->provider !== 'semaphore') {
+                    } elseif ($config->provider !== 'twilio'
+                        || $config->accountSid === '' || $config->authToken === ''
+                        || ($config->fromNumber === '' && $config->messagingServiceSid === '')) {
                         $outcome = 'skipped';
                         $changes['last_error'] = 'SMS provider not configured';
                     } else {
-                        $form = ['apikey' => $config->apiKey, 'number' => $phone, 'message' => $row['message']];
-                        if ($config->senderName !== '') $form['sendername'] = $config->senderName;
-                        $response = service('curlrequest')->post($config->endpoint, [
-                            'form_params' => $form, 'timeout' => $config->timeout, 'http_errors' => false,
+                        // Twilio requires an E.164 recipient, not the locally stored 09XXXXXXXXX.
+                        $form = [
+                            'To' => '+63' . substr($phone, 1),
+                            'Body' => $row['message'],
+                        ];
+                        if ($config->messagingServiceSid !== '') {
+                            $form['MessagingServiceSid'] = $config->messagingServiceSid;
+                        } else {
+                            $form['From'] = $config->fromNumber;
+                        }
+                        $endpoint = 'https://api.twilio.com/2010-04-01/Accounts/'
+                            . rawurlencode($config->accountSid) . '/Messages.json';
+                        $response = service('curlrequest')->post($endpoint, [
+                            'headers' => [
+                                'Authorization' => 'Basic ' . base64_encode($config->accountSid . ':' . $config->authToken),
+                            ],
+                            'form_params' => $form,
+                            'timeout' => $config->timeout,
+                            'http_errors' => false,
                         ]);
                         $payload = json_decode((string) $response->getBody(), true);
-                        if ($response->getStatusCode() === 200 && is_array($payload)
-                            && isset($payload[0]['message_id'])) {
+                        $httpCode = $response->getStatusCode();
+                        if ($httpCode >= 200 && $httpCode < 300 && is_array($payload)
+                            && ! empty($payload['sid'])) {
+                            // The gateway accepted the message; final handset delivery is not guaranteed.
                             $outcome = 'sent';
-                            $changes['provider_message_id'] = mb_substr((string) $payload[0]['message_id'], 0, 64);
+                            $changes['provider_message_id'] = mb_substr((string) $payload['sid'], 0, 64);
                             $changes['sent_at'] = date('Y-m-d H:i:s');
                             $changes['last_error'] = null;
                         } else {
-                            $changes['last_error'] = 'SMS gateway rejected the request (HTTP ' . $response->getStatusCode() . ')';
+                            // Do not persist Twilio's response body: it may contain account details.
+                            $changes['last_error'] = 'SMS gateway rejected the request (HTTP ' . $httpCode . ')';
                         }
                     }
                 } catch (Throwable $exception) {

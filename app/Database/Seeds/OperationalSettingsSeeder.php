@@ -21,7 +21,7 @@ final class OperationalSettingsSeeder extends Seeder
         'inventory_ingredient_tracking_enabled' => '0',
         'low_stock_email_digest' => '0',
         'web_push_enabled' => '0',
-        'sms_order_notifications' => '1',
+        'sms_order_notifications' => '0',
         'inventory_level_yellow_percent' => '50',
         'inventory_level_red_percent' => '25',
         'inventory_alert_half_enabled' => '1',

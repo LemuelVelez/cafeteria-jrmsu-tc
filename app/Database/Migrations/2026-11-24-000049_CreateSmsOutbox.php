@@ -28,8 +28,8 @@ class CreateSmsOutbox extends Migration
         if ($this->db->table('settings')->where('setting_key', 'sms_order_notifications')->countAllResults() === 0) {
             $now = date('Y-m-d H:i:s');
             $this->db->table('settings')->insert([
-                'setting_key' => 'sms_order_notifications', 'setting_value' => '1', 'setting_type' => 'string',
-                'description' => 'Send customers SMS when an order is confirmed or ready.',
+                'setting_key' => 'sms_order_notifications', 'setting_value' => '0', 'setting_type' => 'string',
+                'description' => 'Order SMS through Twilio (coming soon; currently disabled).',
                 'created_at' => $now, 'updated_at' => $now,
             ]);
         }
