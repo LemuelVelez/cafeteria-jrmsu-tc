@@ -29,7 +29,7 @@
                 <div class="col-12 col-md-6">
                     <label class="form-label fw-semibold" for="profilePhone">Phone number</label>
                     <input class="form-control" id="profilePhone" name="phone" value="<?= old('phone', $profile['phone'] ?? '') ?>" placeholder="e.g. 0917 123 4567" autocomplete="tel" maxlength="30">
-<div class="form-text">SMS order updates are coming soon. Use a PH mobile number, e.g. 0917 123 4567.</div>
+<div class="form-text">Used for SMS order updates. Use a PH mobile number, e.g. 0917 123 4567.</div>
                 </div>
                 <div class="col-12 col-md-6">
                     <label class="form-label fw-semibold">Account role</label>

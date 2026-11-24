@@ -33,8 +33,8 @@ class SmsService
 
     public function flush(int $limit = 5): array
     {
-        $stats = ['sent' => 0, 'failed' => 0, 'skipped' => 0];
-        // While the feature is marked coming soon, preserve any existing queued rows.
+        $stats = ['sent' => 0, 'failed' => 0, 'skipped' => 0, 'rate_limited' => 0];
+        // Preserve any existing queued rows while SMS is disabled.
         if (! config(\Config\Sms::class)->enabled) return $stats;
         $db = $this->db();
         // Prevent overlapping HTTP senders, without holding a database transaction over the request.
@@ -44,7 +44,8 @@ class SmsService
             $rows = $db->table('sms_outbox')->where('status', 'queued')->where('attempts <', 3)
                 ->orderBy('id', 'ASC')->limit(max(1, min(100, $limit)))->get()->getResultArray();
             $config = config(\Config\Sms::class);
-            foreach ($rows as $row) {
+            foreach ($rows as $index => $row) {
+                $sendAttempted = false;
                 $outcome = 'failed';
                 $changes = [];
                 try {
@@ -53,44 +54,18 @@ class SmsService
                     if ($phone === null) {
                         $outcome = 'skipped';
                         $changes['last_error'] = 'No valid PH mobile number';
-                    } elseif ($config->provider !== 'twilio'
-                        || $config->accountSid === '' || $config->authToken === ''
-                        || ($config->fromNumber === '' && $config->messagingServiceSid === '')) {
+                    } elseif ($config->apiKey === '') {
                         $outcome = 'skipped';
-                        $changes['last_error'] = 'SMS provider not configured';
+                        $changes['last_error'] = 'SMS API PH API key not configured';
                     } else {
-                        // Twilio requires an E.164 recipient, not the locally stored 09XXXXXXXXX.
-                        $form = [
-                            'To' => '+63' . substr($phone, 1),
-                            'Body' => $row['message'],
-                        ];
-                        if ($config->messagingServiceSid !== '') {
-                            $form['MessagingServiceSid'] = $config->messagingServiceSid;
-                        } else {
-                            $form['From'] = $config->fromNumber;
-                        }
-                        $endpoint = 'https://api.twilio.com/2010-04-01/Accounts/'
-                            . rawurlencode($config->accountSid) . '/Messages.json';
-                        $response = service('curlrequest')->post($endpoint, [
-                            'headers' => [
-                                'Authorization' => 'Basic ' . base64_encode($config->accountSid . ':' . $config->authToken),
-                            ],
-                            'form_params' => $form,
-                            'timeout' => $config->timeout,
-                            'http_errors' => false,
-                        ]);
-                        $payload = json_decode((string) $response->getBody(), true);
-                        $httpCode = $response->getStatusCode();
-                        if ($httpCode >= 200 && $httpCode < 300 && is_array($payload)
-                            && ! empty($payload['sid'])) {
+                        $sendAttempted = true;
+                        $result = $this->sendViaSmsApiPh($row, $phone, $config);
+                        $outcome = $result['outcome'];
+                        $changes['last_error'] = $result['error'];
+                        if ($outcome === 'sent') {
                             // The gateway accepted the message; final handset delivery is not guaranteed.
-                            $outcome = 'sent';
-                            $changes['provider_message_id'] = mb_substr((string) $payload['sid'], 0, 64);
+                            $changes['provider_message_id'] = $result['provider_message_id'];
                             $changes['sent_at'] = date('Y-m-d H:i:s');
-                            $changes['last_error'] = null;
-                        } else {
-                            // Do not persist Twilio's response body: it may contain account details.
-                            $changes['last_error'] = 'SMS gateway rejected the request (HTTP ' . $httpCode . ')';
                         }
                     }
                 } catch (Throwable $exception) {
@@ -103,9 +78,9 @@ class SmsService
                     $db->transBegin();
                     $locked = $db->query('SELECT id,status,attempts FROM sms_outbox WHERE id=? FOR UPDATE', [(int) $row['id']])->getRowArray();
                     if ($locked && $locked['status'] === 'queued') {
-                        $attempts = (int) $locked['attempts'] + ($outcome === 'skipped' ? 0 : 1);
+                        $attempts = (int) $locked['attempts'] + (in_array($outcome, ['skipped', 'rate_limited'], true) ? 0 : 1);
                         $changes['attempts'] = $attempts;
-                        $changes['status'] = $outcome === 'sent' ? 'sent' : ($outcome === 'skipped' ? 'skipped' : ($attempts >= 3 ? 'failed' : 'queued'));
+                        $changes['status'] = $outcome === 'sent' ? 'sent' : ($outcome === 'skipped' ? 'skipped' : ($outcome !== 'rate_limited' && $attempts >= 3 ? 'failed' : 'queued'));
                         $db->table('sms_outbox')->where('id', $locked['id'])->update($changes);
                         if (! $db->transStatus()) throw new \RuntimeException('Could not update SMS outbox row.');
                         $db->transCommit();
@@ -118,11 +93,50 @@ class SmsService
                     $stats['failed']++;
                     log_message('error', 'SMS outbox update failed for row {id}', ['id' => (int) $row['id']]);
                 }
+
+                if ($outcome === 'rate_limited') break;
+                if ($sendAttempted && $index < count($rows) - 1 && is_cli()) sleep(10);
             }
         } finally {
             $db->query("SELECT RELEASE_LOCK('cafeteria.sms-dispatch')");
         }
         return $stats;
+    }
+
+    private function sendViaSmsApiPh(array $row, string $phone, \Config\Sms $config): array
+    {
+        $response = service('curlrequest')->post($config->endpoint, [
+            'headers' => [
+                'x-api-key' => $config->apiKey,
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ],
+            'json' => [
+                'recipient' => '+63' . substr($phone, 1),
+                'message' => $row['message'],
+            ],
+            'timeout' => $config->timeout,
+            'http_errors' => false,
+        ]);
+        $httpCode = $response->getStatusCode();
+        if ($httpCode === 429) {
+            return ['outcome' => 'rate_limited', 'provider_message_id' => null, 'error' => 'Rate limited by SMS API PH; will retry'];
+        }
+        $payload = json_decode((string) $response->getBody(), true);
+        if ($httpCode < 200 || $httpCode >= 300 || ! is_array($payload) || ($payload['success'] ?? null) === false) {
+            return ['outcome' => 'failed', 'provider_message_id' => null, 'error' => 'SMS API PH rejected the request (HTTP ' . $httpCode . ')'];
+        }
+
+        $data = is_array($payload['data'] ?? null) ? $payload['data'] : [];
+        $messageId = null;
+        foreach ([$data['id'] ?? null, $data['messageId'] ?? null, $data['message_id'] ?? null,
+            $payload['id'] ?? null, $payload['messageId'] ?? null, $payload['message_id'] ?? null] as $candidate) {
+            if (is_scalar($candidate) && (string) $candidate !== '') {
+                $messageId = mb_substr((string) $candidate, 0, 64);
+                break;
+            }
+        }
+        return ['outcome' => 'sent', 'provider_message_id' => $messageId, 'error' => null];
     }
 
     public static function normalizePhone(?string $raw): ?string
@@ -137,7 +151,7 @@ class SmsService
     public static function flushQuietly(): void
     {
         try {
-            (new self())->flush(5);
+            (new self())->flush(1);
         } catch (Throwable $exception) {
             log_message('error', 'SMS dispatch unavailable: {class}', ['class' => get_class($exception)]);
         }
